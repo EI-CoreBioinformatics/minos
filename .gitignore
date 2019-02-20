@@ -2,3 +2,4 @@ build/
 dist/
 gmc.egg-info/
 x86_64/
+scoring.test.yaml
