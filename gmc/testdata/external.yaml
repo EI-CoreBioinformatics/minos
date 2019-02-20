@@ -1,0 +1,108 @@
+pick:
+  #  Parameters related to the Mikado pick stage.
+  #  - alternative_splicing: Parameters related to which AS events to consider as
+  #  valid during picking.
+  #  - chimera_split: parameters related to splitting of transcripts in the presence
+  #  of multiple ORFs
+  #  - files: input and output files
+  #  - run_options: generic options related to the run, eg number of processors to
+  #  use.
+  #  - scoring_file: a scoring file for the analysis. Default: plants.yaml.
+  alternative_splicing:
+    #  Parameters related to alternative splicing reporting.
+    #  - report: whether to report at all or not the AS events.
+    #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
+    #  Default: 3
+    #  - only_confirmed_introns: bring back AS events only when their introns are
+    #  either
+    #   present in the primary transcript or in the set of confirmed introns.
+    keep_retained_introns: false
+    max_isoforms: 10
+    min_cdna_overlap: 0.6
+    min_cds_overlap: 0.6
+    min_score_perc: 0.5
+    only_confirmed_introns: true
+    pad: true
+    redundant_ccodes:
+    - c
+    - m
+    - _
+    - '='
+    - n
+    report: true
+    ts_distance: 1500
+    ts_max_splices: 0
+    valid_ccodes:
+    - j
+    - J
+    - G
+    - h
+  files:
+    #  Input and output files for Mikado pick.
+    #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
+    #  - loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3
+    #  - subloci_out: optional GFF file with the intermediate subloci. Default: no
+    #  output
+    #  - monoloci_out: optional GFF file with the intermediate monoloci. Default:
+    #  no output
+    #  - log: log file for this step.
+    input: mikado_prepared.gtf
+    log: pick.log
+  fragments:
+    #  Parameters related to the handling of fragments.
+    #  - remove: boolean. Whether to remove fragments or leave them, properly tagged.
+    max_distance: 2000
+    remove: true
+    valid_class_codes:
+    - p
+    - P
+    - x
+    - X
+    - i
+    - m
+    - _
+    - e
+    - o
+  run_options:
+    #  Generic run options.
+    #  - procs: number of processes to use. Default: 1
+    #  - intron_range: A range where most of the introns (99%) should fall into. Transcripts
+    #  with too many
+    #   introns larger or smaller than what is defined in this range will be penalised
+    #   in the scoring. Default: [60, 900]
+    #  - preload: boolean flag. If set, the whole database will be preloaded into
+    #  memory for potentially faster access.
+    #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
+    #  for profiling and debugging.
+    #  - flank: DEPRECATED. Now set in the clustering section.
+    intron_range:
+    - 60
+    - 10000
+prepare:
+  #  Options related to Mikado prepare. Possibilities:
+  #  - lenient: whether to activate the lenient mode of Mikado.
+  #  - canonical: which combinations of donor and acceptor sites are considered
+  #  as valid.
+  canonical:
+  - - GT
+    - AG
+  - - GC
+    - AG
+  - - AT
+    - AC
+  lenient: false
+  #  Options related to the input data preparation.
+  #  - procs: Number of processes to use.
+  #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
+  #  orientation, no strand flipping or removal
+  #  - strip_cds: Boolean. It indicates whether to remove the CDS from the predictions
+  #  during preparation.
+  files:
+    log: prepare.log
+    out: mikado_prepared.gtf
+    out_fasta: mikado_prepared.fasta
+    output_dir: .
+    strand_specific_assemblies: []
+reference:
+  max_intron: 1000000
+  min_intron: 20

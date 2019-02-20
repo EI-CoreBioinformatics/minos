@@ -1,0 +1,390 @@
+#  Configuration file for Mikado. Sections:
+#  - log_settings: settings related to the verbosity of logs.
+#  - db_settings: Database settings, for Mikado serialise and pick.
+#  - reference: Settings related to the genome reference.
+#  - prepare: settings related to the Mikado prepare stage
+#  - serialise: settings related to the Mikado serialise stage
+#  - pick: settings related to the Mikado pick stage
+#  - multiprocessing_method: which method (fork, spawn, forkserver) Mikado should
+#  use for multiprocessing.
+__loaded_scoring: plants.yaml
+db_settings:
+  #  Settings related to DB connection. Parameters:
+  #  db: the DB to connect to. Required. Default: mikado.db
+  #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
+  #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
+  #  dbuser: DB user. Default: 
+  #  dbpasswd: DB password for the user. Default: 
+  #  dbport: Integer. It indicates the default port for the DB.
+  db: /ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Melia_azedarach/mikado-1.2.4/annotation_run1/swarbred_test/mikado.db
+  dbhost: localhost
+  dbpasswd: ''
+  dbport: 0
+  dbtype: sqlite
+  dbuser: ''
+filename: /ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Melia_azedarach/mikado-1.2.4/annotation_run1/swarbred_test/mikado.json
+log_settings:
+  #  Settings related to the logs. Keys:
+  #  - sql_level: verbosity for SQL calls. Default: WARNING.
+  #    In decreasing order: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  #  - log_level: verbosity. Default: INFO.
+  #    In decreasing order: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: INFO
+  sql_level: WARNING
+multiprocessing_method: fork
+pick:
+  #  - scoring_file: a scoring file for the analysis. Default: plants.yaml.
+  #  - source_score: a dictionary with pre-defined scores to assign to the transcripts
+  #  according to their source. Eg all Cufflinks transcripts from the seed (label:
+  #  "cuff_seed") could be assigned a default additional score of 1.
+  alternative_splicing:
+    #  Parameters related to alternative splicing reporting.
+    #  - report: whether to report at all or not the AS events.
+    #  - min_cds_overlap: minimum overlap between the CDS of the primary transcript
+    #  and any AS event. Default: 60%.
+    #  - min_cdna_overlap: minimum overlap between the CDNA of the primary transcript
+    #  and any AS event.
+    #  Default: 0% i.e. disabled, we check for the CDS overlap.
+    #  - keep_retained_introns: Whether to consider as valid AS events where one intron
+    #  is retained compared to the primary or any other valid AS. Default: false.
+    #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
+    #  Default: 3
+    #  - valid_ccodes: Valid class codes for AS events. Valid codes are in categories
+    #  Alternative splicing, Extension (with junction F1 lower than 100%),
+    #  and Overlap (exluding m). Default: j, J, g, G, C, h
+    #  - max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e.
+    #  no limit)
+    #  - max_fiveutr_length: Maximum length of the 5UTR for AS events. Default:
+    #  10e6 (i.e. no limit)
+    #  - max_threeutr_length: Maximum length of the 5UTR for AS events. Default:
+    #  10e6 (i.e. no limit)
+    #  - min_score_perc: Minimum score threshold for subsequent AS events.
+    #   Only transcripts with a score at least (best) * value are retained.
+    #  - only_confirmed_introns: bring back AS events only when their introns are
+    #  either
+    #   present in the primary transcript or in the set of confirmed introns.
+    #  - pad: boolean switch. If true, Mikado will pad all the transcript in a gene
+    #  so that their ends are the same
+    #  - ts_distance: if padding, this is the maximum distance in base-pairs between
+    #  the starts of transcripts
+    #    to be considered to be padded together.
+    #  - ts_max_splices: if padding, this is the maximum amount of splicing junctions
+    #  that the transcript to pad
+    #   is allowed to cross. If padding would lead to cross more than this number,
+    #  the transcript will not be padded.
+    keep_retained_introns: false
+    max_isoforms: 10
+    min_cdna_overlap: 0.6
+    min_cds_overlap: 0.6
+    min_score_perc: 0.5
+    only_confirmed_introns: true
+    pad: true
+    redundant_ccodes:
+    - c
+    - m
+    - _
+    - '='
+    - n
+    report: true
+    ts_distance: 1500
+    ts_max_splices: 0
+    valid_ccodes:
+    - j
+    - J
+    - G
+    - h
+  chimera_split:
+    #  Parameters related to the splitting of transcripts in the presence of
+    #  two or more ORFs. Parameters:
+    #  - execute: whether to split multi-ORF transcripts at all. Boolean.
+    #  - blast_check: whether to use BLAST information to take a decision. See blast_params
+    #  for details.
+    #  - blast_params: Parameters related to which BLAST data we want to analyse.
+    blast_check: true
+    blast_params:
+      #  Parameters for the BLAST check prior to splitting.
+      #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
+      #  - hsp_evalue: Minimum evalue for any HSP hit (some might be discarded even
+      #  if the whole hit is valid). Default: 1e-6
+      #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
+      #  - max_target_seqs: maximum number of hits to consider. Default: 3
+      #  - minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal).
+      #  Default: 0.8, i.e. 80%
+      #  - min_overlap_duplication: minimum overlap (in %) for two ORFs to consider
+      #  them as target duplications.
+      #    This means that if two ORFs have no HSPs in common, but the coverage of
+      #  their disjoint HSPs covers more
+      #    Than this % of the length of the *target*, they represent most probably
+      #  a duplicated gene.
+      evalue: 1.0e-06
+      hsp_evalue: 1.0e-06
+      leniency: PERMISSIVE
+      max_target_seqs: 3
+      min_overlap_duplication: 0.8
+      minimal_hsp_overlap: 0.5
+    execute: true
+    skip: []
+  clustering:
+    #  Parameters related to the clustering of transcripts into loci.
+    #  - cds_only: boolean, it specifies whether to cluster transcripts only according
+    #  to their CDS (if present).
+    #  - min_cds_overlap: minimal CDS overlap for the second clustering.
+    #  - min_cdna_overlap: minimal cDNA overlap for the second clustering.
+    #  - flank: maximum distance for transcripts to be clustered within the same superlocus.
+    #  - remove_overlapping_fragments: boolean, it specifies whether to remove putative
+    #  fragments.
+    #  - purge: boolean, it specifies whether to remove transcripts which fail the
+    #  minimum requirements check - or whether to ignore those requirements altogether.
+    #  - simple_overlap_for_monoexonic: boolean. If set to true (default), then any
+    #  overlap mean inclusion
+    #  in a locus for or against a monoexonic transcript. If set to false, normal controls
+    #  for the percentage
+    #  of overlap will apply.
+    #  - max_distance_for_fragments: maximum distance from a valid locus for another
+    #  to be considered a fragment.
+    cds_only: false
+    flank: 200
+    min_cdna_overlap: 0.2
+    min_cds_overlap: 0.2
+    purge: true
+    simple_overlap_for_monoexonic: true
+  files:
+    #  Input and output files for Mikado pick.
+    #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
+    #  - loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3
+    #  - subloci_out: optional GFF file with the intermediate subloci. Default: no
+    #  output
+    #  - monoloci_out: optional GFF file with the intermediate monoloci. Default:
+    #  no output
+    #  - log: log file for this step.
+    input: mikado_prepared.gtf
+    loci_out: mikado.loci.gff3
+    log: pick.log
+    monoloci_out: ''
+    output_dir: .
+    subloci_out: mikado.subloci.gff3
+  fragments:
+    #  Parameters related to the handling of fragments.
+    #  - remove: boolean. Whether to remove fragments or leave them, properly tagged.
+    #  - max_distance: maximum distance of a putative fragment from a valid gene.
+    #  - valid_class_codes: which class codes will be considered as fragments. Default:
+    #  (p, P, x, X, i, m, _). Choices: _ plus any class code with category
+    #  Intronic, Fragment, or Overlap.
+    max_distance: 2000
+    remove: true
+    valid_class_codes:
+    - p
+    - P
+    - x
+    - X
+    - i
+    - m
+    - _
+    - e
+    - o
+  orf_loading:
+    #  Parameters related to ORF loading.
+    #  - minimal_secondary_orf_length: Minimum length of a *secondary* ORF
+    #    to be loaded after the first, in bp. Default: 200 bps
+    #  - minimal_orf_length: Minimum length in bps of an ORF to be loaded,
+    #    as the primary ORF, onto a transcript. Default: 50 bps
+    #  - strand_specific: Boolean flag. If set to true, monoexonic transcripts
+    #    will not have their ORF reversed even if they would have an ORF on the opposite
+    #  strand.
+    minimal_orf_length: 50
+    minimal_secondary_orf_length: 200
+    strand_specific: true
+  output_format:
+    #  Parameters related to the output format.
+    #    - source: prefix for the source field in the mikado output.
+    #    - id_prefix: prefix for the ID of the genes/transcripts in the output
+    id_prefix: mikado
+    report_all_orfs: false
+    source: Mikado
+  run_options:
+    #  Generic run options.
+    #  - shm: boolean flag. If set and the DB is sqlite, it will be copied onto the
+    #  /dev/shm faux partition
+    #  - shm_db: String. It indicates a DB that has to be copied onto SHM and left
+    #  there for
+    #    concurrent Mikado runs.
+    #  - shm_shared: boolean flag. If set, the database loaded onto SHM will be shared
+    #  and should not be
+    #    deleted at the end of the run (see shm_db).
+    #    for faster access. Default: false
+    #  - exclude_cds: boolean flag. If set, the CDS information will not be printed
+    #  in Mikado output. Default: false
+    #  - procs: number of processes to use. Default: 1
+    #  - preload: boolean flag. If set, the whole database will be preloaded into
+    #  memory for faster access. Useful when
+    #    using SQLite databases.
+    #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
+    #  for profiling and debugging.
+    #  - consider_truncated_for_retained: boolean. Normally, Mikado considers only
+    #  exons which span a whole intron as possible retained intron events. If this
+    #  flag is set to true, also terminal exons will be considered.
+    #  - remove_overlapping_fragments: DEPRECATED, see clustering.
+    #  - purge: DEPRECATED, see clustering.
+    consider_truncated_for_retained: false
+    exclude_cds: false
+    intron_range:
+    - 60
+    - 900
+    preload: false
+    procs: 1
+    shm: false
+    shm_db: ''
+    single_thread: false
+  scoring_file: Melia_azedarach.yaml
+prepare:
+  #  Options related to the input data preparation.
+  #  - files: options relative to the input/output files.
+  #  - procs: Number of processes to use.
+  #  - strip_cds: whether to remove the CDS from the predictions during preparation.
+  #  - lenient: if set to True, invalid transcripts will be only flagged and not removed.
+  #  EXPERIMENTAL.
+  #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
+  #  orientation, no strand flipping or removal
+  #  - strand_specific_assemblies: array of input predictions which are to be considered
+  #  as strand-specific.
+  #    Predictions not in this list will be considered as non-strand-specific.
+  #  - canonical: canonical splice sites, to infer the correct orientation.
+  canonical:
+  - - GT
+    - AG
+  - - GC
+    - AG
+  - - AT
+    - AC
+  files:
+    #  Options related to the input and output files.
+    #  - out: output GTF file
+    #  - out_fasta: output transcript FASTA file
+    #  - gff: array of input predictions for this step.
+    #  - log: output log. Default: prepare.log
+    #  - labels: labels to be associated with the input GFFs. Default: None.
+    #  - reference: these files are treated as reference-like, ie, these transcripts
+    #  will never get discarded
+    #    during the preparation step.
+    gff:
+    - Capsella_grandiflora_coding.gff
+    - Cassava_coding.gff
+    - Castor_bean_coding.gff
+    - Clementine_coding.gff
+    - Cotton_coding.gff
+    - MELAZ155640_run1_wRNA.gff
+    - MELAZ155640_run2_woRNA.gff
+    - MELAZ155640_run3_woRNA.gff
+    - Mikado_gold.gff
+    - Poplar_coding.gff
+    - Purple_osier_willow_coding.gff
+    - Sweet_orange_coding.gff
+    - Thale_cress_coding.gff
+    - Turnip_mustard_coding.gff
+    labels:
+    - Capsella_grandiflora_coding
+    - Cassava_coding
+    - Castor_bean_coding
+    - Clementine_coding
+    - Cotton_coding
+    - MELAZ155640_run1_wRNA
+    - MELAZ155640_run2_woRNA
+    - MELAZ155640_run3_woRNA
+    - Mikado_gold
+    - Poplar_coding
+    - Purple_osier_willow_coding
+    - Sweet_orange_coding
+    - Thale_cress_coding
+    - Turnip_mustard_coding
+    log: prepare.log
+    out: mikado_prepared.gtf
+    out_fasta: mikado_prepared.fasta
+    output_dir: .
+    reference: []
+    source_score:
+      Capsella_grandiflora_coding: 0.0
+      Cassava_coding: 0.0
+      Castor_bean_coding: 0.0
+      Clementine_coding: 0.0
+      Cotton_coding: 0.0
+      MELAZ155640_run1_wRNA: 0.0
+      MELAZ155640_run2_woRNA: 0.0
+      MELAZ155640_run3_woRNA: 0.0
+      Mikado_gold: 0.0
+      Poplar_coding: 0.0
+      Purple_osier_willow_coding: 0.0
+      Sweet_orange_coding: 0.0
+      Thale_cress_coding: 0.0
+      Turnip_mustard_coding: 0.0
+    strand_specific_assemblies:
+    - Capsella_grandiflora_coding.gff
+    - Cassava_coding.gff
+    - Castor_bean_coding.gff
+    - Clementine_coding.gff
+    - Cotton_coding.gff
+    - MELAZ155640_run1_wRNA.gff
+    - MELAZ155640_run2_woRNA.gff
+    - MELAZ155640_run3_woRNA.gff
+    - Mikado_gold.gff
+    - Poplar_coding.gff
+    - Purple_osier_willow_coding.gff
+    - Sweet_orange_coding.gff
+    - Thale_cress_coding.gff
+    - Turnip_mustard_coding.gff
+  keep_redundant: false
+  lenient: false
+  minimum_length: 200
+  procs: 1
+  single: false
+  strand_specific: false
+  strip_cds: false
+reference:
+  #  Options related to the reference genome.
+  #  - genome: the genome FASTA file. Required
+  #  - genome_fai: the corresponding FAI for the genome. Inferred if absent.
+  #  - transcriptome: a GTF/GFF reference transcriptome. Currently ignored.
+  genome: Melia_azedarach.genome.uc.fasta
+  genome_fai: ''
+  max_intron: 1000000
+  min_intron: 20
+  transcriptome: ''
+scoring_file: /ei/software/testing/mikado/1.3devel/x86_64/lib/python3.6/site-packages/Mikado/configuration/scoring_files/plants.yaml
+serialise:
+  #  Options related to serialisation
+  #  - force: whether to drop and reload everything into the DB
+  #  - files: options related to input files
+  #  - max_objects: Maximum number of objects to keep in memory while loading data
+  #  into the database
+  #  - max_regression: if the ORF lacks a valid start site, this percentage indicates
+  #  how far
+  #    along the sequence Mikado should look for a good start site. Eg. with a value
+  #  of 0.1,
+  #    on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame
+  #  start codon
+  #    in the first 30 bps (10% of the cDNA).
+  #  - max_target_seqs: equivalently to BLAST, it indicates the maximum number of
+  #  targets to keep
+  #    per blasted sequence.
+  #  - discard_definition: Boolean. **Deprecated**, it was used for specifying how
+  #  to load BLAST files.
+  #  - procs: Number of processors to use. Default: 1.
+  #  - single_thread: if true, Mikado prepare will force the usage of a single thread
+  #  in this step.
+  codon_table: 0
+  files:
+    blast_targets: []
+    external_scores: null
+    junctions:
+    - portcullis_filtered.pass.junctions.union.score_07.bed
+    log: serialise.log
+    orfs: []
+    output_dir: .
+    transcripts: mikado_prepared.fasta
+    xml: []
+  force: false
+  max_objects: 100000
+  max_regression: 0.1
+  max_target_seqs: 100000
+  procs: 1
+  single_thread: false
+

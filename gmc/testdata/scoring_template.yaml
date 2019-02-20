@@ -1,0 +1,84 @@
+requirements:
+  expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding) and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length), or,
+    (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
+  parameters:
+    combined_cds_fraction.ncrna: {operator: eq, value: 0}
+    combined_cds_fraction.coding: {operator: gt, value: 0.30}
+    cdna_length.mono: {operator: gt, value: 100}
+    cdna_length.multi: {operator: ge, value: 100}
+    combined_cds_length.mono: {operator: gt, value: 90}
+    combined_cds_length.multi: {operator: gt, value: 90}
+    exon_num.mono: {operator: eq, value: 1}
+    exon_num.multi: {operator: gt, value: 1}
+    max_intron_length: {operator: le, value: 50000}
+    min_intron_length: {operator: ge, value: 5}
+    # proportion_verified_introns_inlocus: {operator: gt, value: 0}
+as_requirements:
+  expression: [cdna_length and three_utr_length and five_utr_length and utr_length and suspicious_splicing and max_intron_length and max_exon_length]
+  parameters:
+    cdna_length: {operator: ge, value: 200}
+    utr_length: {operator: le, value: 2500}
+    five_utr_length: {operator: le, value: 2500}
+    three_utr_length: {operator: le, value: 2500}
+    suspicious_splicing: {operator: ne, value: true}
+    max_intron_length: {operator: le, value: 5000}
+    max_exon_length: {operator: le, value: 10000}
+not_fragmentary:
+ # expression: [combined_cds_length]
+ parameters:
+   # is_complete: {operator: eq, value: true}
+   exon_num.multi: {operator: gt, value: 1}
+   # cdna_length.multi: {operator: ge, value: 200}
+   combined_cds_length.multi: {operator: gt, value: 200}
+   exon_num.mono: {operator: eq, value: 1}
+   combined_cds_length.mono: {operator: gt, value: 300}
+   external.all_aF1: {operator: gt, value: 0.5}
+  # parameters:
+  #   combined_cds_length: {operator: gt, value: 300}
+scoring:
+  # external metrics START
+  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}
+  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}
+  # all boolean metrics values from here below
+  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.SRA_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}
+  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
+  external.fln: {rescaling: max, use_raw: true, multiplier: 5}
+  # external metrics END
+  # internal metrics START
+  # cdna_length: {rescaling: max}
+  five_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 200
+  five_utr_num:
+    filter: {operator: lt, value: 4}
+    rescaling: target
+    value: 2
+  end_distance_from_junction:
+    filter: {operator: lt, value: 55}
+    rescaling: min
+  # highest_cds_exon_number: {rescaling: max}
+  # is_complete: {rescaling: target, value: true, multiplier: 2}
+  non_verified_introns_num: 
+    rescaling: max
+    multiplier: -5
+    filter: {operator: gt, value: 1, metric: exon_num}
+  proportion_verified_introns_inlocus: {rescaling: max, use_raw: true, multiplier: 5}
+  selected_cds_fraction: {rescaling: target, value: 0.8}
+  # selected_cds_intron_fraction: {rescaling: max}
+  selected_cds_length: {rescaling: max, multiplier: 2}
+  # selected_cds_num: {rescaling: max}
+  three_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 400
+  three_utr_num:
+    filter: {operator: lt, value: 3}
+    rescaling: target
+    value: 1
+  # combined_cds_locus_fraction: {rescaling: max}
+  # internal metrics END

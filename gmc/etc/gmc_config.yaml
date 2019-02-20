@@ -1,0 +1,47 @@
+# singularity_env: "/ei/software/testing/bgrrl/dev_miniconda/src/ei_bgrrl/bgrrl/zzz/singularity/bgrrl_env.img"
+singularity_env: "/ei/software/testing/bgrrl/dev_miniconda/src/ei_bgrrl/singularity/bgrrl_exec.img"
+qaa_singularity_env: "/ei/software/testing/qaa/dev/src/qaa/qaa/zzz/singularity/qaa_exec.img"
+
+
+tools:
+  fastqc: "/ei/software/testing/fastqc/0.11.5/x86_64/bin/fastqc"
+  time: "/usr/bin/time -v"
+
+resources:
+  # bb_adapters: "/ei/software/testing/bbmap/38.06/x86_64/bin/resources/adapters.fa"
+  # bb_adapters: "/opt/miniconda/opt/bbmap-38.22-0/resources/adapters.fa"
+  bb_adapters: "adapters"
+  blob_blastdb: "/ei/public/databases/blast/ncbi/nt_20171013/nt"
+  busco_databases: "/ei/workarea/group-pb/BUSCO_DATABASES/odb9"
+  multiqc_config: "/ei/software/testing/bgrrl/0.1/src/ei_bgrrl/bgrrl/etc/multiqc_config.yaml"
+
+params:
+  # before 2018-02-21: ktrim=r k=21 mink=11 hdist=2 qtrim=lr trimq=3 minlen=100 maq=20 tpe tbo
+  bbduk: "ktrim=r k=21 mink=7 hdist=1 qtrim=lr trimq=3 minlen=100 maq=20 tpe tbo"
+  bbnorm: "target=100 min=2 prefilter"
+  qualimap_mem:
+
+load:
+  fastqc: "source fastqc-0.11.5"
+  seqtk: "source seqtk-git20160921"
+  bbmap: "source jre-8u144 && source bbmap-38.06"
+  quast: "source quast-4.3"
+  kat: "source kat-dev"
+  busco: "source busco-3.0"
+  blob_bwa: "source bwa-0.7.16a && source samtools-1.5"
+  blob_bowtie2: "source bowtie-2.3.4 && source samtools-1.5"
+  blob_blast: "source blast-2.6.0"
+  blobtools: "source python_anaconda-2.5.0 && source blobtools-0.9.19 && source samtools-1.5"
+  multiqc: "source multiqc-1.5_ei"
+  ratt: "source ratt-dev && source emboss-6.6.0"
+  prokka: "source prokka-git && source barrnap-0.7"
+  picard: "source jre-8u144"
+  qualimap: "source qualimap-2.2.1"
+
+cmd:
+  quast: "python2 /ei/software/testing/quast/4.3/x86_64/bin/quast.py"
+  picard_markdup: "java -jar /ei/software/testing/picardtools/2.18.4/x86_64/picard.jar MarkDuplicates"
+
+misc:
+  seqcentre: "EI"  
+  project: "" # If this is empty, it will be derived from bgrrl-commandline args (basename(dirname(current_folder)) by default)

@@ -1,0 +1,109 @@
+{
+  "__default__": {
+    "partition": "ei-medium",
+    "memory": "8000",
+    "c": "8",
+    "J": "bgrrl",
+    "time": "24:00:00",
+    "exclude": "t128n84"
+  },
+  "ann_ratt": {
+    "J": "bg-ann",
+    "memory": "4000",
+    "c": 1,
+    "time": "10:00"
+  },
+  "ann_ratt_prepref": {
+    "partition": "ei-short",
+    "J": "bg-ann",
+    "memory": "1000",
+    "c": 1, 
+    "time": "0:20"
+  },
+  "qc_bbduk": {
+    "J": "bg-qc",
+    "memory": "32000"
+  },
+  "qc_fastqc": {
+    "J": "bg-qc",
+    "c": "2"
+  },
+  "qc_fastqc_bbnorm": {
+    "J": "bg-qc",
+    "c": "2"
+  },
+  "qc_fastqc_bbduk": {
+    "J": "bg-qc",
+    "c": "2"
+  },
+  "qc_kat_gcp": {
+    "memory": "8000",
+    "c": "2",
+    "J": "bg-qc"
+  },
+  "qc_tadpole": {
+    "memory": "32000",
+    "c": "8",
+    "J": "bg-qc"
+  },
+  "qc_bbnorm": {
+    "memory": "64000",
+    "J": "bg-qc"
+  },
+  "asm_assembly": {
+    "memory": "64000",
+    "J": "bg-asm",
+    "time": "48:00:00",
+    "partition": "ei-long"
+  },
+  "asm_unicycler": {
+    "memory": "64000",
+    "J": "bg-asm",
+    "partition": "ei-long",
+    "time": "48:00:00"
+  },
+  "ann_prokka": {
+    "J": "bg-ann",
+    "time": "99:00:00",
+    "exclude": "t128n11,t128n15,t128n17,t128n18,t128n19,t128n23,t128n26,t128n3,t128n4,t128n5,t128n6,t128n7,t128n95,t256n0,t256n1,t256n3,t128n24,t128n1,t128n2,t128n16"
+  },
+  "qaa_quast": {
+    "J": "qaa-quast"
+  },
+  "qaa_busco_geno": {
+    "J": "qaa-busco_g"
+  },
+  "qaa_busco_tran": {
+    "J": "qaa-busco_t"
+  },
+  "qaa_busco_prot": {
+    "J": "qaa-busco_p"
+  },
+  "qaa_align_reads": {
+    "J": "qaa-align",
+    "memory": "32000",    
+    "c": "16"
+  },
+  "qaa_qualimap": {
+    "J": "qaa-qualimap",
+    "c": "2",
+    "memory": "10000"
+  },
+  "qaa_blastn": {
+    "J": "qaa-blastn",
+    "memory": "40000"
+  },
+  "qaa_blobtools": {
+    "J": "qaa-blobtools",
+    "c": 1,
+    "memory": "4000"
+  },
+  "fin_package_annotation_ratt_tarballs": {"J": "bg-pack", "c": "1", "memory": "4000"},
+  "fin_package_annotation_make_ratt_batches": {"J": "bg-pack", "c": "1", "memory": "4000"},
+  "fin_package_assembly": {"J": "bg-pack", "c": 1, "memory": "4000"},
+  "fin_package_annotation": {"J": "bg-pack", "c": 1, "memory": "4000"},
+  "fin_compile_assembly": { "J": "bg-fin", "c": 1, "memory": "2000"}, 
+  "fin_compile_reads": { "J": "bg-fin", "c": 1, "memory": "2000"}, 
+  "fin_multiqc": { "J": "bg-fin", "c": 1, "memory": "8000"}, 
+  "fin_compile_qa": { "J": "bg-fin", "c": 1, "memory": "2000"}
+}

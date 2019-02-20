@@ -1,0 +1,14 @@
+Capsella_grandiflora_coding.gff	Capsella_grandiflora_coding	True	0	False
+Cassava_coding.gff	Cassava_coding	True	0	False
+Castor_bean_coding.gff	Castor_bean_coding	True	0	False
+Clementine_coding.gff	Clementine_coding	True	0	False
+Cotton_coding.gff	Cotton_coding	True	0	False
+MELAZ155640_run1_wRNA.gff	MELAZ155640_run1_wRNA	True	0	False
+MELAZ155640_run2_woRNA.gff	MELAZ155640_run2_woRNA	True	0	False
+MELAZ155640_run3_woRNA.gff	MELAZ155640_run3_woRNA	True	0	False
+Mikado_gold.gff	Mikado_gold	True	0	False
+Poplar_coding.gff	Poplar_coding	True	0	False
+Purple_osier_willow_coding.gff	Purple_osier_willow_coding	True	0	False
+Sweet_orange_coding.gff	Sweet_orange_coding	True	0	False
+Thale_cress_coding.gff	Thale_cress_coding	True	0	False
+Turnip_mustard_coding.gff	Turnip_mustard_coding	True	0	False

@@ -1,0 +1,4 @@
+build/
+dist/
+gmc.egg-info/
+x86_64/
