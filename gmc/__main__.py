@@ -2,6 +2,9 @@ import csv
 import sys
 import yaml
 import argparse
+import os
+import pathlib
+import subprocess
 
 from collections import OrderedDict
 
@@ -64,18 +67,31 @@ def createScoringFile(fn, hints, fo):
 
 
 
-def main():
+def main():	
 
 	ap = argparse.ArgumentParser()
 	ap.add_argument("hints_file", type=str)
 	ap.add_argument("scoring_template", type=str)
+
+	ap.add_argument("--outdir", "-o", type=str, default="gmc_run")
+	ap.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
 	
 	args = ap.parse_args()
 	
 
 	hints = parseHints(args.hints_file)
 
-	createScoringFile(args.scoring_template, hints, "scoring.test.yaml")	
+	pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
+
+	createScoringFile(args.scoring_template, hints, os.path.join(args.outdir, "scoring.test.yaml"))
+
+
+	cmd = "singularity exec {} mikado configure -h".format(args.mikado_container)
+	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+
+	print(out.decode(), sep="\n")
+
+	
 
 
 	pass
