@@ -8,6 +8,9 @@ import subprocess
 
 from collections import OrderedDict
 
+from . import __version__
+from .gmc_configure import *
+
 def parseListFile(fn):
 	d = OrderedDict()
 	for row in csv.reader(open(fn), delimiter="\t"):
@@ -59,23 +62,59 @@ def createScoringFile(fn, hints, fo):
 			print(line, end="", file=_out)
 
 
-
+def add_default_options(parser):
+	common_group = parser.add_argument_group("gmc options")
 			
+	common_group.add_argument("list_file", type=str)
+	common_group.add_argument("--outdir", "-o", type=str, default="gmc_run")
+	common_group.add_argument("--prefix", type=str, default="gmc_run")
+	common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
 		
+def add_configure_parser(subparsers):
+	configure_parser = subparsers.add_parser(
+		"configure",
+		help="",
+		description=""
+	)
+	
+	configure_parser.add_argument("scoring_template", type=str)
+	configure_parser.add_argument("--external", type=str, default="")
 
+	
+	add_default_options(configure_parser)
+	configure_parser.set_defaults(runmode="configure")
+
+
+def add_run_parser(subparsers):
+	run_parser = subparsers.add_parser(
+		"run",
+		help="",
+		description=""
+	)
+
+	add_default_options(run_parser)
+	run_parser.set_defaults(runmode="run")
 		
 
 
 
 def main():	
+	print("Starting EI GMC V " + __version__)
+	print()
+	
+	if len(sys.argv) == 1:
+		sys.argv.append("-h")
+	
+	ap = argparse.ArgumentParser(prog="gmc", description="The Earlham Institute Gene Model Consolidation Pipeline (gmc).")
+	
+	subparsers = ap.add_subparsers(
+		help=""
+	)
 
-	ap = argparse.ArgumentParser()
-	ap.add_argument("list_file", type=str)
-	ap.add_argument("scoring_template", type=str)
+	add_configure_parser(subparsers)
+	add_run_parser(subparsers)
 
-	ap.add_argument("--external", type=str, default="")
-	ap.add_argument("--outdir", "-o", type=str, default="gmc_run")
-	ap.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
+
 
 	"""
 	--external EXTERNAL   External configuration file to overwrite/add values from.
@@ -115,12 +154,16 @@ def main():
                         If multiple modes are specified, Mikado will create a Daijin-compatible configuration file.
 	"""
 	args = ap.parse_args()
-	
 
+
+	print(args.runmode)
+	if args.runmode == "configure":
+		run_configure(args)	
+	"""
 	listFile = parseListFile(args.list_file)
 
 	pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
-	scoringFile = os.path.join(args.outdir, "scoring_test.yaml")
+	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
 
 	createScoringFile(args.scoring_template, listFile, scoringFile)
 
@@ -138,10 +181,10 @@ def main():
 	print(cmd)
 	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 
-	print(out.decode(), sep="\n")
 
-	
-
+	with open(os.path.join(args.outdir, args.prefix + ".config.yaml"), "wt") as config_out:
+		print(out.decode(), sep="\n", file=config_out)
+	"""
 
 	pass
 
