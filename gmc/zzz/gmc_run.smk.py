@@ -10,7 +10,9 @@ rule gmc_mikado_prepare:
 	input:
 		config["mikado-config-file"]
 	output:
-		os.path.join(config["outdir"], "MIKADO_PREPARE_DONE")
+		# os.path.join(config["outdir"], "MIKADO_PREPARE_DONE")
+		os.path.join(config["outdir"], "mikado_prepared.fasta"),
+		os.path.join(config["outdir"], "mikado_prepared.gtf")
 	params:
 		mikado = config["mikado-container"] + " mikado prepare",
 		min_length = 100,
@@ -20,7 +22,7 @@ rule gmc_mikado_prepare:
 	threads:
 		30
 	shell:
-		"singularity exec {params.mikado} --minimum_length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log} && touch {output[0]}"
+		"singularity exec {params.mikado} --minimum_length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}" #fasta && touch {output[0]}"
 
 
 
