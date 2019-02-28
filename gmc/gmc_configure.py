@@ -68,6 +68,8 @@ def run_configure(args):
 	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
 
 	createScoringFile(args.scoring_template, listFile, scoringFile)
+	
+	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 
 	cmd = "singularity exec {} mikado configure --list {} {} -od {} --scoring {} {}".format(
 		args.mikado_container,
@@ -75,14 +77,25 @@ def run_configure(args):
 		("--external " + args.external) if args.external else "",
 		args.outdir,
 		scoringFile,
-		os.path.abspath("mikado_config.yaml")
+		# os.path.abspath("mikado_config.yaml")
+		mikado_config_file
 	)
 
 	print(cmd)
 	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 
-	with open(os.path.join(args.outdir, args.prefix + ".config.yaml"), "wt") as config_out:
-		print(out.decode(), sep="\n", file=config_out)
+	#with open(mikado_config_file, "wt") as config_out:
+	#	print(out.decode(), sep="\n", file=config_out)
+
+
+	run_zzz_config = {
+		"outdir": args.outdir,
+		"mikado-container": args.mikado_container,
+		"mikado-config-file": mikado_config_file
+	}
+	
+	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
+		yaml.dump(run_zzz_config, run_config_out, default_flow_style=False)
 
 	pass
 
