@@ -18,10 +18,12 @@ def parseListFile(fn):
 
 def createScoringFile(fn, hints, fo):
 	# gather external hints 
+	print("Processing list data:")
 	coding = list()
 	for k in hints:
+		print(k, k.replace("_coding", "") if k.endswith("_coding") else ".", sep="\t")
 		if k.endswith("_coding"):
-			coding.append(k.strip("_coding"))
+			coding.append(k.replace("_coding", ""))
 	metrics = ["external.{}_aF1".format(k) for k in coding]	
 
 	# parse template
@@ -65,9 +67,15 @@ def run_configure(args):
 	listFile = parseListFile(args.list_file)
 
 	pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
+	pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
 
 	createScoringFile(args.scoring_template, listFile, scoringFile)
+
+	#!TODO: 
+	# - scan config template for reference
+	# - warn if not present
+	# - add command line option 
 	
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 
@@ -89,6 +97,7 @@ def run_configure(args):
 
 
 	run_zzz_config = {
+		"prefix": args.prefix,
 		"outdir": args.outdir,
 		"mikado-container": args.mikado_container,
 		"mikado-config-file": mikado_config_file
