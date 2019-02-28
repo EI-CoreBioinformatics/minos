@@ -1,0 +1,162 @@
+#!/bin/bash
+
+app=gmc
+app_cmd=GMCRUN
+runmode=run
+
+# Check environment variable for the email address to which to send pipeline failure emails
+if [[ -z "${SNAKEMAKE_EMAIL}" ]]; then
+    email_addr="$(whoami)@nbi.ac.uk"
+else
+    email_addr="${SNAKEMAKE_EMAIL}"
+fi
+
+# SLURM partition to use for bgrrl.  Please note that child jobs within bgrrl will be executed on the partition(s)
+# specified in the hpc_config.json file.
+partition="ei-medium"
+
+
+# Helper functions
+
+function contains() {
+    local needle=${1}
+    for i in ${app_args[@]}
+    do
+        if [[ "${i}" == "${needle}" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+function startswith() {
+    local needle=${1}
+    for i in ${app_args[@]}
+    do
+        if [[ "${i}" == "${needle}"* ]]; then
+            element_val=${i#*=}
+            return 0
+        fi
+    done
+    return 1
+}
+
+function find_help() {
+    local declare help_cmd=("-h" "--help" "-?")
+    for i in ${help_cmd[@]}
+    do
+        if contains ${i}
+        then
+            return 0
+        fi
+    done
+    return 1
+}
+
+get_next () {
+    local seeking=$1
+    local in=1
+    for element in ${app_args[@]}
+    do
+        if [[ "${in}" -eq "0" ]]
+        then
+            element_val=${element}
+            return
+        fi
+        if [[ $element == $seeking ]]
+        then
+            in=0
+        fi
+    done
+    element_val=""
+}
+
+# Setup variables
+declare app_args=()
+for arg in $@
+do
+    app_args+=($arg)
+done
+now=`date +%Y%m%d`
+output_dir="Analysis_${now}"
+
+# Check for help signature
+if [[ ${#app_args[@]} -eq 0 ]] || find_help
+then
+    $app --help
+    exit 0
+fi
+
+# If output directory is specified make sure to override the variable used for SLURM output
+out_provided=0
+if contains "-o"; then
+    # Override the default output directory
+    get_next "-o"
+    output_dir=${element_val}
+    out_provided=1
+elif contains "--outdir"; then
+    # Override the default output directory
+    get_next "--outdir"
+    output_dir=${element_val}
+    out_provided=1
+elif startswith "--outdir="; then
+    output_dir=${element_val}
+    out_provided=1
+fi
+
+# If in resume mode we modify the log files so as not to write over existing output.
+resume_str=""
+r=1
+
+while [ -f ${app_cmd}.${output_dir}.out.log.${r} ]
+do
+    ((r++))
+done
+
+if [[ -f ${app_cmd}.${output_dir}.out.log ]]; then
+    resume_str=".${r}"
+fi
+#while [ -f ${output_dir}.${app}.resume${r}.out.log ]
+#do
+#    ((r++))
+#done
+
+
+#if contains "--mode=resume"; then
+#    resume_str=".resume${r}"
+#elif contains "--mode"; then
+#    get_next "--mode"
+#    if [ ${element_val} == "resume" ]; then
+#        resume_str=".resume${r}"
+#    fi
+#fi
+
+# Override partition if specified
+if contains "--partition"; then
+    get_next "--partition"
+    partition=${element_val}
+elif startswith "--partition="; then
+    partition=${element_val}
+fi
+
+slurm_jobname=$app_cmd
+# slurm_jobname="${app}_${output_dir}"
+
+# slurm_opts="-J ${slurm_jobname} -o ${app_cmd}.${output_dir}.analysis${resume_str}.out.log -e ${app_cmd}.${output_dir}.analysis${resume_str}.err.log --mail-type=FAIL --mail-user=${email_addr} -p ${partition}"
+slurm_opts="-J ${slurm_jobname} -o ${app_cmd}.${output_dir}.out.log${resume_str} -e ${app_cmd}.${output_dir}.err.log${resume_str} --mail-type=FAIL --mail-user=${email_addr} -p ${partition}"
+
+echo "Running submission command: sbatch ${slurm_opts} --wrap=\"$app $@\""
+
+rm -f ${app_cmd}.${output_dir}.command.sh
+echo "#!/bin/bash -e" >> ${app_cmd}.${output_dir}.command.sh
+if [[ ${out_provided} -eq 1 ]]
+then
+    echo "$app ${runmode} $@" >> ${app_cmd}.${output_dir}.command.sh
+else
+    echo "$app ${runmode} -o ${output_dir} $@" >> ${app_cmd}.${output_dir}.command.sh
+fi
+sbatch ${slurm_opts} ${app_cmd}.${output_dir}.command.sh
+rm -f ${app_cmd}.${output_dir}.command.sh
+
+exit 0
+
