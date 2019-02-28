@@ -42,9 +42,9 @@ setup(
 	zip_safe=False,
 	keywords="gene annotation",
 	packages=find_packages(exclude=["test"]),
-	#scripts=[
-	#	path.join("bgrrl/bin/slurm", script) for script in ["bgsurvey_sub", "bgasm_sub", "bgann_sub", "bgpack_sub"]
-	#],
+	scripts=[
+		script for script in glob.glob("gmc/bin/slurm/*_sub")
+	],
 	install_requires=[
 		"snakemake>=4.4.0",
 		"drmaa"
