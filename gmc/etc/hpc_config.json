@@ -11,5 +11,10 @@
     "memory": "120000",
     "c": "30",
     "J": "gmc_mprep"
+  },
+  "gmc_metrics_cpc2": {
+    "memory": "20000",
+    "c": "4",
+    "J": "gmc_met_cpc2"
   }
 }
