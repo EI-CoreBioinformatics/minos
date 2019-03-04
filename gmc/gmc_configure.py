@@ -63,14 +63,45 @@ def createScoringFile(fn, hints, fo):
 			print(line, end="", file=_out)
 
 
+def parse_external_metrics(fn):
+	ext_metrics = yaml.load(open(fn))
+
+	expression_runs = dict()
+	
+	for metric in ext_metrics["metrics"]:
+		if metric.get("type", "") == "expression":
+			expression_runs[metric.get("id")] = metric.get("files")
+
+	return expression_runs
+			
+		
+"""
+id: SRA_kallisto
+      type: expression
+      multiplier: 0
+      not_fragmentary_min_value: 0
+      files: [[/ei/workarea/group-pb/CB-PPBFX-550_Anne_Osbourn_JIC_AO_ENQ-2696_A_01_ext/Reads/ERR706840_1.fastq.gz, /ei/workarea/group-pb/CB-PPBFX-550_Anne_Osbourn_JIC_AO_ENQ-2696_A_01_ext/Reads/ERR706840_2.fastq.gz]]
+    -
+"""
+
+
+
 def run_configure(args):
-	listFile = parseListFile(args.list_file)
 
 	pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
 	pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
-	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
 
+	# parse external metrics here
+	expression_runs = dict()
+	if args.external_metrics:
+		expression_runs = parse_external_metrics(args.external_metrics)
+
+
+	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
+	listFile = parseListFile(args.list_file)
 	createScoringFile(args.scoring_template, listFile, scoringFile)
+
+
 
 	#!TODO: 
 	# - scan config template for reference
@@ -100,7 +131,9 @@ def run_configure(args):
 		"prefix": args.prefix,
 		"outdir": args.outdir,
 		"mikado-container": args.mikado_container,
-		"mikado-config-file": mikado_config_file
+		"mikado-config-file": mikado_config_file,
+		"external-metrics": args.external_metrics,
+		"expression-runs": expression_runs
 	}
 	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:

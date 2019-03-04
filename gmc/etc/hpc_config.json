@@ -16,5 +16,15 @@
     "memory": "20000",
     "c": "4",
     "J": "gmc_met_cpc2"
-  }
+  },
+  "gmc_metrics_kallisto_index": {
+    "memory": "12000",
+    "c": "1",
+    "J": "gmc_met_kallisto_index"
+  },
+  "gmc_metrics_kallisto_quant": {
+    "memory": "60000",
+    "c": "32",
+    "J": "gmc_met_kallisto_quant"
+  }  
 }
