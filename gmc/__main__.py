@@ -34,6 +34,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("list_file", type=str)	
 	configure_parser.add_argument("scoring_template", type=str)
 	configure_parser.add_argument("--external", type=str, default="")
+	configure_parser.add_argument("--external-metrics", type=str, default="")
 	
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")
