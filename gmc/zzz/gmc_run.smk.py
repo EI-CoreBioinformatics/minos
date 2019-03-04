@@ -86,8 +86,8 @@ rule gmc_metrics_kallisto_index:
 
 rule gmc_metrics_kallisto_quant:
 	input:
-		rules.gmc_metrics_kallisto_index.output[0],
-		get_rnaseq
+		index = rules.gmc_metrics_kallisto_index.output[0],
+		reads = get_rnaseq
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}", "abundance.tsv")
 	log:
@@ -98,7 +98,7 @@ rule gmc_metrics_kallisto_quant:
 	threads:
 		32
 	shell:
-		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input[0]} -o {params.outdir} -b 100 --threads {threads} {input[1]} &> {log}"
+		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b 100 --threads {threads} {input.reads} &> {log}"
 
 
 
