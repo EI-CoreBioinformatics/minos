@@ -26,5 +26,15 @@
     "memory": "60000",
     "c": "32",
     "J": "gmc_met_kallisto_quant"
-  }  
+  },
+  "gmc_metrics_mikado_vs_all": {
+    "memory": "30000",
+    "c": "1",
+    "J": "gmc_met_mikado_all"
+  },
+  "gmc_metrics_mikado_vs_proteins": {
+    "memory": "30000",
+    "c": "1",
+    "J": "gmc_met_mikado_proteins"
+  }
 }

@@ -12,6 +12,13 @@ def get_rnaseq(wc):
 	# return " ".join(" ".join(pair) for pair in config["expression-runs"][wc.run])
 	return [item for sublist in config["expression-runs"][wc.run] for item in sublist]
 
+def get_all_transcript_assemblies(wc):
+	print([config["transcript-runs"][asm][0] for asm in config["transcript-runs"]])
+	return [config["transcript-runs"][asm][0] for asm in config["transcript-runs"]]
+
+def get_protein_alignments(wc):
+	return config["protein-runs"][wc.run][0]
+
 
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
@@ -22,6 +29,13 @@ OUTPUTS = [
 
 for run in config.get("expression-runs", {}):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
+
+if config.get("transcript-runs"):
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE"))
+
+for run in config.get("protein-runs", {}):
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "proteins", run, "MIKADO_DONE"))
+
 
 
 
@@ -93,25 +107,47 @@ rule gmc_metrics_kallisto_quant:
 	log:
 		os.path.join(LOGDIR, config["prefix"] + ".{run}.kallisto.log")
 	params:
-		stranded = "--rf-stranded" if True else "", # TODO!
+		stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",  #if True else "", # TODO!
+		bootstrap = 100,
 		outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
 	threads:
 		32
 	shell:
-		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b 100 --threads {threads} {input.reads} &> {log}"
+		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
+
+rule gmc_metrics_mikado_vs_all:
+	input:
+		mika = rules.gmc_mikado_prepare.output[0],
+		tr_assemblies = get_all_transcript_assemblies
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE")
+	log:
+		os.path.join(LOGDIR, config["prefix"] + ".mikado.vs_all.log")
+	params:		
+		mikado = config["mikado-container"] + " mikado compare",
+		outdir = os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all")		
+	shell:
+		"set +u && mkdir -p {params.outdir} && cat {input.tr_assemblies} > {params.outdir}/gmc_all_transcripts_merged.gtf && " + \
+		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {params.outdir}/gmc_all_transcripts_merged.gtf -o {params.outdir}/vs_all &> {log} && " + \
+		"touch {output[0]}"
+		
+rule gmc_metrics_mikado_vs_proteins:
+	input:
+		mika = rules.gmc_mikado_prepare.output[0],
+		proteins = get_protein_alignments
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "mikado", "proteins", "{run}", "MIKADO_DONE")
+	log:
+		os.path.join(EXTERNAL_METRICS_DIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
+	params:		                                                         	
+		mikado = config["mikado-container"] + " mikado compare",
+		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_proteins", wildcards.run),
+		proteins = lambda wildcards: wildcards.run
+	shell:
+		"set +u && mkdir -p {params.outdir} && " + \
+		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o vs_proteins_{params.proteins} &> {log} && " + \
+		"touch {output[0]}"
 
 
 
-"""
-id: SRA_kallisto
-      type: expression
-      multiplier: 0
-      not_fragmentary_min_value: 0
-      files: [[/ei/workarea/group-pb/CB-PPBFX-550_Anne_Osbourn_JIC_AO_ENQ-2696_A_01_ext/Reads/ERR706840_1.fastq.gz, /ei/workarea/group-pb/CB-PPBFX-550_Anne_Osbourn_JIC_AO_ENQ-2696_A_01_ext/Reads/ERR706840_2.fastq.gz]]
-    -
-"""                                                                                                                                                                                                                      			
-
-#		sbatch -p ei-medium -c 4 --mem 20G -o out_CPC2.py.%j.log -J CPC --wrap "ln -s /ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/mikado-1.2.4/annotation_run1/run1/mikado_prepared.fasta && source CPC-2.0_beta && /usr/bin/time -v CPC2.py -r -i mikado_prepared.fasta -o mikado_prepared.fasta.cpc2output.txt"
-
-# /ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/mikado-1.2.4/annotation_run1/run1/generate_metrics/CPC-2.0_beta/mikado_prepared.fasta.cpc2output.txt
 

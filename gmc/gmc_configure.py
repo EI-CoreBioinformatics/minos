@@ -64,15 +64,24 @@ def createScoringFile(fn, hints, fo):
 
 
 def parse_external_metrics(fn):
-	ext_metrics = yaml.load(open(fn))
-
 	expression_runs = dict()
-	
-	for metric in ext_metrics["metrics"]:
-		if metric.get("type", "") == "expression":
-			expression_runs[metric.get("id")] = metric.get("files")
+	transcript_runs = dict()
+	protein_runs = dict()
 
-	return expression_runs
+	for row in csv.reader(open(fn), delimiter="\t", quotechar="\""):
+		if row[0].startswith("#"):
+			continue
+		# metric_name_prefix    metric_class    multiplier  not_fragmentary_min_value   file_path		
+		if row[1] == "expression":
+			if row[0][-3:] not in {"_xx", "_rf", "_fr"}:
+				raise ValueError("ERROR: expression metric does not have strandedness information " + row[0])
+			expression_runs.setdefault(row[0], list()).append(row[4].split(","))
+		elif row[1] == "aln_tran":
+			transcript_runs.setdefault(row[0], list()).append(row[4])
+		elif row[1] == "aln_prot": 
+			protein_runs.setdefault(row[0], list()).append(row[4])
+
+	return expression_runs, transcript_runs, protein_runs
 			
 		
 """
@@ -92,9 +101,9 @@ def run_configure(args):
 	pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 
 	# parse external metrics here
-	expression_runs = dict()
+	expression_runs, transcript_runs, protein_runs = dict(), dict(), dict()
 	if args.external_metrics:
-		expression_runs = parse_external_metrics(args.external_metrics)
+		expression_runs, transcript_runs, protein_runs = parse_external_metrics(args.external_metrics)
 
 
 	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
@@ -133,7 +142,9 @@ def run_configure(args):
 		"mikado-container": args.mikado_container,
 		"mikado-config-file": mikado_config_file,
 		"external-metrics": args.external_metrics,
-		"expression-runs": expression_runs
+		"expression-runs": expression_runs,
+		"transcript-runs": transcript_runs,
+		"protein-runs": protein_runs
 	}
 	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
