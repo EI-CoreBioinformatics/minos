@@ -117,7 +117,7 @@ rule gmc_metrics_kallisto_quant:
 
 rule gmc_metrics_mikado_vs_all:
 	input:
-		mika = rules.gmc_mikado_prepare.output[0],
+		mika = rules.gmc_mikado_prepare.output[1],
 		tr_assemblies = get_all_transcript_assemblies
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE")
@@ -133,7 +133,7 @@ rule gmc_metrics_mikado_vs_all:
 		
 rule gmc_metrics_mikado_vs_proteins:
 	input:
-		mika = rules.gmc_mikado_prepare.output[0],
+		mika = rules.gmc_mikado_prepare.output[1],
 		proteins = get_protein_alignments
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado", "proteins", "{run}", "MIKADO_DONE")
