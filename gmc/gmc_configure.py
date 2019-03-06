@@ -40,14 +40,6 @@ class ScoringMetricsManager(object):
 	def __init__(self, metrics_file, scoring_template_file, outdir, prefix):
 		self.__importMetricsData(metrics_file)
 
-	"""
-EI_kallisto_rf
-[
-{'multiplier': '0', 'min_value': '0', 'files': ['/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Expanding_leaf/Expanding_leaf_R1_val_1.fq.gz', '/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Expanding_leaf/Expanding_leaf_R2_val_2.fq.gz']}, 
-{'multiplier': '0', 'min_value': '0', 'files': ['/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Green_stem/Green_stem_R1_val_1.fq.gz', '/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Green_stem/Green_stem_R2_val_2.fq.gz']}
-]
-	"""
-
 	def getMetricsData(self, metric):
 		mdata = dict()
 		for k in self.metrics.get(metric, OrderedDict()):
@@ -55,35 +47,85 @@ EI_kallisto_rf
 			pass
 		return mdata
 	
-	def generateScoringFile(self, scoring_template_file, outfile):
+	def generateScoringFile(self, scoring_template, outfile):
+
+		# metrics = ["external.{}_aF1".format(k) for k in coding]
+		ext_metrics = list()
+		for mclass in self.metrics:
+			ext_metrics.extend("external.{}_aF1".format(run) for run in self.metrics[mclass])
+
+		def generate_nf_expression(metrics):
+			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
+			expression += ", or, "
+			expression += "(exon_num.mono and (combined_cds_length.mono or {0})))]"
+			return expression.format("*".join(["external.all_aF1"] + metrics).replace("*", " or "))
+			# return "[exon_num.multi]" # "[NF_EXPRESSION]"
+		def generate_external_stats(metrics):
+			stats = list()
+			for m in ["external.all_aF1"] + metrics:
+				for stat in ["nF1", "jF1", "eF1", "aF1"]:
+					multiplier = 10 if stat == "aF1" else 5
+					comment = "#" if stat != "aF1" else ""
+					stats.append("    " + comment + m.replace("_aF1", "_" + stat) + ": {operator: gt, value: 0.5}")  #rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier))
+			for m in metrics:
+				for stat in ["qCov", "tCov"]:
+					stats.append("    " + m.replace("_aF1", "_" + stat) + ": {rescaling: max, use_raw: true, multiplier: 5}")
+			return stats
+			#return "  # EXTERNAL.X_AF1"
+
+		"""
+		for m in ["external.all_aF1", "external.mikado_aF1"] + metrics:
+            for sfx in ["nF1", "jF1", "eF1", "aF1"]:
+                multiplier = 10 if sfx == "aF1" else (5 if not "mikado" in m else 2)
+                comment = "# " if not sfx == "aF1" else ""
+                print("  " + comment + m.replace("_aF1", "_" + sfx) + ": {{rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier), file=_out)
+        for m in metrics:
+            for sfx in ["qCov", "tCov"]:
+                print("  " + m.replace("_aF1", "_" + sfx) + ": {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
+		"""
+
+		with open(scoring_template) as _in, open(outfile, "wt") as _out:
+			for line in _in:
+				if line.strip().startswith("### GMC_CONFIGURE ###"):
+					break
+				print(line, end="", file=_out)
+
+			print("not_fragmentary:", file=_out)
+			print("  # expression: [combined_cds_length]", file=_out)
+			print("  expression:", generate_nf_expression(ext_metrics), file=_out)
+			print("  parameters:", file=_out)
+			print("    # is_complete: {operator: eq, value: true}", file=_out)
+			print("    exon_num.multi: {operator: gt, value: 1}", file=_out)
+			print("    # cdna_length.multi: {operator: ge, value: 200}", file=_out)
+			print("    combined_cds_length.multi: {operator: gt, value: 200}", file=_out)
+			print("    exon_num.mono: {operator: eq, value: 1}", file=_out)              			
+			print("    combined_cds_length.mono: {operator: gt, value: 300}", file=_out) 
+			print("    # combined_cds_length: {operator: gt, value: 300}", file=_out)
+			# print("    external.all_aF1: {operator: gt, value: 0.5}", file=_out)
+			print(*generate_external_stats(ext_metrics), sep="\n", file=_out)
+			print("scoring:", file=_out)
+			print("  # external metrics START", file=_out)
+			print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
+			print("  # all boolean metrics values from here below", file=_out)
+			print("  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  # external.SRA_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			print("  external.fln: {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
+			print("  # external metrics END", file=_out)
+			
+			for line in _in:
+				print(line, end="", file=_out)
+
+
+	def generateScoringFile2(self, scoring_template_file, outfile):
 		metrics_ids = ["external.{}_aF1".format(k) for k in self.metrics]
 		
 		with open(scoring_template_file) as _in, open(outfile, "wt") as _out:
 			print(_in.read(), end="", file=_out)
-			"""
-			for line in _in:
-				print(line, end="", file=_out)
-				if line.strip().startswith("not_fragmentary:"):
-					break
-
-				expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))" + \
-					", or, " + \
-					"(exon_num.mono and (combined_cds_length.mono or {0})))]"
-				expression = expression.format("*".join(["external.all_aF1"] + metrics_ids).replace("*", " or "))
-				print("  expression: " + expression, file=_out)
-				for line in _in:
-					if line.strip().startswith("expression:"):
-						line = line.replace("expression:", "# expression:")
-					print(line, end="", file=_out)
-					if line.strip().startswith("external.all_aF1"):
-						for m in metrics_ids:
-							print(line.replace("external.all_aF1", m), end="", file=_out)
-					if line.strip().endswith("external metrics START"):
-						break
-
-			for line in _in:
-				print(line, end="", file=_out)
-			"""
 
 
 def parseListFile(fn):
