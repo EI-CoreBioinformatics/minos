@@ -10,6 +10,51 @@ from collections import OrderedDict
 
 from . import __version__
 
+STRANDINFO = {"_xx", "_rf", "_fr"}
+
+class ScoringMetricsManager(object):
+	def __importMetricsData(fn):
+		self.metrics = OrderedDict()
+		for row in csv.reader(open(fn), delimiter="\t", quotechar='"'):
+			if row[0].startswith("#"):
+				continue
+			if row[1] == "expression":
+				if row[0][-3:] not in STRANDINFO:
+					raise ValueError("ERROR: expression metric does not have strandedness information " + row[0])				
+				data = row[4].split(",")
+			else:
+				data = row[4]
+			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
+
+	def __init__(self, metrics_file, scoring_template_file, outdir, prefix):
+		self.__importMetricsData(metrics_file)
+	
+	def generateScoringFile(scoring_template_file, outfile):
+		metrics_ids = ["external.{}_aF1".format(k) for k in self.metrics]
+		
+		with open(scoring_template_file) as _in, open(outfile, "wb") as _out:
+			for line in _in:
+				print(line, end="", file=_out)
+				if line.strip().startswith("not_fragmentary:"):
+					break
+
+				expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))" + \
+					", or, " + \
+					"(exon_num.mono and (combined_cds_length.mono or {0})))]"
+				expression = expression.format("*".join(["external.all_aF1"] + metrics_ids).replace("*", " or "))
+				print("  expression: " + expr, file=_out)
+				for line in _in:
+					if line.strip().startswith("expression:"):
+						line = line.replace("expression:", "# expression:")
+					print(line, end="", file=_out)
+					if line.strip().startswith("external.all_aF1"):
+						for m in metrics_ids:
+							print(line.replace("external.all_aF1", m), end="", file=_out)
+					if line.strip().endswith("external metrics START"):
+						break
+
+
+
 def parseListFile(fn):
 	d = OrderedDict()
 	for row in csv.reader(open(fn), delimiter="\t"):
@@ -84,15 +129,6 @@ def parse_external_metrics(fn):
 	return expression_runs, transcript_runs, protein_runs
 			
 		
-"""
-id: SRA_kallisto
-      type: expression
-      multiplier: 0
-      not_fragmentary_min_value: 0
-      files: [[/ei/workarea/group-pb/CB-PPBFX-550_Anne_Osbourn_JIC_AO_ENQ-2696_A_01_ext/Reads/ERR706840_1.fastq.gz, /ei/workarea/group-pb/CB-PPBFX-550_Anne_Osbourn_JIC_AO_ENQ-2696_A_01_ext/Reads/ERR706840_2.fastq.gz]]
-    -
-"""
-
 
 
 def run_configure(args):
