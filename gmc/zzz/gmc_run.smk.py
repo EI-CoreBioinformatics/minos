@@ -6,8 +6,6 @@ EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
 LOGDIR = os.path.join(config["outdir"], "logs")
 
 
-
-
 def get_rnaseq(wc):
 	# return " ".join(" ".join(pair) for pair in config["expression-runs"][wc.run])
 	return [item for sublist in config["expression-runs"][wc.run] for item in sublist]
@@ -18,7 +16,8 @@ def get_all_transcript_assemblies(wc):
 
 def get_protein_alignments(wc):
 	return config["protein-runs"][wc.run][0]
-
+def get_transcript_alignments(wc):
+	return config["transcript-runs"][wc.run][0]
 
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
@@ -28,15 +27,16 @@ OUTPUTS = [
 ]
 
 for run in config.get("expression-runs", {}):
+	print("GENERATING TARGET:", run)
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
 
-if config.get("transcript-runs"):
-	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE"))
+#if config.get("transcript-runs"):
+#	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE"))
 
 for run in config.get("protein-runs", {}):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "proteins", run, "MIKADO_DONE"))
-
-
+for run in config.get("transcript-runs", {}):
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "transcripts", run, "MIKADO_DONE"))
 
 
 rule all:
@@ -115,6 +115,7 @@ rule gmc_metrics_kallisto_quant:
 	shell:
 		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
 
+"""
 rule gmc_metrics_mikado_vs_all:
 	input:
 		mika = rules.gmc_mikado_prepare.output[1],
@@ -130,6 +131,25 @@ rule gmc_metrics_mikado_vs_all:
 		"set +u && mkdir -p {params.outdir} && cat {input.tr_assemblies} > {params.outdir}/gmc_all_transcripts_merged.gtf && " + \
 		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {params.outdir}/gmc_all_transcripts_merged.gtf -o {params.outdir}/vs_all &> {log} && " + \
 		"touch {output[0]}"
+"""
+
+rule gmc_metrics_mikado_vs_transcripts:
+	input:
+		mika = rules.gmc_mikado_prepare.output[1],
+		transcripts = get_transcript_alignments
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "mikado", "transcripts", "{run}", "MIKADO_DONE")
+	log:
+		os.path.join(LOGDIR, config["prefix"] + ".mikado_compare.tran.{run}.log")
+	params:		                                                         	
+		mikado = config["mikado-container"] + " mikado compare",
+		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_transcripts", wildcards.run),
+		transcripts = lambda wildcards: wildcards.run
+	shell:
+		"set +u && mkdir -p {params.outdir} && " + \
+		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {input.transcripts} -o vs_transcripts_{params.transcripts} &> {log} && " + \
+		"touch {output[0]}"
+
 		
 rule gmc_metrics_mikado_vs_proteins:
 	input:
@@ -138,7 +158,7 @@ rule gmc_metrics_mikado_vs_proteins:
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado", "proteins", "{run}", "MIKADO_DONE")
 	log:
-		os.path.join(EXTERNAL_METRICS_DIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
+		os.path.join(LOGDIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
 	params:		                                                         	
 		mikado = config["mikado-container"] + " mikado compare",
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_proteins", wildcards.run),
@@ -148,6 +168,4 @@ rule gmc_metrics_mikado_vs_proteins:
 		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o vs_proteins_{params.proteins} &> {log} && " + \
 		"touch {output[0]}"
 
-
-
-
+#rule gmc_metrics_blastp:

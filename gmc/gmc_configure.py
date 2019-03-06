@@ -13,26 +13,54 @@ from . import __version__
 STRANDINFO = {"_xx", "_rf", "_fr"}
 
 class ScoringMetricsManager(object):
-	def __importMetricsData(fn):
+	def __importMetricsData(self, fn):
 		self.metrics = OrderedDict()
 		for row in csv.reader(open(fn), delimiter="\t", quotechar='"'):
 			if row[0].startswith("#"):
 				continue
+			# metric_name_prefix    metric_class    multiplier  not_fragmentary_min_value   file_path
+			data = {
+				"multiplier": row[2],
+				"min_value": row[3],
+				"files": row[4].split(",")
+			}
+
 			if row[1] == "expression":
 				if row[0][-3:] not in STRANDINFO:
 					raise ValueError("ERROR: expression metric does not have strandedness information " + row[0])				
-				data = row[4].split(",")
-			else:
-				data = row[4]
+
 			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
+
+
+		for k in self.metrics:
+			print(k)
+			for j in self.metrics[k]:
+				print(j, self.metrics[k][j], sep="\n")
 
 	def __init__(self, metrics_file, scoring_template_file, outdir, prefix):
 		self.__importMetricsData(metrics_file)
+
+	"""
+EI_kallisto_rf
+[
+{'multiplier': '0', 'min_value': '0', 'files': ['/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Expanding_leaf/Expanding_leaf_R1_val_1.fq.gz', '/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Expanding_leaf/Expanding_leaf_R2_val_2.fq.gz']}, 
+{'multiplier': '0', 'min_value': '0', 'files': ['/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Green_stem/Green_stem_R1_val_1.fq.gz', '/ei/workarea/group-ga/Projects/CB-GENANNO-430_Annotation_of_Melia_azedarach_and_Quillaja_saponaria/Analysis/Quillaja_saponaria/trim_galore-0.5.0_gk/Green_stem/Green_stem_R2_val_2.fq.gz']}
+]
+	"""
+
+	def getMetricsData(self, metric):
+		mdata = dict()
+		for k in self.metrics.get(metric, OrderedDict()):
+			mdata.setdefault(k, list()).extend(item["files"] for item in self.metrics[metric][k])
+			pass
+		return mdata
 	
-	def generateScoringFile(scoring_template_file, outfile):
+	def generateScoringFile(self, scoring_template_file, outfile):
 		metrics_ids = ["external.{}_aF1".format(k) for k in self.metrics]
 		
-		with open(scoring_template_file) as _in, open(outfile, "wb") as _out:
+		with open(scoring_template_file) as _in, open(outfile, "wt") as _out:
+			print(_in.read(), end="", file=_out)
+			"""
 			for line in _in:
 				print(line, end="", file=_out)
 				if line.strip().startswith("not_fragmentary:"):
@@ -42,7 +70,7 @@ class ScoringMetricsManager(object):
 					", or, " + \
 					"(exon_num.mono and (combined_cds_length.mono or {0})))]"
 				expression = expression.format("*".join(["external.all_aF1"] + metrics_ids).replace("*", " or "))
-				print("  expression: " + expr, file=_out)
+				print("  expression: " + expression, file=_out)
 				for line in _in:
 					if line.strip().startswith("expression:"):
 						line = line.replace("expression:", "# expression:")
@@ -53,6 +81,9 @@ class ScoringMetricsManager(object):
 					if line.strip().endswith("external metrics START"):
 						break
 
+			for line in _in:
+				print(line, end="", file=_out)
+			"""
 
 
 def parseListFile(fn):
@@ -136,15 +167,21 @@ def run_configure(args):
 	pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
 	pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 
-	# parse external metrics here
-	expression_runs, transcript_runs, protein_runs = dict(), dict(), dict()
-	if args.external_metrics:
-		expression_runs, transcript_runs, protein_runs = parse_external_metrics(args.external_metrics)
-
-
 	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
-	listFile = parseListFile(args.list_file)
-	createScoringFile(args.scoring_template, listFile, scoringFile)
+	smm = ScoringMetricsManager(args.external_metrics, args.scoring_template, args.outdir, args.prefix)
+	print("Generating scoring file " + scoringFile + " ...", end="", flush=True)
+	smm.generateScoringFile(args.scoring_template, scoringFile)
+	print(" done.")
+
+
+	# parse external metrics here
+	#expression_runs, transcript_runs, protein_runs = dict(), dict(), dict()
+	#if args.external_metrics:
+	#	expression_runs, transcript_runs, protein_runs = parse_external_metrics(args.external_metrics)
+
+
+	#listFile = parseListFile(args.list_file)
+	#createScoringFile(args.scoring_template, listFile, scoringFile)
 
 
 
@@ -178,9 +215,9 @@ def run_configure(args):
 		"mikado-container": args.mikado_container,
 		"mikado-config-file": mikado_config_file,
 		"external-metrics": args.external_metrics,
-		"expression-runs": expression_runs,
-		"transcript-runs": transcript_runs,
-		"protein-runs": protein_runs
+		"expression-runs": smm.getMetricsData("expression"), #expression_runs,
+		"transcript-runs": smm.getMetricsData("aln_tran"), #transcript_runs,
+		"protein-runs": smm.getMetricsData("aln_prot") #protein_runs
 	}
 	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:

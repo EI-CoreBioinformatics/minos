@@ -36,5 +36,10 @@
     "memory": "30000",
     "c": "1",
     "J": "gmc_met_mikado_proteins"
+  },
+  "gmc_metrics_mikado_vs_transcripts": {
+    "memory": "30000",
+    "c": "1",
+    "J": "gmc_met_mikado_transcripts"
   }
 }
