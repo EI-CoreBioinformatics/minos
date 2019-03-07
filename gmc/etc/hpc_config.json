@@ -41,5 +41,20 @@
     "memory": "30000",
     "c": "1",
     "J": "gmc_met_mikado_transcripts"
+  },
+  "gmc_metrics_blastp_mkdb": {
+    "memory": "10000",
+    "c": "1",
+    "J": "gmc_met_makeblastdb"
+  },
+  "gmc_leaff_chunk_cds": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_chunk_cds"
+  },
+  "gmc_gffread_generate_cds": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_generate_cds"
   }
 }

@@ -54,8 +54,8 @@ class ScoringMetricsManager(object):
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
-		        for mclass in self.metrics:
-        		    ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
+			for mclass in self.metrics:
+				ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
 			expression += ", or, "
@@ -184,7 +184,9 @@ def run_configure(args):
 		"external-metrics": args.external_metrics,
 		"expression-runs": smm.getMetricsData("expression"), #expression_runs,
 		"transcript-runs": smm.getMetricsData("aln_tran"), #transcript_runs,
-		"protein-runs": smm.getMetricsData("aln_prot") #protein_runs
+		"protein-runs": smm.getMetricsData("aln_prot"), #protein_runs
+		"protein-seqs": smm.getMetricsData("seq_prot"),	
+		"reference-sequence": args.reference
 	}
 	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:

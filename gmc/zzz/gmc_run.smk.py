@@ -1,6 +1,5 @@
 import os
 
-localrules: all, gmc_metrics_leaff
 
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
 LOGDIR = os.path.join(config["outdir"], "logs")
@@ -18,12 +17,15 @@ def get_protein_alignments(wc):
 	return config["protein-runs"][wc.run][0]
 def get_transcript_alignments(wc):
 	return config["transcript-runs"][wc.run][0]
+def get_protein_sequences(wc):
+	return config["protein-seqs"][wc.run][0]
 
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
 	os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", "mikado_prepared.fasta.cpc2output.txt"),
-	os.path.join(config["outdir"], "logs", "mikado_prepared.fasta.leaff.log"),
-	os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx")
+	# os.path.join(config["outdir"], "logs", "mikado_prepared.fasta.leaff.log"),
+	os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx"),
+	os.path.join(LOGDIR, os.path.basename("mikado_prepared.gtf.cds.fasta.leaff.log"))
 ]
 
 for run in config.get("expression-runs", {}):
@@ -38,6 +40,8 @@ for run in config.get("protein-runs", {}):
 for run in config.get("transcript-runs", {}):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "transcripts", run, "MIKADO_DONE"))
 
+
+localrules: all #, gmc_metrics_leaff
 
 rule all:
 	input:
@@ -60,6 +64,34 @@ rule gmc_mikado_prepare:
 	shell:
 		"singularity exec {params.mikado} --minimum_length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}" 
 
+rule gmc_gffread_generate_cds:
+	input:
+		gtf = rules.gmc_mikado_prepare.output[1],
+		refseq = config["reference-sequence"]
+	output:
+		rules.gmc_mikado_prepare.output[1] + ".cds.fasta"
+	log:
+		os.path.join(LOGDIR, config["prefix"] + ".gffread_cds.log")
+	threads:
+		1
+	shell:
+		"set +u && source cufflinks-2.2.1_gk && " + \
+		"gffread {input.gtf} -g {input.refseq} -W -w {output[0]} &> {log}"
+
+rule gmc_leaff_chunk_cds:
+	input:
+		rules.gmc_gffread_generate_cds.output[0]
+	output:
+		os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_generate_cds.output[0]) + ".leaff.log")
+	params:
+		chunksize = 1000,
+		outdir = os.path.join(config["outdir"], "tmp"),
+		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
+	shell:
+		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
+        "{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {output[0]}"
+
+
 rule gmc_metrics_cpc2:
 	input:
 		rules.gmc_mikado_prepare.output[0]
@@ -75,18 +107,18 @@ rule gmc_metrics_cpc2:
 		"set +u && source CPC-2.0_beta_py3_cs && " + \
 		"/usr/bin/time -v CPC2.py -r -i {input[0]} -o {output[0]} &> {log} "
 
-rule gmc_metrics_leaff:
-	input:
-		rules.gmc_mikado_prepare.output[0]
-	output:
-		os.path.join(LOGDIR, os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".leaff.log")
-	params:
-		chunksize = 500,
-		outdir = os.path.join(config["outdir"], "tmp"),
-		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
-	shell:
-		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
-		"{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {output[0]}"
+#rule gmc_metrics_leaff:
+#	input:
+#		rules.gmc_mikado_prepare.output[0]
+#	output:
+#		os.path.join(LOGDIR, os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".leaff.log")
+#	params:
+#		chunksize = 500,
+#		outdir = os.path.join(config["outdir"], "tmp"),
+#		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
+#	shell:
+#		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
+#		"{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {output[0]}"
 
 rule gmc_metrics_kallisto_index:
 	input:
@@ -147,7 +179,7 @@ rule gmc_metrics_mikado_vs_transcripts:
 		transcripts = lambda wildcards: wildcards.run
 	shell:
 		"set +u && mkdir -p {params.outdir} && " + \
-		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {input.transcripts} -o vs_transcripts_{params.transcripts} &> {log} && " + \
+		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {input.transcripts} -o {params.outdir}/vs_transcripts_{params.transcripts} &> {log} && " + \
 		"touch {output[0]}"
 
 		
@@ -165,7 +197,21 @@ rule gmc_metrics_mikado_vs_proteins:
 		proteins = lambda wildcards: wildcards.run
 	shell:
 		"set +u && mkdir -p {params.outdir} && " + \
-		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o vs_proteins_{params.proteins} &> {log} && " + \
+		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o {params.outdir}/vs_proteins_{params.proteins} &> {log} && " + \
 		"touch {output[0]}"
 
-#rule gmc_metrics_blastp:
+rule gmc_metrics_blastx_mkdb:
+	input:
+		get_protein_sequences
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "blastx", "{run}", "BLASTDB_DONE")
+	log:
+		os.path.join(LOGDIR, config["prefix"] + ".makeblastdb.{run}.log")
+	params:
+		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "blastx", wildcards.run),
+		db_prefix = lambda wildcards: wildcards.run
+	shell:
+		"set +u && source blast-2.6.0 && " + \
+		"makeblastdb -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log} -dbtype prot && " + \
+		"touch {output[0]}"
+	
