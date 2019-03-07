@@ -48,41 +48,61 @@ class ScoringMetricsManager(object):
 		return mdata
 	
 	def generateScoringFile(self, scoring_template, outfile):
-
-		# metrics = ["external.{}_aF1".format(k) for k in coding]
 		ext_metrics = list()
 		for mclass in self.metrics:
 			ext_metrics.extend("external.{}_aF1".format(run) for run in self.metrics[mclass])
 
 		def generate_nf_expression(metrics):
+			ext_metrics = list()
+		        for mclass in self.metrics:
+        		    ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
+
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
 			expression += ", or, "
 			expression += "(exon_num.mono and (combined_cds_length.mono or {0})))]"
-			return expression.format("*".join(["external.all_aF1"] + metrics).replace("*", " or "))
-			# return "[exon_num.multi]" # "[NF_EXPRESSION]"
-		def generate_external_stats(metrics):
-			stats = list()
-			for m in ["external.all_aF1"] + metrics:
-				for stat in ["nF1", "jF1", "eF1", "aF1"]:
-					multiplier = 10 if stat == "aF1" else 5
-					comment = "#" if stat != "aF1" else ""
-					stats.append("    " + comment + m.replace("_aF1", "_" + stat) + ": {operator: gt, value: 0.5}")  #rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier))
-			for m in metrics:
-				for stat in ["qCov", "tCov"]:
-					stats.append("    " + m.replace("_aF1", "_" + stat) + ": {rescaling: max, use_raw: true, multiplier: 5}")
-			return stats
-			#return "  # EXTERNAL.X_AF1"
+			return expression.format("*".join(["external.all_aF1"] + ext_metrics).replace("*", " or "))
 
-		"""
-		for m in ["external.all_aF1", "external.mikado_aF1"] + metrics:
-            for sfx in ["nF1", "jF1", "eF1", "aF1"]:
-                multiplier = 10 if sfx == "aF1" else (5 if not "mikado" in m else 2)
-                comment = "# " if not sfx == "aF1" else ""
-                print("  " + comment + m.replace("_aF1", "_" + sfx) + ": {{rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier), file=_out)
-        for m in metrics:
-            for sfx in ["qCov", "tCov"]:
-                print("  " + m.replace("_aF1", "_" + sfx) + ": {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
-		"""
+		def generate_nf_params(metrics):
+			params = ["    external.all_aF1: {operator: gt, value: 0.5}"]
+			for mclass in metrics:
+				for run in metrics[mclass]:
+					params.append("    external.{}_aF1: {{operator: gt, value: {}}}".format(run, metrics[mclass][run][0]["min_value"]))
+
+			return params
+			
+		def generate_external_scoring(metrics):
+			scoring = [
+				"  {}external.all_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
+					"" if stat == "aF1" else "# ",
+					stat,
+					10 if stat == "aF1" else 5
+				) for stat in ["nF1", "jF1", "eF1", "aF1"]
+			]			
+			for mclass in metrics:
+				for run in metrics[mclass]:
+					for stat in ["nF1", "jF1", "eF1", "aF1"]:
+						comment = "#" if stat != "aF1" else ""
+						scoring.append(
+							"  {}external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
+								"" if stat == "aF1" else "# ",
+								run,
+								stat,
+								metrics[mclass][run][0]["multiplier"]
+								)
+							)
+			for run in metrics.get("aln_prot", {}):
+				for stat in ["qCov", "tCov"]:
+					scoring.append(
+						"  external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
+							run,
+							stat,
+							metrics[mclass][run][0]["multiplier"]
+						)
+					)
+			
+			return scoring		
+				
+		
 
 		with open(scoring_template) as _in, open(outfile, "wt") as _out:
 			for line in _in:
@@ -92,7 +112,7 @@ class ScoringMetricsManager(object):
 
 			print("not_fragmentary:", file=_out)
 			print("  # expression: [combined_cds_length]", file=_out)
-			print("  expression:", generate_nf_expression(ext_metrics), file=_out)
+			print("  expression:", generate_nf_expression(self.metrics), file=_out)
 			print("  parameters:", file=_out)
 			print("    # is_complete: {operator: eq, value: true}", file=_out)
 			print("    exon_num.multi: {operator: gt, value: 1}", file=_out)
@@ -102,9 +122,10 @@ class ScoringMetricsManager(object):
 			print("    combined_cds_length.mono: {operator: gt, value: 300}", file=_out) 
 			print("    # combined_cds_length: {operator: gt, value: 300}", file=_out)
 			# print("    external.all_aF1: {operator: gt, value: 0.5}", file=_out)
-			print(*generate_external_stats(ext_metrics), sep="\n", file=_out)
+			print(*generate_nf_params(self.metrics), sep="\n", file=_out)
 			print("scoring:", file=_out)
 			print("  # external metrics START", file=_out)
+			print(*generate_external_scoring(self.metrics), sep="\n", file=_out)
 			print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
 			print("  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
 			print("  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
