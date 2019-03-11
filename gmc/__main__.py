@@ -37,6 +37,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("reference", type=str)
 	configure_parser.add_argument("--external", type=str, default="")
 	configure_parser.add_argument("--external-metrics", type=str, default="")
+	configure_parser.add_argument("--blastmode", choices=("blastp", "blastx"), default="blastp")
 	
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")
