@@ -46,7 +46,7 @@ setup(
 		script for script in glob.glob("gmc/bin/slurm/*_sub")
 	],
 	install_requires=[
-		"snakemake>=4.4.0",
+		"snakemake>=5.4.0",
 		"drmaa"
 	],
 	entry_points={
