@@ -1,4 +1,5 @@
 import os
+import sys
 
 
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
@@ -18,14 +19,14 @@ def get_protein_alignments(wc):
 def get_transcript_alignments(wc):
 	return config["transcript-runs"][wc.run][0]
 def get_protein_sequences(wc):
-	return config["protein-seqs"][wc.run][0]
+	return config["protein-seqs"].get(wc.run, [""])[0]
 
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
 	os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", "mikado_prepared.fasta.cpc2output.txt"),
 	# os.path.join(config["outdir"], "logs", "mikado_prepared.fasta.leaff.log"),
 	os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx"),
-	os.path.join(LOGDIR, os.path.basename("mikado_prepared.gtf.cds.fasta.leaff.log"))
+	# os.path.join(LOGDIR, os.path.basename("mikado_prepared.gtf.cds.fasta.leaff.log"))
 ]
 
 for run in config.get("expression-runs", {}):
@@ -39,13 +40,18 @@ for run in config.get("protein-runs", {}):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "proteins", run, "MIKADO_DONE"))
 for run in config.get("transcript-runs", {}):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "transcripts", run, "MIKADO_DONE"))
+for run in config.get("protein-seqs", {}):
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "blastx", run, run + ".blastx.tsv"))
 
-
-localrules: all #, gmc_metrics_leaff
+localrules: all, test_imitate_blast, gmc_metrics_blastx_combine
 
 rule all:
 	input:
 		OUTPUTS
+		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"))
+		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt.link"))
+		#dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.{run}.blastx.tsv"))
+		
 
 rule gmc_mikado_prepare:
 	input:
@@ -78,18 +84,20 @@ rule gmc_gffread_generate_cds:
 		"set +u && source cufflinks-2.2.1_gk && " + \
 		"gffread {input.gtf} -g {input.refseq} -W -w {output[0]} &> {log}"
 
-rule gmc_leaff_chunk_cds:
-	input:
-		rules.gmc_gffread_generate_cds.output[0]
-	output:
-		os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_generate_cds.output[0]) + ".leaff.log")
-	params:
-		chunksize = 1000,
-		outdir = os.path.join(config["outdir"], "tmp"),
-		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
-	shell:
-		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
-        "{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {output[0]}"
+#rule gmc_leaff_chunk_cds:
+#	input:
+#		rules.gmc_gffread_generate_cds.output[0]
+#	output:
+#		dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"))
+#	#log:
+#	#	os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_generate_cds.output[0]) + ".leaff.log")
+#	params:
+#		chunksize = 1000,
+#		outdir = os.path.join(config["outdir"], "tmp"),
+#		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
+#	shell:
+#		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
+#        "{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {output[0]}"
 
 
 rule gmc_metrics_cpc2:
@@ -204,7 +212,7 @@ rule gmc_metrics_blastx_mkdb:
 	input:
 		get_protein_sequences
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "blastx", "{run}", "BLASTDB_DONE")
+		os.path.join(EXTERNAL_METRICS_DIR, "blastx", "{run}", "{run}")
 	log:
 		os.path.join(LOGDIR, config["prefix"] + ".makeblastdb.{run}.log")
 	params:
@@ -214,4 +222,65 @@ rule gmc_metrics_blastx_mkdb:
 		"set +u && source blast-2.6.0 && " + \
 		"makeblastdb -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log} -dbtype prot && " + \
 		"touch {output[0]}"
-	
+
+# rule test_imitate_blast:
+# 	input:
+# 		os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt")
+# 	output:
+# 		os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt.link")
+# 	shell:
+# 		"ln -sf $(basename {input[0]}) {output[0]}"
+
+checkpoint gmc_leaff_chunk_cds:
+	input:
+		rules.gmc_gffread_generate_cds.output[0]
+	output:
+		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"))
+		chunk_dir = directory(os.path.join(config["outdir"], "tmp"))
+	log:
+		os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_generate_cds.output[0]) + ".leaff.log")
+	params:
+		chunksize = 1000,
+		outdir = os.path.join(config["outdir"], "tmp"),
+		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
+	shell:
+		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
+        "{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {log}"
+
+rule gmc_metrics_blastx_chunked:
+	input:
+		chunk = os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"),
+		db = rules.gmc_metrics_blastx_mkdb.output[0]
+	output:
+		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}.blastx.tsv")
+	log:
+		os.path.join(LOGDIR, "blastx_logs", "chunk-{chunk}.{run}.blastx.log")
+	threads:
+		8
+	shell:
+		"set +u && source blast-2.6.0 && " + \
+		"blastx -query {input.chunk} -out {output[0]} -max_target_seqs 1 -evalue 1e-5 -num_threads {threads} " + \
+		"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
+
+def aggregate_input(wildcards):
+	checkpoint_output = checkpoints.gmc_leaff_chunk_cds.get(**wildcards).output.chunk_dir
+	print("CHECKPOINT:", checkpoint_output)
+	print(expand(
+		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}.blastx.tsv"), #"post/{sample}/{i}.txt",
+		run=wildcards.run,
+		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
+	))
+	return expand(
+		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}.blastx.tsv"), #"post/{sample}/{i}.txt",
+		run=wildcards.run,
+		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
+	)
+
+
+rule gmc_metrics_blastx_combine:
+	input:
+		aggregate_input # dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt.blastx.tsv"))
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "blastx", "{run}", "{run}.blastx.tsv")		
+	shell:
+		"cat {input} > {output[0]}"
