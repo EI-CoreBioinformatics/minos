@@ -27,10 +27,9 @@ class ScoringMetricsManager(object):
 
 			if row[1] == "expression":
 				if row[0][-3:] not in STRANDINFO:
-					raise ValueError("ERROR: expression metric does not have strandedness information " + row[0])				
+					raise ValueError("ERROR: expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded)." + row[0])				
 
 			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
-
 
 		for k in self.metrics:
 			print(k)
@@ -55,30 +54,29 @@ class ScoringMetricsManager(object):
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
 			for mclass in self.metrics:
-				ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
+				if mclass != "junction":
+					ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
 			expression += ", or, "
 			expression += "(exon_num.mono and (combined_cds_length.mono or {0})))]"
-			return expression.format("*".join(["external.all_aF1"] + ext_metrics).replace("*", " or "))
+			return expression.format("*".join(ext_metrics).replace("*", " or "))
 
 		def generate_nf_params(metrics):
-			params = ["    external.all_aF1: {operator: gt, value: 0.5}"]
+			params = list() 
 			for mclass in metrics:
 				for run in metrics[mclass]:
-					params.append("    external.{}_aF1: {{operator: gt, value: {}}}".format(run, metrics[mclass][run][0]["min_value"]))
+					if mclass != "junction":
+						params.append("    external.{}_aF1: {{operator: gt, value: {}}}".format(run, metrics[mclass][run][0]["min_value"]))
 
 			return params
 			
 		def generate_external_scoring(metrics):
-			scoring = [
-				"  {}external.all_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
-					"" if stat == "aF1" else "# ",
-					stat,
-					10 if stat == "aF1" else 5
-				) for stat in ["nF1", "jF1", "eF1", "aF1"]
-			]			
+			blast_metrics = {"seq_prot", "blastdb_prot"}
+			scoring = list()
 			for mclass in metrics:
+				if mclass in blast_metrics or mclass == "junction":
+					continue
 				for run in metrics[mclass]:
 					for stat in ["nF1", "jF1", "eF1", "aF1"]:
 						comment = "#" if stat != "aF1" else ""
@@ -90,15 +88,16 @@ class ScoringMetricsManager(object):
 								metrics[mclass][run][0]["multiplier"]
 								)
 							)
-			for run in metrics.get("aln_prot", {}):
-				for stat in ["qCov", "tCov"]:
-					scoring.append(
-						"  external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
-							run,
-							stat,
-							metrics[mclass][run][0]["multiplier"]
+			for mclass in blast_metrics:
+				for run in metrics.get(mclass, {}):
+					for stat in ["qCov", "tCov"]:
+						scoring.append(
+							"  external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
+								run,
+								stat,
+								metrics[mclass][run][0]["multiplier"]
+							)
 						)
-					)
 			
 			return scoring		
 				
@@ -163,13 +162,14 @@ def run_configure(args):
 	
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 
-	cmd = "singularity exec {} mikado configure --list {} {} -od {} --scoring {} {}".format(
+	cmd = "singularity exec {} mikado configure --list {}{}-od {} --scoring {}{}{}".format(
 		args.mikado_container,
 		args.list_file,
-		("--external " + args.external) if args.external else "",
+		(" --external " + args.external + " ") if args.external else " ",
 		args.outdir,
 		scoringFile,
 		# os.path.abspath("mikado_config.yaml")
+		(" --junctions " + smm.getMetricsData("junction")[0] + " ") if smm.getMetricsData("junction") else " ",
 		mikado_config_file
 	)
 
@@ -182,15 +182,24 @@ def run_configure(args):
 		"mikado-container": args.mikado_container,
 		"mikado-config-file": mikado_config_file,
 		"external-metrics": args.external_metrics,
-		"expression-runs": smm.getMetricsData("expression"), #expression_runs,
-		"transcript-runs": smm.getMetricsData("aln_tran"), #transcript_runs,
-		"protein-runs": smm.getMetricsData("aln_prot"), #protein_runs
-		"protein-seqs": smm.getMetricsData("seq_prot"),	
-		"reference-sequence": args.reference
+		"reference-sequence": args.reference,
+		"blast-mode": args.blastmode
 	}
+
+	run_zzz_data = { 
+		"data": {
+			"expression-runs": smm.getMetricsData("expression"), #expression_runs,
+			"transcript-runs": smm.getMetricsData("aln_tran"), #transcript_runs,
+			"protein-runs": smm.getMetricsData("aln_prot"), #protein_runs
+			"protein-seqs": smm.getMetricsData("seq_prot"),	
+		}
+	}
+
+
 	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
 		yaml.dump(run_zzz_config, run_config_out, default_flow_style=False)
+		yaml.dump(run_zzz_data, run_config_out, default_flow_style=False)
 
 	pass
 
