@@ -22,6 +22,7 @@ def add_default_options(parser):
 	common_group.add_argument("--outdir", "-o", type=str, default="gmc_run")
 	common_group.add_argument("--prefix", type=str, default="gmc_run")
 	common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
+	common_group.add_argument("--dryrun", action="store_true")
 	make_exeenv_arg_group(parser, default_hpc_config_file="", allow_mode_selection=False, silent=True)
 		
 def add_configure_parser(subparsers):
@@ -87,7 +88,7 @@ def main():
 
 		exe_env = ExecutionEnvironment(args, NOW, job_suffix="GMC_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
 
-		run_snakemake(snake, args.outdir, run_config, exe_env)
+		run_snakemake(snake, args.outdir, run_config, exe_env, dryrun=args.dryrun)
 	
 
 	pass
