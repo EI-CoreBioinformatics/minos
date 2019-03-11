@@ -27,9 +27,12 @@ class ScoringMetricsManager(object):
 
 			if row[1] == "expression":
 				if row[0][-3:] not in STRANDINFO:
-					raise ValueError("ERROR: expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded)." + row[0])				
+					raise ValueError("ERROR: expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + row[0])				
 
 			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
+	
+		if len(self.metrics.get("junction", OrderedDict())) > 1:
+			raise ValueError("ERROR: More than one junction file detected. " + self.metrics.get("junction", list()))
 
 		for k in self.metrics:
 			print(k)
@@ -37,7 +40,7 @@ class ScoringMetricsManager(object):
 				print(j, self.metrics[k][j], sep="\n")
 
 	def __init__(self, metrics_file, scoring_template_file, outdir, prefix):
-		self.__importMetricsData(metrics_file)
+		self.__importMetricsData(metrics_file)		
 
 	def getMetricsData(self, metric):
 		mdata = dict()
@@ -53,9 +56,14 @@ class ScoringMetricsManager(object):
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
+			blast_metrics = {"seq_prot", "blastdb_prot"}
 			for mclass in self.metrics:
 				if mclass != "junction":
-					ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
+					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
+					for run in metrics[mclass]:
+						for suffix in suffixes:						
+							ext_metrics.append("external.{}_{}".format(run, suffix))				
+					#ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
 			expression += ", or, "
@@ -64,10 +72,13 @@ class ScoringMetricsManager(object):
 
 		def generate_nf_params(metrics):
 			params = list() 
+			blast_metrics = {"seq_prot", "blastdb_prot"}
 			for mclass in metrics:
-				for run in metrics[mclass]:
-					if mclass != "junction":
-						params.append("    external.{}_aF1: {{operator: gt, value: {}}}".format(run, metrics[mclass][run][0]["min_value"]))
+				if mclass != "junction":
+					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
+					for run in metrics[mclass]:
+						for suffix in suffixes:
+							params.append("    external.{}_{}: {{operator: gt, value: {}}}".format(run, suffix, metrics[mclass][run][0]["min_value"]))
 
 			return params
 			
@@ -75,29 +86,19 @@ class ScoringMetricsManager(object):
 			blast_metrics = {"seq_prot", "blastdb_prot"}
 			scoring = list()
 			for mclass in metrics:
-				if mclass in blast_metrics or mclass == "junction":
-					continue
-				for run in metrics[mclass]:
-					for stat in ["nF1", "jF1", "eF1", "aF1"]:
-						comment = "#" if stat != "aF1" else ""
-						scoring.append(
-							"  {}external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
-								"" if stat == "aF1" else "# ",
-								run,
-								stat,
-								metrics[mclass][run][0]["multiplier"]
+				if mclass != "junction":
+					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["nF1", "jF1", "eF1", "aF1"]
+					for run in metrics[mclass]:
+						for suffix in suffixes:
+							comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
+							scoring.append(
+								"  {}external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
+									comment,
+									run,
+									suffix,
+									metrics[mclass][run][0]["multiplier"]
 								)
 							)
-			for mclass in blast_metrics:
-				for run in metrics.get(mclass, {}):
-					for stat in ["qCov", "tCov"]:
-						scoring.append(
-							"  external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
-								run,
-								stat,
-								metrics[mclass][run][0]["multiplier"]
-							)
-						)
 			
 			return scoring		
 				
@@ -162,14 +163,14 @@ def run_configure(args):
 	
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 
+
 	cmd = "singularity exec {} mikado configure --list {}{}-od {} --scoring {}{}{}".format(
 		args.mikado_container,
 		args.list_file,
 		(" --external " + args.external + " ") if args.external else " ",
 		args.outdir,
 		scoringFile,
-		# os.path.abspath("mikado_config.yaml")
-		(" --junctions " + smm.getMetricsData("junction")[0] + " ") if smm.getMetricsData("junction") else " ",
+		(" --junctions " + list(smm.getMetricsData("junction").values())[0][0][0] + " ") if smm.getMetricsData("junction") else " ",
 		mikado_config_file
 	)
 
