@@ -27,34 +27,39 @@
     "c": "32",
     "J": "gmc_met_kallisto_quant"
   },
-  "gmc_metrics_mikado_vs_all": {
+  "gmc_metrics_mikado_compare_vs_all": {
     "memory": "30000",
     "c": "1",
-    "J": "gmc_met_mikado_all"
+    "J": "gmc_met_mikado_compare_all"
   },
-  "gmc_metrics_mikado_vs_proteins": {
+  "gmc_metrics_mikado_compare_vs_proteins": {
     "memory": "30000",
     "c": "1",
-    "J": "gmc_met_mikado_proteins"
+    "J": "gmc_met_mikado_cmp_prot"
   },
-  "gmc_metrics_mikado_vs_transcripts": {
+  "gmc_metrics_mikado_compare_vs_transcripts": {
     "memory": "30000",
     "c": "1",
-    "J": "gmc_met_mikado_transcripts"
+    "J": "gmc_met_mikado_cmp_tran"
   },
   "gmc_metrics_blastp_mkdb": {
     "memory": "10000",
     "c": "1",
     "J": "gmc_met_makeblastdb"
   },
-  "gmc_leaff_chunk_cds": {
+  "gmc_leaff_chunk_proteins": {
     "memory": "2000",
     "c": "1",
     "J": "gmc_chunk_cds"
   },
-  "gmc_gffread_generate_cds": {
+  "gmc_gffread_extract_proteins": {
     "memory": "2000",
     "c": "1",
     "J": "gmc_generate_cds"
+  },
+  "gmc_metrics_blastp_chunked": {
+    "memory": "32000",
+    "c": "8",
+    "J": "gmc_met_blastp"
   }
 }
