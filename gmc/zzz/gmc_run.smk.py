@@ -30,7 +30,7 @@ OUTPUTS = [
 ]
 
 for run in config.get("data", dict()).get("expression-runs", dict()):
-	if config["use_tpm_for_picking"]:
+	if config["use-tpm-for-picking"]:
 		print("GENERATING TARGET:", run)
 		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
 
