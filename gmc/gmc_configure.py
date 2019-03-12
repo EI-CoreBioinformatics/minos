@@ -58,7 +58,7 @@ class ScoringMetricsManager(object):
 			ext_metrics = list()
 			blast_metrics = {"seq_prot", "blastdb_prot"}
 			for mclass in self.metrics:
-				if mclass != "junction":
+				if mclass not in {"junction", "expression"}:
 					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
 					for run in metrics[mclass]:
 						for suffix in suffixes:						
@@ -74,7 +74,7 @@ class ScoringMetricsManager(object):
 			params = list() 
 			blast_metrics = {"seq_prot", "blastdb_prot"}
 			for mclass in metrics:
-				if mclass != "junction":
+				if mclass not in {"junction", "expression"}:
 					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
 					for run in metrics[mclass]:
 						for suffix in suffixes:
@@ -84,21 +84,31 @@ class ScoringMetricsManager(object):
 			
 		def generate_external_scoring(metrics):
 			blast_metrics = {"seq_prot", "blastdb_prot"}
-			scoring = list()
+			scoring = list()			
+
 			for mclass in metrics:
-				if mclass != "junction":
-					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["nF1", "jF1", "eF1", "aF1"]
-					for run in metrics[mclass]:
-						for suffix in suffixes:
-							comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
-							scoring.append(
-								"  {}external.{}_{}: {{rescaling: max, use_raw: true, multiplier: {}}}".format(
-									comment,
-									run,
-									suffix,
-									metrics[mclass][run][0]["multiplier"]
-								)
+				if mclass == "expression":
+					suffixes = ["tpm"]
+				elif mclass in blast_metrics:
+					suffixes = ["qCov", "tCov"]
+				elif mclass == "junction":
+					continue
+				else:
+					suffixes = ["nF1", "jF1", "eF1", "aF1"]					
+					
+				for run in metrics[mclass]:
+					for suffix in suffixes:
+						comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
+						if suffix == "tpm":
+							expression = "{{rescaling: min, filter: {{operator: lt, value: {}}}, multiplier: {}}}".format(
+								0.5, #! GET VALUE!
+								metrics[mclass][run][0]["multiplier"]
 							)
+						else:
+							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(metrics[mclass][run][0]["multiplier"])
+						scoring.append(
+							"  {}external.{}_{}: {}".format(comment, run, suffix, expression)
+						)
 			
 			return scoring		
 				
@@ -126,16 +136,22 @@ class ScoringMetricsManager(object):
 			print("scoring:", file=_out)
 			print("  # external metrics START", file=_out)
 			print(*generate_external_scoring(self.metrics), sep="\n", file=_out)
-			print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			print("  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			print("  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			"""
+			external.EI_tpm: {rescaling: min, filter: {operator: lt, value: 0.5}, multiplier: 1}
+			So as discussed this replaces the following lines
+			  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}
+			  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
+			"""
 			print("  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
-			print("  # all boolean metrics values from here below", file=_out)
-			print("  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			print("  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			print("  # external.SRA_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			print("  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			print("  external.fln: {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
+			# print("  # all boolean metrics values from here below", file=_out)
+			# print("  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  # external.SRA_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+			# print("  external.fln: {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
 			print("  # external metrics END", file=_out)
 			
 			for line in _in:
@@ -184,7 +200,8 @@ def run_configure(args):
 		"mikado-config-file": mikado_config_file,
 		"external-metrics": args.external_metrics,
 		"reference-sequence": args.reference,
-		"blast-mode": args.blastmode
+		"blast-mode": args.blastmode,
+		"use-tpm-for-picking": args.use_tpm_for_picking
 	}
 
 	run_zzz_data = { 
