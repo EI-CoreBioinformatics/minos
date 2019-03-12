@@ -105,7 +105,7 @@ rule gmc_metrics_cpc2:
 		"/usr/bin/time -v CPC2.py -r -i {input[0]} -o {output[0]} &> {log} "
 
 
-if config["use_tpm_for_picking"]:
+if config["use-tpm-for-picking"]:
 
 	rule gmc_metrics_kallisto_index:
 		input:
