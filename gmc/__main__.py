@@ -38,6 +38,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("--external", type=str, default="")
 	configure_parser.add_argument("--external-metrics", type=str, default="")
 	configure_parser.add_argument("--blastmode", choices=("blastp", "blastx"), default="blastp")
+	configure_parser.add_argument("--use-tpm-for-picking", action="store_true")
 	
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")
