@@ -30,8 +30,9 @@ OUTPUTS = [
 ]
 
 for run in config.get("data", dict()).get("expression-runs", dict()):
-	print("GENERATING TARGET:", run)
-	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
+	if config["use_tpm_for_picking"]:
+		print("GENERATING TARGET:", run)
+		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
 
 #if config.get("transcript-runs"):
 #	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE"))
@@ -85,7 +86,8 @@ rule gmc_gffread_extract_proteins:
 	shell:
 		"set +u && source cufflinks-2.2.1_gk && " + \
 		"gffread {input.gtf} -g {input.refseq} {params.extract} {output[0]} &> {log} && " + \
-		"sed -i \"s/\.$// {output[0]}"
+		"sed -i 's/\.$//g' {output[0]}"
+
 
 rule gmc_metrics_cpc2:
 	input:
@@ -102,32 +104,36 @@ rule gmc_metrics_cpc2:
 		"set +u && source CPC-2.0_beta_py3_cs && " + \
 		"/usr/bin/time -v CPC2.py -r -i {input[0]} -o {output[0]} &> {log} "
 
-rule gmc_metrics_kallisto_index:
-	input:
-		rules.gmc_mikado_prepare.output[0]
-	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".idx")
-	log:
-		os.path.join(LOGDIR, config["prefix"] + ".kallisto_index.log")
-	shell:
-		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
 
-rule gmc_metrics_kallisto_quant:
-	input:
-		index = rules.gmc_metrics_kallisto_index.output[0],
-		reads = get_rnaseq
-	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}", "abundance.tsv")
-	log:
-		os.path.join(LOGDIR, config["prefix"] + ".{run}.kallisto.log")
-	params:
-		stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",  
-		bootstrap = 100,
-		outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
-	threads:
-		32
-	shell:
-		"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
+if config["use_tpm_for_picking"]:
+
+	rule gmc_metrics_kallisto_index:
+		input:
+			rules.gmc_mikado_prepare.output[0]
+		output:
+			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".idx")
+		log:
+			os.path.join(LOGDIR, config["prefix"] + ".kallisto_index.log")
+		shell:
+			"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
+
+	rule gmc_metrics_kallisto_quant:
+		input:
+			index = rules.gmc_metrics_kallisto_index.output[0],
+			reads = get_rnaseq
+		output:
+			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}", "abundance.tsv")
+		log:
+			os.path.join(LOGDIR, config["prefix"] + ".{run}.kallisto.log")
+		params:
+			stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",  
+			bootstrap = 100,
+			outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
+		threads:
+			32
+		shell:
+			"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
+
 
 rule gmc_metrics_mikado_compare_vs_transcripts:
 	input:
