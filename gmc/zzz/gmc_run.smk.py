@@ -24,10 +24,13 @@ def get_protein_sequences(wc):
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
 	os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", "mikado_prepared.fasta.cpc2output.txt"),
-	# os.path.join(config["outdir"], "logs", "mikado_prepared.fasta.leaff.log"),
-	os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx"),
-	# os.path.join(LOGDIR, os.path.basename("mikado_prepared.gtf.cds.fasta.leaff.log"))
 ]
+
+if config["use-tpm-for-picking"]:
+	OUTPUTS.append(
+		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx")
+	)
+
 
 for run in config.get("data", dict()).get("expression-runs", dict()):
 	if config["use-tpm-for-picking"]:
@@ -85,8 +88,13 @@ rule gmc_gffread_extract_proteins:
 		extract = "-y" if config["blast-mode"] == "blastp" else "-W -x"
 	shell:
 		"set +u && source cufflinks-2.2.1_gk && " + \
-		"gffread {input.gtf} -g {input.refseq} {params.extract} {output[0]} &> {log} && " + \
-		"sed -i 's/\.$//g' {output[0]}"
+		"gffread {input.gtf} -g {input.refseq} {params.extract} {output[0]}.raw &> {log} && " + \
+		#"sed 's/\.$/$/g' {output[0]}.raw > {output[0]}"
+		"awk '/^[^>]/ {{ $1=gensub(\"\\\\.\", \"\", \"g\", $1) }} {{ print $0 }}' {output[0]}.raw > {output[0]}"
+
+
+
+
 
 
 rule gmc_metrics_cpc2:
@@ -187,7 +195,7 @@ rule gmc_metrics_blastp_mkdb:
 		"touch {output[0]}"
 
 
-checkpoint gmc_leaff_chunk_proteins:
+checkpoint gmc_chunk_proteins:
 	input:
 		# rules.gmc_gffread_generate_cds.output[0]
 		rules.gmc_gffread_extract_proteins.output[0]
@@ -195,15 +203,14 @@ checkpoint gmc_leaff_chunk_proteins:
 		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"))
 		chunk_dir = directory(os.path.join(config["outdir"], "tmp"))
 	log:
-		os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_extract_proteins.output[0]) + ".leaff.log")
+		os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_extract_proteins.output[0]) + ".chunk.log")
 	params:
 		chunksize = 1000,
-		outdir = os.path.join(config["outdir"], "tmp"),
-		wrapper = "/ei/workarea/group-ga/Scripts/leaff_v0.2.pl"
+		outdir = os.path.join(config["outdir"], "tmp")
 	shell:
-		"set +u && source perl-5.20.1_gk && mkdir -p {params.outdir} && " + \
-        "{params.wrapper} {input[0]} {params.outdir}/chunk {params.chunksize} &> {log}"
-
+		"mkdir -p {params.outdir} && " + \
+		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
+		"awk 'BEGIN {{n=0;m=1;}} /^>/ {{ if (n%{params.chunksize}==0) {{f=sprintf(\"{params.outdir}/chunk-%d.txt\",m); m++;}}; n++; }} {{ print >> f }}' {input[0]} &> {log}"		
 
 rule gmc_metrics_blastp_chunked:
 	input:
@@ -224,7 +231,7 @@ rule gmc_metrics_blastp_chunked:
 
 
 def aggregate_input(wildcards):
-	checkpoint_output = checkpoints.gmc_leaff_chunk_proteins.get(**wildcards).output.chunk_dir
+	checkpoint_output = checkpoints.gmc_chunk_proteins.get(**wildcards).output.chunk_dir
 	print("CHECKPOINT:", checkpoint_output)
 	print(expand(
 		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"), #"post/{sample}/{i}.txt",

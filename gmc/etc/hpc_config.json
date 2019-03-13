@@ -47,7 +47,7 @@
     "c": "1",
     "J": "gmc_met_makeblastdb"
   },
-  "gmc_leaff_chunk_proteins": {
+  "gmc_chunk_proteins": {
     "memory": "2000",
     "c": "1",
     "J": "gmc_chunk_cds"
