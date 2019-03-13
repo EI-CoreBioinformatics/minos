@@ -3,11 +3,10 @@ import sys
 
 
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
-LOGDIR = os.path.join(config["outdir"], "logs")
-
+LOG_DIR = os.path.join(config["outdir"], "logs")
+TEMP_DIR = os.path.join(config["outdir"], "tmp")
 
 def get_rnaseq(wc):
-	# return " ".join(" ".join(pair) for pair in config["expression-runs"][wc.run])
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
 
 def get_all_transcript_assemblies(wc):
@@ -34,11 +33,8 @@ if config["use-tpm-for-picking"]:
 
 for run in config.get("data", dict()).get("expression-runs", dict()):
 	if config["use-tpm-for-picking"]:
-		print("GENERATING TARGET:", run)
 		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
 
-#if config.get("transcript-runs"):
-#	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado", "vs_all", "MIKADO_DONE"))
 
 for run in config.get("data", dict()).get("protein-runs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", run, "MIKADO_DONE"))
@@ -47,14 +43,11 @@ for run in config.get("data", dict()).get("transcript-runs", dict()):
 for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv".format(config["blast-mode"])))
 
-localrules: all, test_imitate_blast, gmc_metrics_blastp_combine
+localrules: all, gmc_metrics_blastp_combine
 
 rule all:
 	input:
 		OUTPUTS
-		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"))
-		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt.link"))
-		#dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.{run}.blastp.tsv"))
 		
 
 rule gmc_mikado_prepare:
@@ -68,7 +61,7 @@ rule gmc_mikado_prepare:
 		min_length = 100,
 		outdir = config["outdir"]
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".mikado_prepare.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".mikado_prepare.log")
 	threads:
 		30
 	shell:
@@ -81,7 +74,7 @@ rule gmc_gffread_extract_proteins:
 	output:
 		rules.gmc_mikado_prepare.output[1] + (".prot.fasta" if config["blast-mode"] == "blastp" else ".cds.fasta")
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".gffread_extract.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract.log")
 	threads:
 		1
 	params:
@@ -89,12 +82,7 @@ rule gmc_gffread_extract_proteins:
 	shell:
 		"set +u && source cufflinks-2.2.1_gk && " + \
 		"gffread {input.gtf} -g {input.refseq} {params.extract} {output[0]}.raw &> {log} && " + \
-		#"sed 's/\.$/$/g' {output[0]}.raw > {output[0]}"
 		"awk '/^[^>]/ {{ $1=gensub(\"\\\\.\", \"\", \"g\", $1) }} {{ print $0 }}' {output[0]}.raw > {output[0]}"
-
-
-
-
 
 
 rule gmc_metrics_cpc2:
@@ -105,7 +93,7 @@ rule gmc_metrics_cpc2:
 	params:
 		x = 1
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".CPC2.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".CPC2.log")
 	threads:
 		4
 	shell:
@@ -121,7 +109,7 @@ if config["use-tpm-for-picking"]:
 		output:
 			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".idx")
 		log:
-			os.path.join(LOGDIR, config["prefix"] + ".kallisto_index.log")
+			os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index.log")
 		shell:
 			"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
 
@@ -132,7 +120,7 @@ if config["use-tpm-for-picking"]:
 		output:
 			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}", "abundance.tsv")
 		log:
-			os.path.join(LOGDIR, config["prefix"] + ".{run}.kallisto.log")
+			os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.log")
 		params:
 			stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",  
 			bootstrap = 100,
@@ -150,7 +138,7 @@ rule gmc_metrics_mikado_compare_vs_transcripts:
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", "{run}", "MIKADO_DONE")
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".mikado_compare.tran.{run}.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare.tran.{run}.log")
 	params:		                                                         	
 		mikado = config["mikado-container"] + " mikado compare",
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "vs_transcripts", wildcards.run),
@@ -168,7 +156,7 @@ rule gmc_metrics_mikado_compare_vs_proteins:
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", "{run}", "MIKADO_DONE")
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
 	params:		                                                         	
 		mikado = config["mikado-container"] + " mikado compare",
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "vs_proteins", wildcards.run),
@@ -185,7 +173,7 @@ rule gmc_metrics_blastp_mkdb:
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}")
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".makeblastdb.{run}.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".makeblastdb.{run}.log")
 	params:
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run),
 		db_prefix = lambda wildcards: wildcards.run
@@ -197,16 +185,14 @@ rule gmc_metrics_blastp_mkdb:
 
 checkpoint gmc_chunk_proteins:
 	input:
-		# rules.gmc_gffread_generate_cds.output[0]
 		rules.gmc_gffread_extract_proteins.output[0]
 	output:
-		# dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"))
-		chunk_dir = directory(os.path.join(config["outdir"], "tmp"))
+		chunk_dir = directory(TEMP_DIR)
 	log:
-		os.path.join(LOGDIR, os.path.basename(rules.gmc_gffread_extract_proteins.output[0]) + ".chunk.log")
+		os.path.join(LOG_DIR, os.path.basename(rules.gmc_gffread_extract_proteins.output[0]) + ".chunk.log")
 	params:
 		chunksize = 1000,
-		outdir = os.path.join(config["outdir"], "tmp")
+		outdir = TEMP_DIR
 	shell:
 		"mkdir -p {params.outdir} && " + \
 		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
@@ -214,12 +200,12 @@ checkpoint gmc_chunk_proteins:
 
 rule gmc_metrics_blastp_chunked:
 	input:
-		chunk = os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt"),
+		chunk = os.path.join(TEMP_DIR, "chunk-{chunk}.txt"),
 		db = rules.gmc_metrics_blastp_mkdb.output[0]
 	output:
-		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv")
+		os.path.join(TEMP_DIR, "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv")
 	log:
-		os.path.join(LOGDIR, "blast_logs", "chunk-{chunk}.{run}." + config["blast-mode"] + ".log")
+		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}." + config["blast-mode"] + ".log")
 	threads:
 		8
 	params:
@@ -232,14 +218,8 @@ rule gmc_metrics_blastp_chunked:
 
 def aggregate_input(wildcards):
 	checkpoint_output = checkpoints.gmc_chunk_proteins.get(**wildcards).output.chunk_dir
-	print("CHECKPOINT:", checkpoint_output)
-	print(expand(
-		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"), #"post/{sample}/{i}.txt",
-		run=wildcards.run,
-		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
-	))
 	return expand(
-		os.path.join(config["outdir"], "tmp", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"), #"post/{sample}/{i}.txt",
+		os.path.join(TEMP_DIR, "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"),
 		run=wildcards.run,
 		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
 	)
@@ -247,8 +227,20 @@ def aggregate_input(wildcards):
 
 rule gmc_metrics_blastp_combine:
 	input:
-		aggregate_input # dynamic(os.path.join(config["outdir"], "tmp", "chunk-{chunk}.txt.blastp.tsv"))
+		aggregate_input 
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}." + config["blast-mode"] + ".tsv")		
 	shell:
-		"cat {input} > {output[0]}"
+		"cat {input} > {output[0]} && rm {input}"
+
+"""
+rule gmc_metrics_blastp_tophit:
+	input:
+		rules.gmc_metrics_blastp_combine.output[0]
+	output:
+		rules.gmc_metrics_blastp_combine.output[0] + ".tophit"
+	params:
+		parser = "/ei/workarea/group-ga/Scripts/parse
+	shell:
+		"set +u && source perl-5.20.1_gk && " + \
+"""
