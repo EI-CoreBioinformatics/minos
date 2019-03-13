@@ -41,13 +41,15 @@ for run in config.get("data", dict()).get("protein-runs", dict()):
 for run in config.get("data", dict()).get("transcript-runs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", run, "MIKADO_DONE"))
 for run in config.get("data", dict()).get("protein-seqs", dict()):
-	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv".format(config["blast-mode"])))
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 
-localrules: all, gmc_metrics_blastp_combine
+localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info
 
 rule all:
 	input:
-		OUTPUTS
+		OUTPUTS,
+		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt")
+		
 		
 
 rule gmc_mikado_prepare:
@@ -171,11 +173,11 @@ rule gmc_metrics_blastp_mkdb:
 	input:
 		get_protein_sequences
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}")
+		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "blastdb", "{run}")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".makeblastdb.{run}.log")
 	params:
-		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run),
+		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run, "blastdb"),
 		db_prefix = lambda wildcards: wildcards.run
 	shell:
 		"set +u && source blast-2.6.0 && " + \
@@ -233,14 +235,24 @@ rule gmc_metrics_blastp_combine:
 	shell:
 		"cat {input} > {output[0]} && rm {input}"
 
-"""
+
 rule gmc_metrics_blastp_tophit:
 	input:
 		rules.gmc_metrics_blastp_combine.output[0]
 	output:
 		rules.gmc_metrics_blastp_combine.output[0] + ".tophit"
 	params:
-		parser = "/ei/workarea/group-ga/Scripts/parse
+		parse_script = "/ei/workarea/group-ga/Scripts/parse_blast_tabular_format_v0.4.pl",
+		extract_script = "/ei/workarea/group-ga/Scripts/get_topHit.pl"
 	shell:
 		"set +u && source perl-5.20.1_gk && " + \
-"""
+		"{params.parse_script} {input[0]} 0 0 query | {params.extract_script} - 1 > {output[0]}"
+
+
+rule gmc_metrics_generate_metrics_info:
+	input:
+		OUTPUTS		
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt")
+	shell:
+		"ls {input} > {output}"
