@@ -61,5 +61,10 @@
     "memory": "32000",
     "c": "8",
     "J": "gmc_met_blastp"
+  },
+  "gmc_metrics_blastp_tophit": {
+	"c": "1",
+    "memory": "4000",
+    "J": "gmc_met_blastp_tophit"
   }
 }
