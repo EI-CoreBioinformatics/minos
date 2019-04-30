@@ -53,30 +53,13 @@ Include: yum wget
     conda install -y -c conda-forge pip python==3.6.7 numpy biopython
     # Install python requirements
 
-	# CPC2
-	cd /opt/software
-	wget http://cpc2.cbi.pku.edu.cn/data/CPC2-beta.tar.gz && tar xvzf CPC2-beta.tar.gz && rm CPC2-beta.tar.gz
-	cd CPC2-beta/bin
-	sed -i "s/commands/subprocess/g" CPC2.py
-	sed -i "s/print /print(/g" seqio.py
-	sed -i "s/\(print.\+\)$/\1)/" seqio.py
-	cd ../libs/libsvm
-	tar xvzf libsvm-3.18.tar.gz 
-	cd libsvm-3.18
-	make clean && make
-	export CPC_HOME=/opt/software/CPC2-beta
-
-
-
-
-
-#	# Mikado
-#    git clone https://github.com/EI-CoreBioinformatics/mikado.git
-#    cd mikado
-#    sed -i 's/;.*//' requirements.txt
-#    conda install --update-all -y -c conda-forge -c bioconda -c anaconda --file requirements.txt
-#    python setup.py bdist_wheel
-#    pip install dist/*whl
+	# Mikado
+    git clone https://github.com/EI-CoreBioinformatics/mikado.git
+    cd mikado
+    sed -i 's/;.*//' requirements.txt
+    conda install --update-all -y -c conda-forge -c bioconda -c anaconda --file requirements.txt
+    python setup.py bdist_wheel
+    pip install dist/*whl
 
 #    # Various dependencies for Daijin
 #    conda install -y -c bioconda -c anaconda -c conda-forge samtools==1.9 openssl=1.0 prodigal blast diamond==0.9.24 transdecoder==5.5.0 stringtie==1.3.4 cufflinks==2.2.1 hisat2==2.1.0 gmap==2018.07.04 portcullis trinity star==2.7.0b minimap2==2.15
