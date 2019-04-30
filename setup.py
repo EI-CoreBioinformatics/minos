@@ -51,7 +51,8 @@ setup(
 	],
 	entry_points={
 		"console_scripts": [
-			"gmc=gmc.__main__:main"
+			"gmc=gmc.__main__:main",
+			"generate_metrics=gmc.scripts.generate_metrics:main"
 		]
 	},
 	package_data={
