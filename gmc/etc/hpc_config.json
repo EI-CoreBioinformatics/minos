@@ -66,5 +66,10 @@
 	"c": "1",
     "memory": "4000",
     "J": "gmc_met_blastp_tophit"
+  },
+  "gmc_mikado_serialise": {
+    "c": "32",
+    "memory": "123000",
+    "J": "gmc_mikado_serialise"
   }
 }
