@@ -201,15 +201,18 @@ def run_configure(args):
 		"external-metrics": args.external_metrics,
 		"reference-sequence": args.reference,
 		"blast-mode": args.blastmode,
-		"use-tpm-for-picking": args.use_tpm_for_picking
+		"use-tpm-for-picking": args.use_tpm_for_picking,
+		"external-metrics-data": args.external_metrics
 	}
 
 	run_zzz_data = { 
 		"data": {
-			"expression-runs": smm.getMetricsData("expression"), #expression_runs,
-			"transcript-runs": smm.getMetricsData("aln_tran"), #transcript_runs,
-			"protein-runs": smm.getMetricsData("aln_prot"), #protein_runs
-			"protein-seqs": smm.getMetricsData("seq_prot"),	
+			"expression-runs": smm.getMetricsData("expression"), 
+			"transcript-runs": smm.getMetricsData("aln_tran"), 
+			"protein-runs": smm.getMetricsData("aln_prot"), 
+			"protein-seqs": smm.getMetricsData("seq_prot"),
+			"junction-data": smm.getMetricsData("junction"),	
+			"repeat-data": smm.getMetricsData("repeat")
 		}
 	}
 
