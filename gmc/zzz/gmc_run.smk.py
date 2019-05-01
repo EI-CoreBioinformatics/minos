@@ -327,7 +327,8 @@ mikado serialise --procs 30 --json-conf Quillaja_saponaria.configuration.yaml --
 rule gmc_mikado_serialise:
 	input:
 		config = config["mikado-config-file"],
-		ext_scores = rules.gmc_metrics_generate_metrics_matrix.output[0]
+		ext_scores = rules.gmc_metrics_generate_metrics_matrix.output[0],
+		transcripts = rules.gmc_mikado_prepare.output[0]
 	output:
 		#os.path.join(config["outdir"], "mikado.subloci.gff3")
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE")
@@ -339,6 +340,6 @@ rule gmc_mikado_serialise:
 	threads:
 		32
 	shell:
-		"singularity exec {params.mikado} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
+		"singularity exec {params.mikado} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
 		"touch {output[0]}"
 
