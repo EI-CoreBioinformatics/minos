@@ -340,6 +340,6 @@ rule gmc_mikado_serialise:
 	threads:
 		32
 	shell:
-		"singularity exec {params.mikado} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
+		"singularity exec {params.mikado} -lv DEBUG --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
 		"touch {output[0]}"
 

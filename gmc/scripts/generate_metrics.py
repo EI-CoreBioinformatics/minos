@@ -14,7 +14,7 @@ def read_metrics_info(f):
 	return metrics_info
 
 def generate_metrics_header(metrics_info):
-	header = list()
+	header = ["tid"]
 	for mcid in MCLASS_INFO:
 		for mid in metrics_info.get(mcid, collections.OrderedDict()):
 			header.extend([mid + (("_" + m) if m else m) for m in MCLASS_INFO[mcid]["metrics"]])
