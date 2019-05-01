@@ -50,8 +50,8 @@ rule all:
 	input:
 		OUTPUTS,
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt"),
-		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE")
-		
+		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
+		os.path.join(config["outdir"], "mikado.subloci.gff3")
 		
 
 rule gmc_mikado_prepare:
@@ -340,6 +340,24 @@ rule gmc_mikado_serialise:
 	threads:
 		32
 	shell:
-		"singularity exec {params.mikado} -lv DEBUG --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
+		"singularity exec {params.mikado} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
 		"touch {output[0]}"
+
+rule gmc_mikado_pick:
+	input:
+		config = config["mikado-config-file"],
+		gtf = rules.gmc_mikado_prepare.output[1],
+		serialise_done = rules.gmc_mikado_serialise.output[0]
+	output:
+		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3")
+	threads:
+		30
+	params:
+		mikado = config["mikado-container"] + " mikado pick",
+		outdir = config["outdir"]
+	shell:
+		"singularity exec {params.mikado} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci_out {output.subloci} {input.gtf}"
+
+
+
 

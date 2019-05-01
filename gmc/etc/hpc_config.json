@@ -71,5 +71,10 @@
     "c": "32",
     "memory": "123000",
     "J": "gmc_mikado_serialise"
+  },
+  "gmc_mikado_pick": {
+    "c": "30",
+    "memory": "123000",
+    "J": "gmc_mikado_pick"
   }
 }
