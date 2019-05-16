@@ -44,14 +44,15 @@ for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 
 
-localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix
+localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick
 
 rule all:
 	input:
 		OUTPUTS,
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt"),
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
-		os.path.join(config["outdir"], "mikado.subloci.gff3")
+		os.path.join(config["outdir"], "mikado.subloci.gff3"),
+		os.path.join(config["outdir"], "mikado.loci.gff3")
 		
 
 rule gmc_mikado_prepare:
@@ -70,6 +71,18 @@ rule gmc_mikado_prepare:
 		30
 	shell:
 		"singularity exec {params.mikado} --minimum_length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}" 
+
+rule gmc_mikado_compare_index_reference:
+	input:
+		rules.gmc_mikado_prepare.output[1]
+	output:
+		rules.gmc_mikado_prepare.output[1] + ".midx"
+	params:
+		mikado = config["mikado-container"] + " mikado compare"
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare_index_reference.log")
+	shell:
+		"singularity exec {params.mikado} --index -r {input} &> {log}"
 
 rule gmc_gffread_extract_proteins:
 	input:
@@ -137,7 +150,8 @@ if config["use-tpm-for-picking"]:
 
 rule gmc_metrics_mikado_compare_vs_transcripts:
 	input:
-		mika = rules.gmc_mikado_prepare.output[1],
+		mika = rules.gmc_mikado_compare_index_reference.output[0],
+		# mika = rules.gmc_mikado_prepare.output[1],
 		transcripts = get_transcript_alignments
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", "{run}", "mikado_{run}.refmap")
@@ -155,7 +169,8 @@ rule gmc_metrics_mikado_compare_vs_transcripts:
 		
 rule gmc_metrics_mikado_compare_vs_proteins:
 	input:
-		mika = rules.gmc_mikado_prepare.output[1],
+		mika = rules.gmc_mikado_compare_index_reference.output[0],
+		# mika = rules.gmc_mikado_prepare.output[1],
 		proteins = get_protein_alignments
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", "{run}", "mikado_{run}.refmap")
@@ -166,8 +181,9 @@ rule gmc_metrics_mikado_compare_vs_proteins:
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", wildcards.run),
 		proteins = lambda wildcards: wildcards.run
 	shell:
+		# --exclude-utr
 		"set +u && mkdir -p {params.outdir} && " + \
-		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log} && " + \
+		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log} && " + \
 		"touch {output[0]}"
 
 
@@ -349,6 +365,7 @@ rule gmc_mikado_pick:
 		gtf = rules.gmc_mikado_prepare.output[1],
 		serialise_done = rules.gmc_mikado_serialise.output[0]
 	output:
+		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
 		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3")
 	threads:
 		30
@@ -356,8 +373,19 @@ rule gmc_mikado_pick:
 		mikado = config["mikado-container"] + " mikado pick",
 		outdir = config["outdir"]
 	shell:
-		"singularity exec {params.mikado} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci_out {output.subloci} {input.gtf}"
+		"singularity exec {params.mikado} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci_out $(basename {output.subloci}) {input.gtf}"
+
+rule gmc_parse_mikado_pick:
+	input:
+		loci = rules.gmc_mikado_pick.output[0]
+	output:
+		gff = os.path.join(config["outdir"], "Mikado.apollo.gff")
+	shell:
+		"parse_mikado_gff {input.loci} > {output.gff}"
 
 
+#rule gmc_protein_completeness:
+#	input:
+			
 
 
