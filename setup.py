@@ -52,7 +52,8 @@ setup(
 	entry_points={
 		"console_scripts": [
 			"gmc=gmc.__main__:main",
-			"generate_metrics=gmc.scripts.generate_metrics:main"
+			"generate_metrics=gmc.scripts.generate_metrics:main",
+			"parse_mikado_gff=gmc.scripts.parse_mikado_gff:main"
 		]
 	},
 	package_data={
