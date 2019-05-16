@@ -22,6 +22,7 @@ def add_default_options(parser):
 	common_group.add_argument("--outdir", "-o", type=str, default="gmc_run")
 	common_group.add_argument("--prefix", type=str, default="gmc_run")
 	common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
+	#common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/mikado/20190325_c940de1/x86_64/mikado-20190325_c940de1.simg")
 	common_group.add_argument("--dryrun", action="store_true")
 	make_exeenv_arg_group(parser, default_hpc_config_file="", allow_mode_selection=False, silent=True)
 		
