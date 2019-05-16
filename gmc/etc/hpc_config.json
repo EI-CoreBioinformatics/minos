@@ -42,6 +42,11 @@
     "c": "1",
     "J": "gmc_met_mikado_cmp_tran"
   },
+  "gmc_mikado_compare_index_reference": {
+    "memory": "8000",
+    "c": "1",
+    "J": "gmc_mikado_cmp_index"
+  },
   "gmc_metrics_blastp_mkdb": {
     "memory": "10000",
     "c": "1",
