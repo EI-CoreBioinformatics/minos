@@ -1,10 +1,20 @@
 import os
 import sys
-
+from enum import Enum, unique, auto
 
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
+
+@unique
+class ExternalMetrics(Enum):
+	MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
+	PROTEIN_BLAST_TOPHITS = auto()
+	CPC_CODING_POTENTIAL = auto()
+	KALLISTO_TPM_EXPRESSION	= auto()
+	REPEAT_ANNOTATION = auto()
+
+
 
 def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
@@ -150,8 +160,8 @@ if config["use-tpm-for-picking"]:
 
 rule gmc_metrics_mikado_compare_vs_transcripts:
 	input:
-		mika = rules.gmc_mikado_compare_index_reference.output[0],
-		# mika = rules.gmc_mikado_prepare.output[1],
+		midx = rules.gmc_mikado_compare_index_reference.output[0],
+		mika = rules.gmc_mikado_prepare.output[1],
 		transcripts = get_transcript_alignments
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", "{run}", "mikado_{run}.refmap")
@@ -169,8 +179,8 @@ rule gmc_metrics_mikado_compare_vs_transcripts:
 		
 rule gmc_metrics_mikado_compare_vs_proteins:
 	input:
-		mika = rules.gmc_mikado_compare_index_reference.output[0],
-		# mika = rules.gmc_mikado_prepare.output[1],
+		midx = rules.gmc_mikado_compare_index_reference.output[0],
+		mika = rules.gmc_mikado_prepare.output[1],
 		proteins = get_protein_alignments
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", "{run}", "mikado_{run}.refmap")
@@ -181,9 +191,8 @@ rule gmc_metrics_mikado_compare_vs_proteins:
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", wildcards.run),
 		proteins = lambda wildcards: wildcards.run
 	shell:
-		# --exclude-utr
 		"set +u && mkdir -p {params.outdir} && " + \
-		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log} && " + \
+		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log} && " + \
 		"touch {output[0]}"
 
 
@@ -289,33 +298,40 @@ rule gmc_metrics_generate_metrics_info:
 					cwd, dirs, files = next(walk)
 				except StopIteration:
 					break
-				if os.path.basename(cwd) == "CPC-2.0_beta":
+				cwd_base = os.path.basename(cwd)
+				if cwd_base == "CPC-2.0_beta":
 					mclass, mid, path = "cpc", "cpc", os.path.join(cwd, files[0])
-					rows.append((2, mclass, mid, path))
-				elif os.path.basename(cwd) in {"proteins", "transcripts"}:
+					rows.append((ExternalMetrics.CPC_CODING_POTENTIAL, mclass, mid, path))
+				elif cwd_base in {"proteins", "transcripts"}:
 					mclass = "mikado"
 					for mid in dirs:
 						cwd, _, files = next(walk)
 						path = glob.glob(os.path.join(cwd, "*.refmap"))[0]
-						rows.append((0, mclass, mid, path))
-				elif os.path.basename(cwd) in {"blastp", "blastx"}:
+						rows.append((ExternalMetrics.MIKADO_TRANSCRIPTS_OR_PROTEINS, mclass, mid, path))
+				elif cwd_base in {"blastp", "blastx"}:
 					mclass = "blast"
 					for mid in dirs:
 						cwd, _, files = next(walk)
 						path = glob.glob(os.path.join(cwd, "*.tophit"))[0]
-						rows.append((1, mclass, mid, path))
+						rows.append((ExternalMetrics.PROTEIN_BLAST_TOPHITS, mclass, mid, path))
 						# last block is not necessary if we clean up the blast databases before
 						try:
 							_ = next(walk)
 						except StopIteration:
 							pass
+				elif cwd_base == "kallisto":
+					mclass = "expression"
+					for mid in dirs:
+						cwd, _, _ = next(walk)
+						path = os.path.join(cwd, "abundance.tsv")
+						rows.append((ExternalMetrics.KALLISTO_TPM_EXPRESSION, mclass, mid, path))
 
 			for mid in config["data"].get("repeat-data", dict()):
 				mclass = "repeat"
 				path = config["data"]["repeat-data"][mid][0][0]
-				rows.append((3, mclass, mid, path))
+				rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
 
-			for _, mclass, mid, path in sorted(rows, key=lambda x:x[0]):
+			for _, mclass, mid, path in sorted(rows, key=lambda x:x[0].value):
 			
 				print(mclass, mid, path, sep="\t", file=sys.stderr)
 				print(mclass, mid, os.path.abspath(path), sep="\t", file=metrics_info)
@@ -347,7 +363,8 @@ rule gmc_mikado_serialise:
 		transcripts = rules.gmc_mikado_prepare.output[0]
 	output:
 		#os.path.join(config["outdir"], "mikado.subloci.gff3")
-		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE")
+		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
+		os.path.join(config["outdir"], "mikado.db")
 	params:
 		mikado = config["mikado-container"] + " mikado serialise",
 		outdir = config["outdir"]
@@ -363,7 +380,8 @@ rule gmc_mikado_pick:
 	input:
 		config = config["mikado-config-file"],
 		gtf = rules.gmc_mikado_prepare.output[1],
-		serialise_done = rules.gmc_mikado_serialise.output[0]
+		serialise_done = rules.gmc_mikado_serialise.output[0],
+		db = rules.gmc_mikado_serialise.output[1]
 	output:
 		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
 		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3")
@@ -373,7 +391,7 @@ rule gmc_mikado_pick:
 		mikado = config["mikado-container"] + " mikado pick",
 		outdir = config["outdir"]
 	shell:
-		"singularity exec {params.mikado} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci_out $(basename {output.subloci}) {input.gtf}"
+		"singularity exec {params.mikado} -lv DEBUG -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci_out $(basename {output.subloci}) -db {input.db} {input.gtf}"
 
 rule gmc_parse_mikado_pick:
 	input:
