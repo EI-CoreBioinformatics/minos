@@ -79,6 +79,7 @@ def main():
 
 	print(args.runmode)
 	if args.runmode == "configure":
+
 		run_configure(args)	
 	elif args.runmode == "run":
 		snake = join(dirname(__file__), "zzz", "gmc_run.smk.py")
@@ -88,6 +89,15 @@ def main():
 			raise ValueError("Missing run configuration in " + args.outdir)
 
 		print("Using run configuration file: " + run_config)
+
+		if args.mikado_container and os.path.exists(args.mikado_container):
+			rconf = yaml.load(open(run_config), Loader=yaml.SafeLoader)
+			rconf["mikado-container"] = args.mikado_container
+			
+			run_config = run_config.replace(".yaml", ".with_singularity.yaml")
+			with open(run_config, "wt") as run_config_out:
+				yaml.dump(rconf, run_config_out, default_flow_style=False)
+
 
 		exe_env = ExecutionEnvironment(args, NOW, job_suffix="GMC_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
 
