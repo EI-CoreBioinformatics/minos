@@ -13,7 +13,7 @@ from . import __version__
 STRANDINFO = {"_xx", "_rf", "_fr"}
 
 class ScoringMetricsManager(object):
-	def __importMetricsData(self, fn):
+	def __importMetricsData(self, fn, use_tpm=False):
 		self.metrics = OrderedDict()
 		for row in csv.reader(open(fn), delimiter="\t", quotechar='"'):
 			if row[0].startswith("#"):
@@ -26,8 +26,12 @@ class ScoringMetricsManager(object):
 			}
 
 			if row[1] == "expression":
-				if row[0][-3:] not in STRANDINFO:
-					raise ValueError("ERROR: expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + row[0])				
+				if use_tpm:
+					if row[0][-3:] not in STRANDINFO:
+						raise ValueError("ERROR: expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + row[0])
+				else:
+					print("Found expression metric: {} but --use-tpm-for-picking was not set. Ignoring.".format(row[0]))
+					continue
 
 			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
 	
@@ -39,8 +43,8 @@ class ScoringMetricsManager(object):
 			for j in self.metrics[k]:
 				print(j, self.metrics[k][j], sep="\n")
 
-	def __init__(self, metrics_file, scoring_template_file, outdir, prefix):
-		self.__importMetricsData(metrics_file)		
+	def __init__(self, metrics_file, scoring_template_file, outdir, prefix, use_tpm=False):
+		self.__importMetricsData(metrics_file, use_tpm=use_tpm)
 
 	def getMetricsData(self, metric):
 		mdata = dict()
@@ -104,10 +108,12 @@ class ScoringMetricsManager(object):
 								0.5, #! GET VALUE!
 								metrics[mclass][run][0]["multiplier"]
 							)
+							suffix = ""
 						else:
 							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(metrics[mclass][run][0]["multiplier"])
+							suffix = "_" + suffix
 						scoring.append(
-							"  {}external.{}_{}: {}".format(comment, run, suffix, expression)
+							"  {}external.{}{}: {}".format(comment, run, suffix, expression)
 						)
 			
 			return scoring		
@@ -167,7 +173,7 @@ def run_configure(args):
 	pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 
 	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
-	smm = ScoringMetricsManager(args.external_metrics, args.scoring_template, args.outdir, args.prefix)
+	smm = ScoringMetricsManager(args.external_metrics, args.scoring_template, args.outdir, args.prefix, use_tpm=args.use_tpm_for_picking)
 	print("Generating scoring file " + scoringFile + " ...", end="", flush=True)
 	smm.generateScoringFile(args.scoring_template, scoringFile)
 	print(" done.")
