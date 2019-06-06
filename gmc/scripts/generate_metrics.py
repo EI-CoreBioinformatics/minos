@@ -81,7 +81,7 @@ def read_cpc(f, seen=set()):
 def read_kallisto(f, seen=set()):
 	model_info = {"nmetrics": None}
 	for i, row in enumerate(csv.reader(open(f), delimiter="\t")):
-		if i > 0 and not row.startswith("#"):
+		if i > 0 and not row[0].startswith("#"):
 			tid = row[0]
 			if seen and tid not in seen:
 				raise ValueError("Error: This is a kallisto run ({}) but transcript {} occurs for the first time. Please check your mikado/kallisto inputs.".format(f, tid))
@@ -100,7 +100,7 @@ MCLASS_INFO = collections.OrderedDict([
 	("mikado", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
 	("blast", {"metrics": ["qCov", "tCov"], "parser": read_blast}),
 	("cpc", {"metrics": [""], "parser": read_cpc}),
-	("kallisto", {"metrics": [""], "parser": read_kallisto}),
+	("expression", {"metrics": [""], "parser": read_kallisto}),
 	("repeat", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": None})
 ])                                                                                      		
 
@@ -125,15 +125,19 @@ def main():
 
 	print(*metrics_header, sep="\t")
 
+	# print(*metrics_info.keys(), sep="\n", file=sys.stderr)
+	# print(*metrics_info.get("expression", dict()).keys(), sep="\n", file=sys.stderr)
+
 	
 	model_info = collections.OrderedDict()
 	first_run = None
 	seen = set()
 	for mclass in MCLASS_INFO:
-		# print("Processing {} runs ...".format(mclass))
+		#print("Processing {} runs ...".format(mclass), file=sys.stderr)
 		for run in metrics_info.get(mclass, collections.OrderedDict()):
-			# print(" " + run + " ...")
+			#print(" " + run + " ...", file=sys.stderr)
 			if MCLASS_INFO[mclass]["parser"] is None:
+				#print("NO PARSER", file=sys.stderr)
 				continue
 			if first_run is None:
 				first_run = run
