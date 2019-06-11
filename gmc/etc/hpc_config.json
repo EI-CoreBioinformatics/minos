@@ -81,5 +81,15 @@
     "c": "30",
     "memory": "123000",
     "J": "gmc_mikado_pick"
+  },
+  "gmc_metrics_kallisto_index_post_pick": {
+    "memory": "12000",
+    "c": "1",
+    "J": "gmc_met_kallisto_index_post_pick"
+  },
+  "gmc_metrics_kallisto_quant_post_pick": {
+    "memory": "60000",
+    "c": "32",
+    "J": "gmc_met_kallisto_quant_post_pick"
   }
 }

@@ -40,10 +40,12 @@ if config["use-tpm-for-picking"]:
 		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx")
 	)
 
-
+POST_PICK_EXPRESSION = list()
 for run in config.get("data", dict()).get("expression-runs", dict()):
 	if config["use-tpm-for-picking"]:
 		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
+	POST_PICK_EXPRESSION.append(os.path.join(config["outdir"], "kallisto", run, "abundance.tsv"))
+
 
 # gmc_run4/generate_metrics/mikado_compare/vs_transcripts/Scallop_Old_leaf_transcripts/vs_transcripts_Scallop_Old_leaf_transcripts.refmap
 for run in config.get("data", dict()).get("protein-runs", dict()):
@@ -54,7 +56,7 @@ for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 
 
-localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick, gmc_gffread_extract_proteins_post_pick, gmc_gffread_extract_proteins, gmc_protein_completeness
+localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick, gmc_gffread_extract_proteins_post_pick, gmc_gffread_extract_proteins, gmc_protein_completeness, gmc_gffread_extract_cdna_post_pick
 
 rule all:
 	input:
@@ -66,7 +68,12 @@ rule all:
 		os.path.join(config["outdir"], "mikado.annotation.gff"),
 		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
 		os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
-		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary")
+		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
+		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
+		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
+		POST_PICK_EXPRESSION
+
+
 		
 
 rule gmc_mikado_prepare:
@@ -417,6 +424,18 @@ rule gmc_gffread_extract_proteins_post_pick:
 		"set +u && source cufflinks-2.2.1_gk && " + \
 		"gffread {input.gff} -g {input.refseq} -W -y {output[0]} &> {log}" 
 
+rule gmc_gffread_extract_cdna_post_pick:
+	input:
+		gff = rules.gmc_parse_mikado_pick.output[0],
+		refseq = config["reference-sequence"]
+	output:
+		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_cdna_post_pick.log")
+	shell:
+		"set +u && source cufflinks-2.2.1_gk && " + \
+		"gffread {input.gff} -g {input.refseq} -W -x {output[0]} &> {log}" 
+
 rule gmc_protein_completeness:
 	input:
 		proteins = rules.gmc_gffread_extract_proteins_post_pick.output[0]
@@ -428,6 +447,41 @@ rule gmc_protein_completeness:
 		prefix = "mikado.annotation"
 	shell:
 		"protein_completeness -o {params.outdir} -p {params.prefix} {input.proteins}"
+
+
+rule gmc_metrics_kallisto_index_post_pick:
+	input:
+		rules.gmc_gffread_extract_cdna_post_pick.output[0]
+	output:
+	    os.path.join(config["outdir"], "kallisto", os.path.basename(rules.gmc_gffread_extract_cdna_post_pick.output[0]) + ".idx")
+	log:
+	    os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index_post_pick.log")
+	shell:
+	    "set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
+
+rule gmc_metrics_kallisto_quant_post_pick:
+	input:
+	    index = rules.gmc_metrics_kallisto_index_post_pick.output[0],
+	    reads = get_rnaseq
+	output:
+	    os.path.join(config["outdir"], "kallisto", "{run}", "abundance.tsv")
+	log:
+	    os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.post_pick.log")
+	params:
+	    stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
+	    bootstrap = 100,
+	    outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
+	threads:
+	    32
+	shell:
+	    "set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
+
+
+
+
+
+
+
 
 
 
