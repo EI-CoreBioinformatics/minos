@@ -54,7 +54,7 @@ for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 
 
-localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick
+localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick, gmc_gffread_extract_proteins_post_pick, gmc_gffread_extract_proteins, gmc_protein_completeness
 
 rule all:
 	input:
@@ -62,7 +62,11 @@ rule all:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt"),
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
 		os.path.join(config["outdir"], "mikado.subloci.gff3"),
-		os.path.join(config["outdir"], "mikado.loci.gff3")
+		os.path.join(config["outdir"], "mikado.loci.gff3"),
+		os.path.join(config["outdir"], "mikado.annotation.gff"),
+		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
+		os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
+		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary")
 		
 
 rule gmc_mikado_prepare:
@@ -395,15 +399,35 @@ rule gmc_mikado_pick:
 
 rule gmc_parse_mikado_pick:
 	input:
-		loci = rules.gmc_mikado_pick.output[0]
+		loci = rules.gmc_mikado_pick.output[1]
 	output:
-		gff = os.path.join(config["outdir"], "Mikado.apollo.gff")
+		gff = os.path.join(config["outdir"], "mikado.annotation.gff")
 	shell:
 		"parse_mikado_gff {input.loci} > {output.gff}"
 
+rule gmc_gffread_extract_proteins_post_pick:
+	input:
+		gff = rules.gmc_parse_mikado_pick.output[0],
+		refseq = config["reference-sequence"]
+	output:
+		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_post_pick.log")
+	shell:
+		"set +u && source cufflinks-2.2.1_gk && " + \
+		"gffread {input.gff} -g {input.refseq} -W -y {output[0]} &> {log}" 
 
-#rule gmc_protein_completeness:
-#	input:
-			
+rule gmc_protein_completeness:
+	input:
+		proteins = rules.gmc_gffread_extract_proteins_post_pick.output[0]
+	output:
+		tsv = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
+		summary = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary")
+	params:
+		outdir = config["outdir"],
+		prefix = "mikado.annotation"
+	shell:
+		"protein_completeness -o {params.outdir} -p {params.prefix} {input.proteins}"
+
 
 

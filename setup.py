@@ -47,13 +47,15 @@ setup(
 	],
 	install_requires=[
 		"snakemake>=5.4.0",
-		"drmaa"
+		"drmaa",
+		"biopython"
 	],
 	entry_points={
 		"console_scripts": [
 			"gmc=gmc.__main__:main",
 			"generate_metrics=gmc.scripts.generate_metrics:main",
-			"parse_mikado_gff=gmc.scripts.parse_mikado_gff:main"
+			"parse_mikado_gff=gmc.scripts.parse_mikado_gff:main",
+			"protein_completeness=gmc.scripts.protein_completeness:main"
 		]
 	},
 	package_data={
