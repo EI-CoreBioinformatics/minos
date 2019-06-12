@@ -46,7 +46,6 @@ for run in config.get("data", dict()).get("expression-runs", dict()):
 		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
 	POST_PICK_EXPRESSION.append(os.path.join(config["outdir"], "kallisto", run, "abundance.tsv"))
 
-
 # gmc_run4/generate_metrics/mikado_compare/vs_transcripts/Scallop_Old_leaf_transcripts/vs_transcripts_Scallop_Old_leaf_transcripts.refmap
 for run in config.get("data", dict()).get("protein-runs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", run, "mikado_" + run + ".refmap"))
@@ -56,7 +55,7 @@ for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 
 
-localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick, gmc_gffread_extract_proteins_post_pick, gmc_gffread_extract_proteins, gmc_protein_completeness, gmc_gffread_extract_cdna_post_pick
+localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick, gmc_gffread_extract_proteins_post_pick, gmc_gffread_extract_proteins, gmc_protein_completeness, gmc_gffread_extract_cdna_post_pick, gmc_gff_check_post_pick
 
 rule all:
 	input:
@@ -71,6 +70,7 @@ rule all:
 		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
 		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
+		os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff"),
 		POST_PICK_EXPRESSION
 
 
@@ -448,8 +448,21 @@ rule gmc_protein_completeness:
 	shell:
 		"protein_completeness -o {params.outdir} -p {params.prefix} {input.proteins}"
 
+rule gmc_gff_check_post_pick:
+	input:
+		rules.gmc_parse_mikado_pick.output[0]
+	output:
+		gff = os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff")
+	log:
+		os.path.join(LOGDIR, config["prefix"] + ".post_pick_genometools_check.log")
+	shell:
+		"set +u && source genometools-1.5.9 && " + \
+		"gt_gff3 -sort -tidy -retainids yes -addids no {input[0]} > {output.gff} 2> {log}"
+		
+		
 
-rule gmc_metrics_kallisto_index_post_pick:
+
+rule gmc_kallisto_index_post_pick:
 	input:
 		rules.gmc_gffread_extract_cdna_post_pick.output[0]
 	output:
@@ -459,9 +472,9 @@ rule gmc_metrics_kallisto_index_post_pick:
 	shell:
 	    "set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
 
-rule gmc_metrics_kallisto_quant_post_pick:
+rule gmc_kallisto_quant_post_pick:
 	input:
-	    index = rules.gmc_metrics_kallisto_index_post_pick.output[0],
+	    index = rules.gmc_kallisto_index_post_pick.output[0],
 	    reads = get_rnaseq
 	output:
 	    os.path.join(config["outdir"], "kallisto", "{run}", "abundance.tsv")
