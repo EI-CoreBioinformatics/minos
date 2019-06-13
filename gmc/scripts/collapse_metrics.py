@@ -82,13 +82,13 @@ def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto
 		scores = {
 			"protein_score": max(float(row[k]) for k in metrics_info.get("mikado.protein", set()) if k.endswith("_aF1")),
 			"transcript_score": max(float(row[k]) for k in metrics_info.get("mikado.transcript", set()) if k.endswith("_aF1")),
-			"hom_qcov_score": max(float(row[k]) for k in metrics_info.get("blast", set()) if k.endswith("_qCov"),
-			"hom_tcov_score": max(float(row[k]) for k in metrics_info.get("blast", set()) if k.endswith("_tCov"),
+			"hom_qcov_score": max(float(row[k]) for k in metrics_info.get("blast", set()) if k.endswith("_qCov")),
+			"hom_tcov_score": max(float(row[k]) for k in metrics_info.get("blast", set()) if k.endswith("_tCov")),
 			"hom_acov_score": (hom_qcov_score + hom_tcov_score) / 2.0,
-			"te_score": 0.0 # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
+			"te_score": 0.0,  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
 			"cpc_score": row["cpc"],
 			"expression_score": 0.0,
-			"classification": 1 #TODO!
+			"classification": 1
 		}
 
 

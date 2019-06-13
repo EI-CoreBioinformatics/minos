@@ -55,7 +55,18 @@ for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 
 
-localrules: all, gmc_metrics_blastp_combine, gmc_metrics_generate_metrics_info, gmc_metrics_generate_metrics_matrix, gmc_parse_mikado_pick, gmc_gffread_extract_proteins_post_pick, gmc_gffread_extract_proteins, gmc_protein_completeness, gmc_gffread_extract_cdna_post_pick, gmc_gff_check_post_pick
+localrules:
+	all,
+	gmc_metrics_blastp_combine,
+	gmc_metrics_generate_metrics_info,
+	gmc_metrics_generate_metrics_matrix,
+	gmc_parse_mikado_pick,
+	gmc_gffread_extract_proteins_post_pick,
+	gmc_gffread_extract_proteins,
+	gmc_protein_completeness,
+	gmc_gffread_extract_cdna_post_pick,
+	gmc_gff_check_post_pick,
+	gmc_collapse_metrics
 
 rule all:
 	input:
@@ -71,9 +82,8 @@ rule all:
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
 		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
 		os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff"),
+		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv"),
 		POST_PICK_EXPRESSION
-
-
 		
 
 rule gmc_mikado_prepare:
@@ -454,10 +464,10 @@ rule gmc_gff_check_post_pick:
 	output:
 		gff = os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff")
 	log:
-		os.path.join(LOGDIR, config["prefix"] + ".post_pick_genometools_check.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".post_pick_genometools_check.log")
 	shell:
 		"set +u && source genometools-1.5.9 && " + \
-		"gt_gff3 -sort -tidy -retainids yes -addids no {input[0]} > {output.gff} 2> {log}"
+		"gt gff3 -sort -tidy -retainids yes -addids no {input[0]} > {output.gff} 2> {log}"
 		
 		
 
@@ -483,18 +493,19 @@ rule gmc_kallisto_quant_post_pick:
 	params:
 	    stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
 	    bootstrap = 100,
-	    outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
+	    outdir = os.path.join(config["outdir"], "kallisto", "{run}")
 	threads:
 	    32
 	shell:
 	    "set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
 
-
-
-
-
-
-
-
-
-
+rule gmc_collapse_metrics:
+	input:
+		gff = rules.gmc_parse_mikado_pick.output[0],
+		ext_scores = rules.gmc_metrics_generate_metrics_matrix.output[0],
+		metrics_info = rules.gmc_metrics_generate_metrics_info.output[0],
+		expression = expand(rules.gmc_kallisto_quant_post_pick.output, run=config["data"]["expression-runs"].keys())
+	output:
+		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv")
+	shell:
+		"collapse_metrics {input.gff} {input.ext_scores} {input.metrics_info} {input.expression} > {output}"
