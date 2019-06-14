@@ -78,22 +78,24 @@ def read_metrics_info(tsv):
 def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto_data):
 	model_info, gene_info = dict(), dict()
 	for row in csv.DictReader(open(metrics_matrix), delimiter="\t"):
+		tid = row["tid"]
 
 		scores = {
-			"protein_score": max(float(row[k]) for k in metrics_info.get("mikado.protein", set()) if k.endswith("_aF1")),
-			"transcript_score": max(float(row[k]) for k in metrics_info.get("mikado.transcript", set()) if k.endswith("_aF1")),
-			"hom_qcov_score": max(float(row[k]) for k in metrics_info.get("blast", set()) if k.endswith("_qCov")),
-			"hom_tcov_score": max(float(row[k]) for k in metrics_info.get("blast", set()) if k.endswith("_tCov")),
-			"hom_acov_score": (hom_qcov_score + hom_tcov_score) / 2.0,
+			"protein_score": max(float(row[k + "_aF1"]) for k in metrics_info.get("mikado.protein", set())),
+			"transcript_score": max(float(row[k + "_aF1"]) for k in metrics_info.get("mikado.transcript", set())),
+			"hom_qcov_score": max(float(row[k + "_qCov"]) for k in metrics_info.get("blast", set())),
+			"hom_tcov_score": max(float(row[k + "_tCov"]) for k in metrics_info.get("blast", set())),
+			"hom_acov_score": 0, 
 			"te_score": 0.0,  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
-			"cpc_score": row["cpc"],
+			"cpc_score": float(row["cpc"]),
 			"expression_score": 0.0,
 			"classification": 1
 		}
+		scores["hom_acov_score"] = (scores["hom_qcov_score"] + scores["hom_tcov_score"]) / 2.0
 
-
-		tinfo = transcripts_info.get(tid)
+		tinfo = transcripts_info.get(tid, None)
 		if tinfo is not None:
+			# print(tid, tinfo, file=sys.stderr)
 
 			if not model_info.get(tid) is None:                                                                                                   	
 				raise ValueError("Error: Potential duplicate entry. Transcript '{}' already processed. Please check.\n{}\n".format(tid, "\t".join(row)))
@@ -104,11 +106,11 @@ def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto
 
 			scores["expression_score"] = kallisto_score
 
-			model_info["id"] = dict()
-			model_info["id"].update(tinfo)
-			gid = model_info["id"]["gene"] = tinfo["parent"]
-			del model_info["id"]["parent"]
-			model_info["id"].update(scores)
+			model_info[tid] = dict()
+			model_info[tid].update(tinfo)
+			gid = model_info[tid]["gene"] = tinfo["parent"]
+			del model_info[tid]["parent"]
+			model_info[tid].update(scores)
 			
 			# get the highest metrics value for gene
 			# except for te_score
@@ -116,7 +118,7 @@ def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto
 			if not ginfo:
 				gene_info[gid] = scores
 			else:
-				for k, v in ginfo:
+				for k, v in ginfo.items():
 					cmp_f = max if k != "te_score" else min
 					gene_info[gid][k] = cmp_f(v, scores[k])
 
@@ -173,23 +175,23 @@ def main():
 	args = ap.parse_args()
 
 
-	print(args)
+	# print(args)
 	try:
-		transcripts_info = initialize_transcripts_info(args.input_gff)
+		transcripts_info = initialize_transcript_info(args.input_gff)
 	except FileNotFoundError:
-		print("Error: Cannot find input gff at " + args.input_gff)
+		print("Error: Cannot find input gff at " + args.input_gff, file=sys.stderr)
 
 	try:
 		metrics_info = read_metrics_info(args.metrics_info)
 	except FileNotFoundError:
-		print("Error: Cannot find metrics info at " + args.metrics_info)
+		print("Error: Cannot find metrics info at " + args.metrics_info, file=sys.stderr)
 
 	kallisto_data = process_kallisto_data(args.kallisto_tpm)
 
 	try:
 		model_info, gene_info = generate_final_info(args.metrics_matrix, metrics_info, transcripts_info, kallisto_data)
 	except FileNotFoundError:
-		print("Error: Cannot find metrics matrix at " + args.metrics_matrix)
+		print("Error: Cannot find metrics matrix at " + args.metrics_matrix, file=sys.stderr)
 
 
 	write_scores(model_info, gene_info)
