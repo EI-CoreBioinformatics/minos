@@ -65,8 +65,9 @@ localrules:
 	gmc_gffread_extract_proteins,
 	gmc_protein_completeness,
 	gmc_gffread_extract_cdna_post_pick,
-	gmc_gff_check_post_pick,
-	gmc_collapse_metrics
+	gmc_gff_genometools_check_post_pick,
+	gmc_collapse_metrics,
+	gmc_gff_validate_post_gt
 
 rule all:
 	input:
@@ -83,6 +84,7 @@ rule all:
 		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
 		os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff"),
 		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv"),
+		os.path.join(config["outdir"], "mikado.annotation.gt_checked.validation_report.txt"),
 		POST_PICK_EXPRESSION
 		
 
@@ -458,7 +460,7 @@ rule gmc_protein_completeness:
 	shell:
 		"protein_completeness -o {params.outdir} -p {params.prefix} {input.proteins}"
 
-rule gmc_gff_check_post_pick:
+rule gmc_gff_genometools_check_post_pick:
 	input:
 		rules.gmc_parse_mikado_pick.output[0]
 	output:
@@ -468,7 +470,14 @@ rule gmc_gff_check_post_pick:
 	shell:
 		"set +u && source genometools-1.5.9 && " + \
 		"gt gff3 -sort -tidy -retainids yes -addids no {input[0]} > {output.gff} 2> {log}"
-		
+
+rule gmc_gff_validate_post_gt:
+	input:
+		rules.gmc_gff_genometools_check_post_pick.output[0]
+	output:
+		os.path.join(config["outdir"], "mikado.annotation.gt_checked.validation_report.txt")
+	shell:
+		"validate_gff3 {input} > {output}"
 		
 
 
