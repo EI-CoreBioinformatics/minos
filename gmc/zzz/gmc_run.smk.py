@@ -444,7 +444,7 @@ rule gmc_gffread_extract_cdna_post_pick:
 		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_cdna_post_pick.log")
 	shell:
 		"set +u && source cufflinks-2.2.1_gk && " + \
-		"gffread {input.gff} -g {input.refseq} -W -x {output[0]} &> {log}" 
+		"gffread {input.gff} -g {input.refseq} -W -w {output[0]} &> {log}" 
 
 rule gmc_protein_completeness:
 	input:
@@ -507,5 +507,7 @@ rule gmc_collapse_metrics:
 		expression = expand(rules.gmc_kallisto_quant_post_pick.output, run=config["data"]["expression-runs"].keys())
 	output:
 		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
 	shell:
-		"collapse_metrics {input.gff} {input.ext_scores} {input.metrics_info} {input.expression} > {output}"
+		"collapse_metrics {input.gff} {input.ext_scores} {input.metrics_info} {input.expression} > {output} 2> {log}"
