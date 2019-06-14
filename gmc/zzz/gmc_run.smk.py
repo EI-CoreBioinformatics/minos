@@ -66,8 +66,7 @@ localrules:
 	gmc_protein_completeness,
 	gmc_gffread_extract_cdna_post_pick,
 	gmc_gff_genometools_check_post_pick,
-	gmc_collapse_metrics,
-	gmc_gff_validate_post_gt
+	gmc_collapse_metrics
 
 rule all:
 	input:

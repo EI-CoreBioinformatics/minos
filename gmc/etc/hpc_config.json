@@ -91,5 +91,10 @@
     "memory": "60000",
     "c": "32",
     "J": "gmc_met_kallisto_quant_post_pick"
+  },
+  "gmc_gff_validate_post_gt": {
+    "memory": "2000",
+    "c": 1,
+    "J": "gmc_gff_validate_post_gt"
   }
 }
