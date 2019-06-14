@@ -4,7 +4,7 @@ import csv
 
 class TranscriptDataValidator():
 	gff_header = ["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
-	valid_freature_types = {"gene", "mRNA", "exon", "CDS", "five_prime_UTR", "three_prime_UTR"}
+	valid_feature_types = {"gene", "mRNA", "exon", "CDS", "five_prime_UTR", "three_prime_UTR"}
 
 	def __init__(self, gff):
 		self.genes_info = dict()
@@ -29,9 +29,9 @@ class TranscriptDataValidator():
 
 		try:
 			with open(gff) as gff_in:
-				for row in csv.DictReader(open(gff), fieldnames=gff_header, delimiter="\t"):
+				for row in csv.DictReader(open(gff), fieldnames=self.gff_header, delimiter="\t"):
 					if not row["seqid"].startswith("#"):
-						if row["type"] in valid_types:
+						if row["type"] in self.valid_feature_types:
 							start, end = int(row["start"]), int(row["end"])
 							if start > end:
 								print("WARN: start coordinate is greater than end coordinate [{} > {}], swapping them")
@@ -47,7 +47,7 @@ class TranscriptDataValidator():
 							# make sure phase is an integer	
 							row["phase"] = int(row["phase"]) if row["phase"] in {"0", "1", "2"} else 0
 			
-							attrib = dict(item.split("=") for item in row[8].strip(";").split(";"))
+							attrib = dict(item.split("=") for item in row["attributes"].strip(";").split(";"))
 			
 			
 							if row["type"] == "gene":
@@ -83,8 +83,8 @@ class TranscriptDataValidator():
 									}
 								else:
 									ginfo.update({
-										"start": min(ginfo[gene]["start"], row["start"]),
-										"end": max(ginfo[gene]["end"], row["end"])
+										"start": min(ginfo["start"], row["start"]),
+										"end": max(ginfo["end"], row["end"])
 									})
 			
 							elif row["type"] == "exon":
@@ -100,7 +100,7 @@ class TranscriptDataValidator():
 								else:
 									einfo.update({
 										"start": min(einfo["start"], row["start"]),
-										"end": max(einfo["end"], row["end"]
+										"end": max(einfo["end"], row["end"])
 									})
 			
 							elif row["type"] == "CDS":
@@ -127,17 +127,15 @@ class TranscriptDataValidator():
 								uid = get_attrib("Parent", attrib, row["type"].split("_")[-1])
 								if row["type"] == "five_prime_UTR":
 									self.utr5_info.setdefault(uid, list()).append((row["start"], row["end"]))
-								if row["type"] == "three_prime_UTR"	
+								if row["type"] == "three_prime_UTR":
 									self.utr3_info.setdefault(uid, list()).append((row["start"], row["end"]))
 
-    	except FileNotFoundError:
-        	raise FileNotFoundError("Error: Cannot find input gff at " + gff)
+		except FileNotFoundError:
+			raise FileNotFoundError("Error: Cannot find input gff at " + gff)
 	
-		self.utr5_info.sort()
-		self.utr3_info.sort()
-		self.exons_info.sort()
-		self.cds_info.sort()
-		self.cds_length.sort()
+		for d in [self.utr5_info, self.utr3_info, self.exons_info, self.cds_info, self.cds_length]:
+			for v in d.values():
+				v.sort()
 
 	
 
@@ -147,9 +145,9 @@ class TranscriptDataValidator():
 			if ginfo is None:
 				print("WARN: Gene id '{}' not found.".format(gid))
 			if ginfo["start"] != mginfo["start"]:
-				print("WARN: Gene start is not consistent to all mRNA spans for gene '{}' (actual={}, computed={})".format(gid, ginfo["start"], mginfo["start"])
+				print("WARN: Gene start is not consistent to all mRNA spans for gene '{}' (actual={}, computed={})".format(gid, ginfo["start"], mginfo["start"]))
 			if ginfo["end"] != mginfo["end"]:
-				print("WARN: Gene end is not consistent to all mRNA spans for gene '{}' (actual={}, computed={})".format(gid, ginfo["end"], mginfo["end"])
+				print("WARN: Gene end is not consistent to all mRNA spans for gene '{}' (actual={}, computed={})".format(gid, ginfo["end"], mginfo["end"]))
 
 	def validate_transcripts(self):
 		for tid, tinfo in sorted(self.transcripts_info.items(), key=lambda x:x[0]):
@@ -165,8 +163,10 @@ class TranscriptDataValidator():
 				span = end - start + 1
 				tinfo["exon_count"] += 1
 				tinfo["exon_len"] += span
-				tinfo["exon_start"] = start if tinfo["exon_start"] == 0 or start < tinfo["exon_start"]
-				tinfo["exon_end"] = end if tinfo["exon_end"] == 0 or end > tinfo["exon_end"]
+				if tinfo["exon_start"] == 0 or start < tinfo["exon_start"]:
+					tinfo["exon_start"] = start 
+				if tinfo["exon_end"] == 0 or end > tinfo["exon_end"]:
+					tinfo["exon_end"] = end 
 				
 			for start, end in self.cds_info.get(tid, list()):
 				span = end - start + 1
@@ -181,7 +181,7 @@ class TranscriptDataValidator():
 	
 				total_cds_count = tinfo["cds_complete_match"] + tinfo["cds_partial_match"]
 				if total_cds_count != tinfo["cds_count"]:
-					print("WARN: Not all CDS exons for transcript '{}' are covered within exon.".format(tid)
+					print("WARN: Not all CDS exons for transcript '{}' are covered within exon.".format(tid))
 	
 			for start, end in self.cds_length.get(tid, list()):
 				span = end - start + 1
@@ -206,9 +206,11 @@ class TranscriptDataValidator():
 								print("WARN: {}'-UTR start position not at expected start for transcript '{}'".format(utr, tid))
 						elif utr == 3 and tinfo["strand"] == "+" and e_start < start and end == e_end:
 							tinfo["utr{}_partial_match".format(utr)] += 1
-							if start == actual_cds_end + 1:
+							if start != actual_cds_end + 1:
 								print("WARN: {}'-UTR start position not at expected start for transcript '{}'".format(utr, tid))
 						elif utr == 3 and tinfo["strand"] == "-" and e_start == start and end < e_end:
+							tinfo["utr{}_partial_match".format(utr)] += 1
+							if end != actual_cds_start - 1:
 								print("WARN: {}'-UTR start position not at expected start for transcript '{}'".format(utr, tid))
 		
 					total_utr_count = tinfo["utr{}_complete_match".format(utr)] + tinfo["utr{}_partial_match".format(utr)]
@@ -222,7 +224,7 @@ class TranscriptDataValidator():
 			else:
 				cds_cdna_ratio = tinfo["cds_len"] / tinfo["exon_len"]
 				if tinfo["cds_len_standard"] > tinfo["exon_len"]:
-				print("WARN: Transcript '{}' CDS length is greater than exon length".format(tid))
+					print("WARN: Transcript '{}' CDS length is greater than exon length".format(tid))
 	
 	
 			if tinfo["start"] != tinfo["exon_start"]:
