@@ -94,7 +94,37 @@
   },
   "gmc_gff_validate_post_gt": {
     "memory": "2000",
-    "c": 1,
+    "c": "1",
     "J": "gmc_gff_validate_post_gt"
+  },
+  "gmc_collapse_metrics": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_collapse_metrics"
+  },
+  "gmc_create_release_gffs": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_create_release_gffs"
+  },
+  "gmc_sort_release_gffs": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_sort_release_gffs"
+  },
+  "gmc_final_sanity_check": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_final_sanity_check"
+  },
+  "gmc_generate_mikado_stats": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_generate_mikado_stats"
+  },
+  "gmc_extract_final_sequences": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_extract_final_sequences"
   }
 }

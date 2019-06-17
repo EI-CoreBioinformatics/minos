@@ -57,7 +57,10 @@ setup(
 			"parse_mikado_gff=gmc.scripts.parse_mikado_gff:main",
 			"protein_completeness=gmc.scripts.protein_completeness:main",
 			"collapse_metrics=gmc.scripts.collapse_metrics:main",
-			"validate_gff3=gmc.scripts.validate_gff3:main"
+			"validate_gff3=gmc.scripts.validate_gff3:main",
+			"create_release_gff3=gmc.scripts.create_release_gff:main",
+			"sanity_check=gmc.scripts.sanity_check:main",
+			"parse_mikado_stats=gmc.scripts.parse_mikado_stats:main"
 		]
 	},
 	package_data={

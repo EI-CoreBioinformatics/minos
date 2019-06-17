@@ -14,6 +14,7 @@ SCORES = [
 	"classification"
 ]
 
+# 3 + 9 * 2 + 5 = 26
 HEADER = ["#transcript", "gene", "alias"] + SCORES + [s + "_gene" for s in SCORES] + ["confidence", "repeat_associated", "biotype", "discard", "region"]
 
 
@@ -139,6 +140,7 @@ def write_scores(model_info, gene_info):
 		)
 		if any(score == "." for score in gene_scores):
 			raise ValueError("Error: Cannot find all gene scores:\n{}".format("\n".join(zip(SCORES, gene_scores))))
+		row.extend(gene_scores)
 		
 		high_confidence = gene_info[gid]["classification"] == 1 or gene_info[gid]["hom_acov_score"] >= 0.8 or (gene_info[gid]["hom_acov_score"] >= 0.6 and gene_info[gid]["transcript_score"] >= 0.4)
 		repeat_associated = gene_info[gid]["te_score"] >= 0.4

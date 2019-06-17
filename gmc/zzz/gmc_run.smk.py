@@ -65,8 +65,7 @@ localrules:
 	gmc_gffread_extract_proteins,
 	gmc_protein_completeness,
 	gmc_gffread_extract_cdna_post_pick,
-	gmc_gff_genometools_check_post_pick,
-	gmc_collapse_metrics
+	gmc_gff_genometools_check_post_pick
 
 rule all:
 	input:
@@ -81,10 +80,19 @@ rule all:
 		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
 		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
+		POST_PICK_EXPRESSION,
 		os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff"),
 		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv"),
 		os.path.join(config["outdir"], "mikado.annotation.gt_checked.validation_report.txt"),
-		POST_PICK_EXPRESSION
+		os.path.join(config["outdir"], "mikado.annotation.release.unsorted.gff3"),
+		os.path.join(config["outdir"], "mikado.annotation.release_browser.unsorted.gff3"),
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release.gff3"),
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release_browser.gff3"),  
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3"),
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.mikado_stats.txt"),
+		[
+			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw"}
+		],
 		
 
 rule gmc_mikado_prepare:
@@ -519,3 +527,69 @@ rule gmc_collapse_metrics:
 		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
 	shell:
 		"collapse_metrics {input.gff} {input.ext_scores} {input.metrics_info} {input.expression} > {output} 2> {log}"
+
+rule gmc_create_release_gffs:
+	input:
+		gff = rules.gmc_gff_genometools_check_post_pick.output[0],
+		metrics_info = rules.gmc_collapse_metrics.output[0]
+	output:
+		os.path.join(config["outdir"], "mikado.annotation.release.unsorted.gff3"),
+		os.path.join(config["outdir"], "mikado.annotation.release_browser.unsorted.gff3")
+	params:
+		annotation_version = config.get("annotation_version", "EIv1"),
+		genus_identifier = config.get("genus_identifier", "XYZ")
+	shell:
+		"create_release_gff3 {input.gff} {input.metrics_info} --annotation-version {params.annotation_version} --genus-identifier {params.genus_identifier} 2> {LOG_DIR}/create_release_gff.log"
+
+rule gmc_sort_release_gffs:
+	input:
+		rules.gmc_create_release_gffs.output
+	output:
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release.gff3"),
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release_browser.gff3")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".sort_release_gffs.log")
+	shell:
+		"set +u && source genometools-1.5.9 && " + \
+		"gt gff3 -sort -tidy -retainids yes {input[0]} > {output[0]} 2> {log} && " + \
+		"gt gff3 -sort -tidy -retainids yes {input[1]} > {output[1]} 2>> {log}" 
+
+rule gmc_final_sanity_check:
+	input:
+		rules.gmc_sort_release_gffs.output[0]
+	output:
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".final_sanity_check.log")
+	shell:
+		"sanity_check {input[0]} > {output[0]} 2> {log}"
+
+rule gmc_generate_mikado_stats:
+	input:
+		rules.gmc_final_sanity_check.output[0]
+	output:
+		rules.gmc_final_sanity_check.output[0] + ".mikado_stats.txt"
+	params:
+		mikado = config["mikado-container"] + " mikado util stats"
+	shell:
+		"singularity exec {params.mikado} {input} > {output} && " + \
+		"parse_mikado_stats {output} > {output}.summary"
+
+rule gmc_extract_final_sequences:
+	input:
+		gff = rules.gmc_final_sanity_check.output[0],
+		refseq = config["reference-sequence"]
+	output:
+		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta",
+		cds = rules.gmc_final_sanity_check.output[0] + ".cds.fasta",
+		pep = rules.gmc_final_sanity_check.output[0] + ".pep.raw.fasta",
+	shell:
+		"set +u && source cufflinks-2.2.1_gk && " + \
+		"gffread {input.gff} -g {input.refseq} -W -w {output.cdna} -x {output.cds} -y {output.pep}"
+
+
+
+
+
+
+
