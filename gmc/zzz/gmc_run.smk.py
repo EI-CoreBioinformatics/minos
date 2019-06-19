@@ -425,7 +425,7 @@ rule gmc_mikado_pick:
 
 rule gmc_parse_mikado_pick:
 	input:
-		loci = rules.gmc_mikado_pick.output[1]
+		loci = rules.gmc_mikado_pick.output[0]
 	output:
 		gff = os.path.join(config["outdir"], "mikado.annotation.gff")
 	shell:
