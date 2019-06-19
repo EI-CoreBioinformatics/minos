@@ -91,9 +91,9 @@ rule all:
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3"),
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.mikado_stats.txt"),
 		[
-			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw"}
+			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
-		
+		[os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".pep.raw.{}".format(suffix) for suffix in {"protein_status.tsv", "protein_status.summary"}]	
 
 rule gmc_mikado_prepare:
 	input:
@@ -455,18 +455,6 @@ rule gmc_gffread_extract_cdna_post_pick:
 		"set +u && source cufflinks-2.2.1_gk && " + \
 		"gffread {input.gff} -g {input.refseq} -W -w {output[0]} &> {log}" 
 
-rule gmc_protein_completeness:
-	input:
-		proteins = rules.gmc_gffread_extract_proteins_post_pick.output[0]
-	output:
-		tsv = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
-		summary = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary")
-	params:
-		outdir = config["outdir"],
-		prefix = "mikado.annotation"
-	shell:
-		"protein_completeness -o {params.outdir} -p {params.prefix} {input.proteins}"
-
 rule gmc_gff_genometools_check_post_pick:
 	input:
 		rules.gmc_parse_mikado_pick.output[0]
@@ -587,9 +575,32 @@ rule gmc_extract_final_sequences:
 		"set +u && source cufflinks-2.2.1_gk && " + \
 		"gffread {input.gff} -g {input.refseq} -W -w {output.cdna} -x {output.cds} -y {output.pep}"
 
+rule gmc_cleanup_final_proteins:
+	input:
+		rules.gmc_extract_final_sequences.output[2]
+	output:
+		rules.gmc_extract_final_sequences.output[2].replace(".raw.fasta", ".fasta")
+	log:
+		os.path.join(LOG_DIR, "cleanup_proteins.log")
+	params:
+		prefix = rules.gmc_extract_final_sequences.output[2].replace(".raw.fasta", "")
+	shell:
+		"set +u && source prinseq-0.20.3 && " + \
+		"prinseq -fasta {input} -min_len 1 -line_width 70 -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
-
-
-
-
-
+rule gmc_protein_completeness:
+	input:
+		proteins1 = rules.gmc_gffread_extract_proteins_post_pick.output[0],
+		proteins2 = rules.gmc_extract_final_sequences.output[2]		
+	output:
+		tsv1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
+		summary1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
+		tsv2 = rules.gmc_extract_final_sequences.output[2].replace(".fasta", ".protein_status.tsv"),
+		summary2 = rules.gmc_extract_final_sequences.output[2].replace(".fasta", ".protein_status.summary")
+	params:
+		outdir = config["outdir"],
+		prefix1 = "mikado.annotation",
+		prefix2 = os.path.basename(rules.gmc_extract_final_sequences.output[2].replace(".fasta", ""))
+	shell:
+		"protein_completeness -o {params.outdir} -p {params.prefix1} {input.proteins1} && "  + \
+		"protein_completeness -o {params.outdir} -p {params.prefix2} {input.proteins2}"

@@ -126,5 +126,10 @@
     "memory": "2000",
     "c": "1",
     "J": "gmc_extract_final_sequences"
+  },
+  "gmc_cleanup_final_proteins": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_cleanup_final_proteins"
   }
 }
