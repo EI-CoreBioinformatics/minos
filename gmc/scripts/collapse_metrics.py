@@ -101,9 +101,9 @@ def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto
 			if not model_info.get(tid) is None:                                                                                                   	
 				raise ValueError("Error: Potential duplicate entry. Transcript '{}' already processed. Please check.\n{}\n".format(tid, "\t".join(row)))
 			
-			kallisto_score = kallisto_data.get(tid)
+			kallisto_score = kallisto_data.get(tinfo["id"])
 			if kallisto_score is None:
-				raise ValueError("Error: Could not extract tpm data for transcript " + tid)
+				raise ValueError("Error: Could not extract tpm data for transcript {} ({})".format(tid, tinfo["id"]))
 
 			scores["expression_score"] = kallisto_score
 

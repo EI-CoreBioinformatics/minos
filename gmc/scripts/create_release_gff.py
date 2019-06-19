@@ -92,7 +92,8 @@ class GffReleaseGenerator():
 							tid = get_attrib("ID", attrib, row["type"])
 							gid = get_attrib("Parent", attrib, row["type"])
 
-							note = eval(get_attrib("Note", attrib, row["type"]))
+							# note = eval(get_attrib("Note", attrib, row["type"]))
+							note = get_attrib("Note", attrib, row["type"]).split(",")
 							note = dict(item.split(":") for item in note if item.count(":") == 1)
 							is_primary = note.get("primary") is not None and eval(note.get("primary"))
 							region = "{}:{}..{}".format(row["seqid"], start, end)
