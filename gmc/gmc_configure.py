@@ -208,7 +208,9 @@ def run_configure(args):
 		"reference-sequence": args.reference,
 		"blast-mode": args.blastmode,
 		"use-tpm-for-picking": args.use_tpm_for_picking,
-		"external-metrics-data": args.external_metrics
+		"external-metrics-data": args.external_metrics,
+		"annotation_version": args.annotation_version,
+		"genus_identifier": args.genus_identifier
 	}
 
 	run_zzz_data = { 
