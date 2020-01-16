@@ -15,7 +15,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 	description = long_description = description.read()
 
 name="gmc"
-version = "0.1"
+version = "0.1.1"
 
 if sys.version_info.major != 3:
 	raise EnvironmentError("""gmc is a python module that requires python3, and is not compatible with python2. Also, it is now 2019 and support for 2.x will cease soon.""")

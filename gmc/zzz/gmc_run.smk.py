@@ -110,7 +110,7 @@ rule gmc_mikado_prepare:
 	threads:
 		30
 	shell:
-		"singularity exec {params.mikado} --minimum_length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}" 
+		"singularity exec {params.mikado} --minimum-cdna-length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}" 
 
 rule gmc_mikado_compare_index_reference:
 	input:
