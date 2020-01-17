@@ -421,7 +421,7 @@ rule gmc_mikado_pick:
 		mikado = config["mikado-container"] + " mikado pick",
 		outdir = config["outdir"]
 	shell:
-		"singularity exec {params.mikado} -lv DEBUG -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci_out $(basename {output.subloci}) -db {input.db} {input.gtf}"
+		"singularity exec {params.mikado} -lv DEBUG -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci-out $(basename {output.subloci}) -db {input.db} {input.gtf}"
 
 rule gmc_parse_mikado_pick:
 	input:
