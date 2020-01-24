@@ -17,24 +17,35 @@ class ScoringMetricsManager(object):
 	def __importMetricsData(self, fn, use_tpm=False):
 		self.metrics = OrderedDict()
 		for row in csv.reader(open(fn), delimiter="\t", quotechar='"'):
-			if row[0].startswith("#"):
+			try:
+				metric_name, metric_class, multiplier, nf_minval, files = row
+			except:
+				raise ValueError("External metrics record has to comply to the format: metric_name_prefix    metric_class    multiplier  not_fragmentary_min_value   file_path\n{}".format(row))
+
+			if metric_name.startswith("#"):
 				continue
-			# metric_name_prefix    metric_class    multiplier  not_fragmentary_min_value   file_path
+			if "." in metric_name:
+				raise ValueError("Metric name {} contains invalid character '.'. Please adjust metric names accordingly.".format(metric_name))
+			files = files.split(",")
+			for f in files:
+				if not os.path.exists(f):
+					raise ValueError("Missing input file for metric {}: {}".format(metric_name, f))
+
 			data = {
-				"multiplier": row[2],
-				"min_value": row[3],
-				"files": row[4].split(",")
+				"multiplier": multiplier,
+				"min_value": nf_minval,
+				"files": files
 			}
 
-			if row[1] == "expression":
+			if metric_class == "expression":
 				if use_tpm:
-					if row[0][-3:] not in STRANDINFO:
-						raise ValueError("Expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + row[0])
+					if metric_name[-3:] not in STRANDINFO:
+						raise ValueError("Expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + metric_name)
 				else:
-					print("Found expression metric: {} but --use-tpm-for-picking was not set. Ignoring.".format(row[0]))
+					print("Found expression metric: {} but --use-tpm-for-picking was not set. Ignoring.".format(metric_name))
 					continue
 
-			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
+			self.metrics.setdefault(metric_class, OrderedDict()).setdefault(metric_name, list()).append(data)
 	
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
 			raise ValueError("More than one junction file detected. " + self.metrics.get("junction", list()))
@@ -186,8 +197,6 @@ def run_configure(args):
 	
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 
-	# MIKADO_CONFIGURE_CMD = "singularity exec {container} mikado configure --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file}"
-
 	cmd = MIKADO_CONFIGURE_CMD.format(
 		container=args.mikado_container,
 		list_file=args.list_file,
@@ -198,18 +207,6 @@ def run_configure(args):
 		junctions=(" --junctions " + list(smm.getMetricsData("junction").values())[0][0][0] + " ") if smm.getMetricsData("junction") else " ",
 		mikado_config_file=mikado_config_file
 	)
-
-	"""
-	cmd = "singularity exec {} mikado configure --list {}{}-od {} --scoring {}{}{}".format(
-		args.mikado_container,
-		args.list_file,
-		(" --external " + args.external + " ") if args.external else " ",
-		args.outdir,
-		scoring_file,
-		(" --junctions " + list(smm.getMetricsData("junction").values())[0][0][0] + " ") if smm.getMetricsData("junction") else " ",
-		mikado_config_file
-	)
-	"""
 
 	print(cmd)
 	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
