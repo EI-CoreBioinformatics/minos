@@ -11,6 +11,7 @@ from collections import OrderedDict
 from . import __version__
 
 STRANDINFO = {"_xx", "_rf", "_fr"}
+MIKADO_CONFIGURE_CMD = "singularity exec {container} mikado configure --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file}"
 
 class ScoringMetricsManager(object):
 	def __importMetricsData(self, fn, use_tpm=False):
@@ -28,7 +29,7 @@ class ScoringMetricsManager(object):
 			if row[1] == "expression":
 				if use_tpm:
 					if row[0][-3:] not in STRANDINFO:
-						raise ValueError("ERROR: expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + row[0])
+						raise ValueError("Expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + row[0])
 				else:
 					print("Found expression metric: {} but --use-tpm-for-picking was not set. Ignoring.".format(row[0]))
 					continue
@@ -36,7 +37,7 @@ class ScoringMetricsManager(object):
 			self.metrics.setdefault(row[1], OrderedDict()).setdefault(row[0], list()).append(data)
 	
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
-			raise ValueError("ERROR: More than one junction file detected. " + self.metrics.get("junction", list()))
+			raise ValueError("More than one junction file detected. " + self.metrics.get("junction", list()))
 
 		for k in self.metrics:
 			print(k)
@@ -172,10 +173,10 @@ def run_configure(args):
 	pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
 	pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 
-	scoringFile = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
+	scoring_file = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
 	smm = ScoringMetricsManager(args.external_metrics, args.scoring_template, args.outdir, args.prefix, use_tpm=args.use_tpm_for_picking)
-	print("Generating scoring file " + scoringFile + " ...", end="", flush=True)
-	smm.generateScoringFile(args.scoring_template, scoringFile)
+	print("Generating scoring file " + scoring_file + " ...", end="", flush=True)
+	smm.generateScoringFile(args.scoring_template, scoring_file)
 	print(" done.")
 
 	#!TODO: 
@@ -185,16 +186,30 @@ def run_configure(args):
 	
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 
+	# MIKADO_CONFIGURE_CMD = "singularity exec {container} mikado configure --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file}"
 
+	cmd = MIKADO_CONFIGURE_CMD.format(
+		container=args.mikado_container,
+		list_file=args.list_file,
+		external_metrics=(" --external " + args.external + " ") if args.external else " ",
+		output_dir=args.outdir,
+		reference=args.reference,
+		scoring_file=scoring_file,
+		junctions=(" --junctions " + list(smm.getMetricsData("junction").values())[0][0][0] + " ") if smm.getMetricsData("junction") else " ",
+		mikado_config_file=mikado_config_file
+	)
+
+	"""
 	cmd = "singularity exec {} mikado configure --list {}{}-od {} --scoring {}{}{}".format(
 		args.mikado_container,
 		args.list_file,
 		(" --external " + args.external + " ") if args.external else " ",
 		args.outdir,
-		scoringFile,
+		scoring_file,
 		(" --junctions " + list(smm.getMetricsData("junction").values())[0][0][0] + " ") if smm.getMetricsData("junction") else " ",
 		mikado_config_file
 	)
+	"""
 
 	print(cmd)
 	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
