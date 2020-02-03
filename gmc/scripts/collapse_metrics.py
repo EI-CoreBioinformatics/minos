@@ -90,7 +90,7 @@ def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto
 			"te_score": 0.0,  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
 			"cpc_score": float(row["cpc"]),
 			"expression_score": 0.0,
-			"classification": 1
+			"classification": 0 ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
 		}
 		scores["hom_acov_score"] = (scores["hom_qcov_score"] + scores["hom_tcov_score"]) / 2.0
 
@@ -147,15 +147,38 @@ def write_scores(model_info, gene_info):
 		biotype = None
 		if repeat_associated:
 			biotype = "transposable_element_gene"
-		elif gene_info[gid]["hom_acov_score"] < 0.3 and gene_info[gid]["cpc_score"] < 0.25 and gene_info[gid]["classification"] == 0:
+		elif gene_info[gid]["hom_acov_score"] < 0.3 and gene_info[gid]["cpc_score"] < 0.25: # and gene_info[gid]["classification"] == 0: ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
 			biotype = "predicted_gene"
 		else:
 			biotype = "protein_coding_gene"
 		if biotype is None:
 			raise ValueError("Error: Could not determine biotype for transcript " + tid)
 
-		discard = not any(gene_info[gid][score] > 0 for score in ("protein_score", "transcript_score", "classification", "hom_acov_score")) and gene_info[gid]["expression_score"] < 0.3
-	
+		# original check from quillaja.pl
+		# my $discard_boolen = ( ($gene_ext_aln_ptn == 0) && ($gene_ext_aln_nuc == 0) && ($gene_ext_hom_cla == 0) && ($gene_ext_hom_aCov == 0) && ($gene_ext_tpm < 0.3) ) ? "True" : "False";
+		discard_checks = {
+			("protein_score", "eq", 0),
+			("transcript_score", "eq", 0),
+			("hom_acov_score", "eq", 0),
+			("expression_score", "lt", 0.3),
+			# ("classification", "eq", 0) ## cschu 20200203: issue9: disabled until full-lengther replacement implemented 
+		}
+
+		def cmp_score(a, b, op):
+			if op == "eq":
+				return a == b
+			if op == "lt":
+				return a < b
+			if op == "gt":
+				return a > b
+			raise ValueError("Invalid check: {} {} {}".format(a, op, b))
+
+		discard = True
+		for score, cmp_op, threshold in discard_checks:
+			check = cmp_score(gene_info[gid][score], threshold, cmp_op)
+			discard &= check
+			if not discard:
+				break
 
 		row.extend([
 			"High" if high_confidence else "Low",
