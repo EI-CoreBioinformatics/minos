@@ -11,7 +11,7 @@ from collections import OrderedDict
 from . import __version__
 
 STRANDINFO = {"_xx", "_rf", "_fr"}
-MIKADO_CONFIGURE_CMD = "singularity exec {container} mikado configure --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file}"
+MIKADO_CONFIGURE_CMD = "singularity exec {container} mikado configure --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
 
 class ScoringMetricsManager(object):
 	def __importMetricsData(self, fn, use_tpm=False):
@@ -130,51 +130,38 @@ class ScoringMetricsManager(object):
 			
 			return scoring		
 				
-		
 
 		with open(scoring_template) as _in, open(outfile, "wt") as _out:
-			for line in _in:
-				if line.strip().startswith("### GMC_CONFIGURE ###"):
-					break
-				print(line, end="", file=_out)
-
-			print("not_fragmentary:", file=_out)
-			print("  # expression: [combined_cds_length]", file=_out)
-			print("  expression:", generate_nf_expression(self.metrics), file=_out)
-			print("  parameters:", file=_out)
-			print("    # is_complete: {operator: eq, value: true}", file=_out)
-			print("    exon_num.multi: {operator: gt, value: 1}", file=_out)
-			print("    # cdna_length.multi: {operator: ge, value: 200}", file=_out)
-			print("    combined_cds_length.multi: {operator: gt, value: 200}", file=_out)
-			print("    exon_num.mono: {operator: eq, value: 1}", file=_out)              			
-			print("    combined_cds_length.mono: {operator: gt, value: 300}", file=_out) 
-			print("    # combined_cds_length: {operator: gt, value: 300}", file=_out)
-			# print("    external.all_aF1: {operator: gt, value: 0.5}", file=_out)
-			print(*generate_nf_params(self.metrics), sep="\n", file=_out)
-			print("scoring:", file=_out)
-			print("  # external metrics START", file=_out)
-			print(*generate_external_scoring(self.metrics), sep="\n", file=_out)
-			# print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			# print("  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			# print("  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			"""
-			external.EI_tpm: {rescaling: min, filter: {operator: lt, value: 0.5}, multiplier: 1}
-			So as discussed this replaces the following lines
-			  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}
-			  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
-			"""
-			print("  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
-			# print("  # all boolean metrics values from here below", file=_out)
-			# print("  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			# print("  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			# print("  # external.SRA_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			# print("  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
-			# print("  external.fln: {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
-			print("  # external metrics END", file=_out)
+			for line in _in:				
+				if line.strip().startswith("### GMC:GENERATE_NF_EXPRESSION"):
+					line = next(_in)
+					print("  expression:", generate_nf_expression(self.metrics), file=_out)
+				elif line.strip().startswith("### GMC:GENERATE_NF_PARAMS"):
+					line = next(_in)
+					# print("    external.all_aF1: {operator: gt, value: 0.5}", file=_out)
+					print(*generate_nf_params(self.metrics), sep="\n", file=_out)
+				elif line.strip().startswith("### GMC:GENERATE_EXTERNAL_SCORING"):
+					line = next(_in)
+					print(*generate_external_scoring(self.metrics), sep="\n", file=_out)
+					# print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					# print("  # external.all_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					# print("  # external.interspersed_repeats_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					"""
+					external.EI_tpm: {rescaling: min, filter: {operator: lt, value: 0.5}, multiplier: 1}
+					So as discussed this replaces the following lines
+					# external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}
+					# external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
+					"""
+					print("  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
+					# print("  # all boolean metrics values from here below", file=_out)
+					# print("  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					# print("  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					# print("  # external.SRA_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					# print("  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
+					# print("  external.fln: {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
+				else:
+					print(line, end="", file=_out)				
 			
-			for line in _in:
-				print(line, end="", file=_out)
-
 	pass
 
 
