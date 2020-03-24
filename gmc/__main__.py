@@ -89,7 +89,9 @@ def main():
 	print(args.runmode)
 	if args.runmode == "configure":
 		if run_configuration_file is None or args.force_reconfiguration:
-			run_configure(args)	
+			run_configure(args)
+		elif run_configuration_file is not None:
+			print("Configuration file {} already present. Please set --force-reconfiguration/-f to override this.".format(run_configuration_file))
 	elif args.runmode == "run":
 		snake = join(dirname(__file__), "zzz", "gmc_run.smk.py")
 		if run_configuration_file is None:

@@ -97,7 +97,8 @@ def read_kallisto(f, seen=set()):
 
 
 MCLASS_INFO = collections.OrderedDict([
-	("mikado", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
+	("mikado.transcript", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
+	("mikado.protein", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
 	("blast", {"metrics": ["qCov", "tCov"], "parser": read_blast}),
 	("cpc", {"metrics": [""], "parser": read_cpc}),
 	("expression", {"metrics": [""], "parser": read_kallisto}),

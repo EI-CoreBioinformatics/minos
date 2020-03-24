@@ -333,7 +333,7 @@ rule gmc_metrics_generate_metrics_info:
 					mclass, mid, path = "cpc", "cpc", os.path.join(cwd, files[0])
 					rows.append((ExternalMetrics.CPC_CODING_POTENTIAL, mclass, mid, path))
 				elif cwd_base in {"proteins", "transcripts"}:
-					mclass = "mikado"
+					mclass = "mikado.{}".format(cwd_base[:-1])
 					for mid in dirs:
 						cwd, _, files = next(walk)
 						path = glob.glob(os.path.join(cwd, "*.refmap"))[0]

@@ -69,10 +69,8 @@ def process_kallisto_data(files):
 def read_metrics_info(tsv):
 	metrics_info = dict()
 	for row in csv.reader(open(tsv), delimiter="\t"):
-		metric_type = row[0]
-		if metric_type == "mikado":
-			metric_type = "{}.{}".format(row[0], "protein" if "protein" in row[1] else "transcript")
-		metrics_info.setdefault(metric_type, set()).add(row[1])
+		metric_type, metric_id = row[0:2]
+		metrics_info.setdefault(metric_type, set()).add(metric_id)
 	return metrics_info
 
 
