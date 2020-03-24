@@ -42,6 +42,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("--annotation-version", type=str, default="EIv1")
 	configure_parser.add_argument("--genus-identifier", type=str, default="XYZ")
 	configure_parser.add_argument("--use-tpm-for-picking", action="store_true")
+	configure_parser.add_argument("--force-reconfiguration", "-f", action="store_true")
 	
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")
@@ -78,32 +79,36 @@ def main():
 
 	args = ap.parse_args()
 
+	run_configuration_file = None
+	try:
+		run_configuration_file = os.path.abspath(glob.glob(os.path.join(args.outdir, "*.run_config.yaml")).pop())
+	except:
+		pass 
+
 
 	print(args.runmode)
 	if args.runmode == "configure":
-
-		run_configure(args)	
+		if run_configuration_file is None or args.force_reconfiguration:
+			run_configure(args)	
 	elif args.runmode == "run":
 		snake = join(dirname(__file__), "zzz", "gmc_run.smk.py")
-		try:
-			run_config = abspath(glob.glob(os.path.join(args.outdir, "*.run_config.yaml")).pop())
-		except:
+		if run_configuration_file is None:
 			raise ValueError("Missing run configuration in " + args.outdir)
 
-		print("Using run configuration file: " + run_config)
+		print("Using run configuration file: " + run_configuration_file)
 
 		if args.mikado_container and os.path.exists(args.mikado_container):
-			rconf = yaml.load(open(run_config), Loader=yaml.SafeLoader)
+			rconf = yaml.load(open(run_configuration_file), Loader=yaml.SafeLoader)
 			rconf["mikado-container"] = args.mikado_container
 			
-			run_config = run_config.replace(".yaml", ".with_singularity.yaml")
-			with open(run_config, "wt") as run_config_out:
+			run_configuration_file = run_configuration_file.replace(".yaml", ".with_singularity.yaml")
+			with open(run_configuration_file, "wt") as run_config_out:
 				yaml.dump(rconf, run_config_out, default_flow_style=False)
 
 
 		exe_env = ExecutionEnvironment(args, NOW, job_suffix="GMC_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
 
-		run_snakemake(snake, args.outdir, run_config, exe_env, dryrun=args.dryrun)
+		run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun)
 	
 
 	pass
