@@ -299,11 +299,31 @@ rule gmc_metrics_blastp_tophit:
 	output:
 		rules.gmc_metrics_blastp_combine.output[0] + ".tophit"
 	params:
-		parse_script = "/ei/workarea/group-ga/Scripts/parse_blast_tabular_format_v0.4.pl",
-		extract_script = "/ei/workarea/group-ga/Scripts/get_topHit.pl"
-	shell:
-		"set +u && source perl-5.20.1_gk && " + \
-		"{params.parse_script} {input[0]} 0 0 query | {params.extract_script} - 1 > {output[0]}"
+		pident_threshold = 0.0,
+		qcov_threshold = 0.0
+	run:
+		import csv
+		def calc_coverage_perc(start, end, length):
+			alen = (end - start + 1) if start < end else (start - end + 1)
+			return round(alen/length * 100, 2)
+		with open(output[0], "w") as blast_out:
+			seen = set()
+			for row in csv.reader(open(input[0]), delimiter="\t"):
+				if not row or row[0].startswith("#") or row[0] in seen:
+					continue
+				if len(row) < 17:
+					raise ValueError("Misformatted blastp line (ncols={ncols}) in {blastp_input}. Expected is outfmt 6 (17 cols).".format(
+						ncols=len(row), 
+						blastp_input=input[0])
+					)
+				try:
+					qstart, qend, sstart, send, qlen, slen = map(int, row[3:9])
+				except:
+					raise ValueError("Misformatted blastp line: could not parse integer values from columns 2-7 ({})".format(",".join(row[3:9])))
+				qcov, scov = calc_coverage_perc(qstart, qend, qlen), calc_coverage_perc(sstart, send, slen)
+				if float(row[2]) >= params.pident_threshold and qcov >= params.qcov_threshold:
+					print(*row, "{:.2f}".format(qcov), "{:.2f}".format(scov), sep="\t", file=blast_out)
+					seen.add(row[0])
 
 
 rule gmc_metrics_generate_metrics_info:
