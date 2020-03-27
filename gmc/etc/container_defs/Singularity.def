@@ -1,0 +1,58 @@
+Bootstrap: docker
+From: conda/miniconda3-centos7
+Include: yum which wget
+
+
+%environment
+	export CPC_HOME=/opt/software/CPC2-beta
+	export PATH=$PATH:$CPC_HOME/bin
+
+
+%post
+
+	yum makecache fast && yum update -y
+	yum -y install git bzip2 wget which sudo vi
+	yum -y group install "Development Tools"
+
+	conda install -c bioconda -y cufflinks=2.2.1 kallisto=0.44.0 blast biopython prinseq numpy genometools-genometools
+
+	mkdir -p /opt/software
+	cd /opt/software
+	# http://cpc2.cbi.pku.edu.cn/download.php
+	wget http://cpc2.cbi.pku.edu.cn/data/CPC2-beta.tar.gz
+	tar xvzf CPC2-beta.tar.gz
+	rm CPC2-beta.tar.gz
+	export CPC_HOME=/opt/software/CPC2-beta
+	cd CPC2-beta/libs/libsvm
+	tar xvzf libsvm-3.18.tar.gz
+	cd libsvm-3.18
+	make clean && make
+	cd /opt/software/CPC2-beta/bin
+
+	# apply patches for Python3 compatibility
+	# patch compress.py
+	sed -i "s/\bfile(/open(/g" compress.py
+	# patch CPC2.py
+	sed -i "s/commands/subprocess/g" CPC2.py
+	sed -i "s/\bfile(/open(/g" CPC2.py
+	sed -i "s/triplet_got.next()/next(triplet_got)/g" CPC2.py
+
+	head -n 355 CPC2.py >> CPC2.py.1
+	echo $'\t'$'\t'"os.system('mv ' + outfile + '.txt ' + outfile)" >> CPC2.py.1
+	tail -n +356 CPC2.py >> CPC2.py.1
+	mv CPC2.py.1 CPC2.py
+
+	chmod 775 *.py
+
+
+	# patch seqio.py
+	sed -i "s/print \([^ $]\+\)/print(\1)/g" seqio.py
+
+	python3 CPC2.py -h
+
+	#pip show pip
+
+
+
+
+	#bbmap cutadapt trim-galore fastqc bamtools bowtie2 seqtk picard samtools qualimap hisat2 sortmerna stringtie
