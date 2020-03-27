@@ -472,7 +472,7 @@ rule gmc_gffread_extract_cdna_post_pick:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"{params.program_call} gffread {input.gff} -g {input.refseq} {params.program_params} -w {output[0]} &> {log}" 
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -w {output[0]} &> {log}" 
 
 rule gmc_gff_genometools_check_post_pick:
 	input:
