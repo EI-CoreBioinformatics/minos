@@ -9,7 +9,8 @@ import collections
 def read_metrics_info(f):
 	metrics_info = collections.OrderedDict()
 	for row in csv.reader(open(f), delimiter="\t"):
-		metrics_info.setdefault(row[0], collections.OrderedDict())[row[1]] = row[2]
+		metrics_type = "mikado" if "mikado" in row[0] else row[0]
+		metrics_info.setdefault(metrics_type, collections.OrderedDict())[row[1]] = row[2]
 
 	return metrics_info
 
@@ -97,8 +98,7 @@ def read_kallisto(f, seen=set()):
 
 
 MCLASS_INFO = collections.OrderedDict([
-	("mikado.transcript", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
-	("mikado.protein", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
+	("mikado", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": read_mikado_refmap}),
 	("blast", {"metrics": ["qCov", "tCov"], "parser": read_blast}),
 	("cpc", {"metrics": [""], "parser": read_cpc}),
 	("expression", {"metrics": [""], "parser": read_kallisto}),
