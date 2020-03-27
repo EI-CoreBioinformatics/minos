@@ -43,6 +43,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("--genus-identifier", type=str, default="XYZ")
 	configure_parser.add_argument("--use-tpm-for-picking", action="store_true")
 	configure_parser.add_argument("--force-reconfiguration", "-f", action="store_true")
+	configure_parser.add_argument("--config-file", type=str, default=DEFAULT_CONFIG_FILE)
 	
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")

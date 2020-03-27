@@ -183,6 +183,7 @@ def run_configure(args):
 	# - add command line option 
 	
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
+	gmc_config = yaml.load(open(args.config_file), Loader=yaml.SafeLoader)
 
 	cmd = MIKADO_CONFIGURE_CMD.format(
 		container=args.mikado_container,
@@ -228,6 +229,7 @@ def run_configure(args):
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
 		yaml.dump(run_zzz_config, run_config_out, default_flow_style=False)
 		yaml.dump(run_zzz_data, run_config_out, default_flow_style=False)
+		yaml.dump(gmc_config, run_config_out, default_flow_style=False)
 
 	pass
 
