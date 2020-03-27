@@ -102,15 +102,15 @@ rule gmc_mikado_prepare:
 		os.path.join(config["outdir"], "mikado_prepared.fasta"),
 		os.path.join(config["outdir"], "mikado_prepared.gtf")
 	params:
-		mikado = config["mikado-container"] + " mikado prepare",
-		min_length = 100,
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="prepare"),
+		program_params = config["params"]["mikado"]["prepare"],
 		outdir = config["outdir"]
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_prepare.log")
 	threads:
 		30
 	shell:
-		"singularity exec {params.mikado} --minimum-cdna-length {params.min_length} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}" 
+		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
 
 rule gmc_mikado_compare_index_reference:
 	input:
@@ -118,11 +118,12 @@ rule gmc_mikado_compare_index_reference:
 	output:
 		rules.gmc_mikado_prepare.output[1] + ".midx"
 	params:
-		mikado = config["mikado-container"] + " mikado compare"
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="compare"),
+		program_params = config["params"]["mikado"]["compare"]["index"]
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare_index_reference.log")
 	shell:
-		"singularity exec {params.mikado} --index -r {input} &> {log}"
+		"{params.program_call} {params.program_params} -r {input} &> {log}"
 
 rule gmc_gffread_extract_proteins:
 	input:
@@ -135,10 +136,10 @@ rule gmc_gffread_extract_proteins:
 	threads:
 		1
 	params:
-		extract = "-y" if config["blast-mode"] == "blastp" else "-W -x"
+		program_call = config["program_calls"]["gffread"],
+		program_params = config["params"]["gffread"][config["blast-mode"]]
 	shell:
-		"set +u && source cufflinks-2.2.1_gk && " + \
-		"gffread {input.gtf} -g {input.refseq} {params.extract} {output[0]}.raw &> {log} && " + \
+		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} {output[0]}.raw &> {log} && " + \
 		"awk '/^[^>]/ {{ $1=gensub(\"\\\\.\", \"\", \"g\", $1) }} {{ print $0 }}' {output[0]}.raw > {output[0]}"
 
 
@@ -148,14 +149,14 @@ rule gmc_metrics_cpc2:
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".cpc2output.txt")
 	params:
-		x = 1
+		program_call = config["program_calls"]["cpc2"],
+		program_params = config["params"]["cpc2"]
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".CPC2.log")
 	threads:
 		4
 	shell:
-		"set +u && source CPC-2.0_beta_py3_cs && " + \
-		"/usr/bin/time -v CPC2.py -r -i {input[0]} -o {output[0]} &> {log} "
+		"{params.program_call} {params.program_params} -i {input[0]} -o {output[0]} &> {log}"
 
 
 if config["use-tpm-for-picking"]:
@@ -167,8 +168,11 @@ if config["use-tpm-for-picking"]:
 			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", os.path.basename(rules.gmc_mikado_prepare.output[0]) + ".idx")
 		log:
 			os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index.log")
+		params:
+			program_call = config["program_calls"]["kallisto"].format(program="index"),
+			program_params = config["params"].get("kallisto", {}).get("index", "")
 		shell:
-			"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
+			"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
 	rule gmc_metrics_kallisto_quant:
 		input:
@@ -179,14 +183,14 @@ if config["use-tpm-for-picking"]:
 		log:
 			os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.log")
 		params:
-			stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",  
-			bootstrap = 100,
+			program_call = config["program_calls"]["kallisto"].format(program="quant"),
+			program_params = config["params"].get("kallisto", {}).get("quant", ""),
+			stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
 			outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
 		threads:
 			32
 		shell:
-			"set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
-
+			"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
 rule gmc_metrics_mikado_compare_vs_transcripts:
 	input:
@@ -197,15 +201,15 @@ rule gmc_metrics_mikado_compare_vs_transcripts:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", "{run}", "mikado_{run}.refmap")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare.tran.{run}.log")
-	params:		                                                         	
-		mikado = config["mikado-container"] + " mikado compare",
+	params:
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="compare"),
+		program_params = config["params"]["mikado"]["compare"]["transcripts"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", wildcards.run),
 		transcripts = lambda wildcards: wildcards.run
 	shell:
-		"set +u && mkdir -p {params.outdir} && " + \
-		"singularity exec {params.mikado} --extended-refmap -r {input.mika} -p {input.transcripts} -o {params.outdir}/mikado_{params.transcripts} &> {log} && " + \
+		"mkdir -p {params.outdir} && " + \
+		"{params.program_call} {params.program_params} -r {input.mika} -p {input.transcripts} -o {params.outdir}/mikado_{params.transcripts} &> {log} && " + \
 		"touch {output[0]}"
-
 		
 rule gmc_metrics_mikado_compare_vs_proteins:
 	input:
@@ -216,15 +220,15 @@ rule gmc_metrics_mikado_compare_vs_proteins:
 		os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", "{run}", "mikado_{run}.refmap")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
-	params:		                                                         	
-		mikado = config["mikado-container"] + " mikado compare",
+	params:
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="compare"),
+		program_params = config["params"]["mikado"]["compare"]["proteins"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", wildcards.run),
 		proteins = lambda wildcards: wildcards.run
 	shell:
-		"set +u && mkdir -p {params.outdir} && " + \
-		"singularity exec {params.mikado} --exclude-utr --extended-refmap -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log} && " + \
+		"mkdir -p {params.outdir} && " + \
+		"{params.program_call} {params.program_params} -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log} && " + \
 		"touch {output[0]}"
-
 
 rule gmc_metrics_blastp_mkdb:
 	input:
@@ -234,13 +238,13 @@ rule gmc_metrics_blastp_mkdb:
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".makeblastdb.{run}.log")
 	params:
+		program_call = config["program_calls"]["blast"].format(program="makeblastdb"),
+		program_params = config["params"]["blast"]["makeblastdb"], 
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run, "blastdb"),
 		db_prefix = lambda wildcards: wildcards.run
 	shell:
-		"set +u && source blast-2.6.0 && " + \
-		"makeblastdb -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log} -dbtype prot && " + \
+		"{params.program_call} {params.program_params} -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log} && " + \
 		"touch {output[0]}"
-
 
 checkpoint gmc_chunk_proteins:
 	input:
@@ -268,10 +272,10 @@ rule gmc_metrics_blastp_chunked:
 	threads:
 		8
 	params:
-		blast = config["blast-mode"]
+		program_call = config["program_calls"]["blast"].format(program=config["blast-mode"]),
+		program_params = config["params"]["blast"][config["blast-mode"]]
 	shell:
-		"set +u && source blast-2.6.0 && " + \
-		"{params.blast} -query {input.chunk} -out {output[0]} -max_target_seqs 1 -evalue 1e-5 -num_threads {threads} " + \
+		"{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} " + \
 		"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
 
 
@@ -299,8 +303,8 @@ rule gmc_metrics_blastp_tophit:
 	output:
 		rules.gmc_metrics_blastp_combine.output[0] + ".tophit"
 	params:
-		pident_threshold = 0.0,
-		qcov_threshold = 0.0
+		pident_threshold = config["params"]["blast"]["tophit"]["pident_threshold"],
+		qcov_threshold = config["params"]["blast"]["tophit"]["qcov_threshold"]
 	run:
 		import csv
 		def calc_coverage_perc(start, end, length):
@@ -386,44 +390,34 @@ rule gmc_metrics_generate_metrics_info:
 				print(mclass, mid, path, sep="\t", file=sys.stderr)
 				print(mclass, mid, os.path.abspath(path), sep="\t", file=metrics_info)
 
-
 rule gmc_metrics_generate_metrics_matrix:
 	input:
 		rules.gmc_metrics_generate_metrics_info.output[0]
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_matrix.txt")
-	params:
-		#script = "/ei/workarea/group-ga/Scripts/create_scoring_metrics_for_Quillaja_saponaria_v0.1.pl"
-		#script = "/ei/workarea/group-ga/Scripts/create_scoring_metrics_for_Melia_azedarach_v0.1.pl"
-		#script = "/ei/workarea/group-pb/schudomc_sandbox/gmc_dev/testdata_MAZ/create_scoring_metrics.pl"
-		script = "generate_metrics"
 	log:
 		os.path.join(LOG_DIR, "generate_metrics_matrix.log")
 	shell:
-		#"set +u && source perl-5.20.1_gk && " + \
-		"{params.script} {input[0]} > {output[0]} 2> {log}"
+		"generate_metrics {input[0]} > {output[0]} 2> {log}"
 
-"""
-mikado serialise --procs 30 --json-conf Quillaja_saponaria.configuration.yaml --external-scores annotation_run1.metrics.txt
-"""
 rule gmc_mikado_serialise:
 	input:
 		config = config["mikado-config-file"],
 		ext_scores = rules.gmc_metrics_generate_metrics_matrix.output[0],
 		transcripts = rules.gmc_mikado_prepare.output[0]
 	output:
-		#os.path.join(config["outdir"], "mikado.subloci.gff3")
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
 		os.path.join(config["outdir"], "mikado.db")
 	params:
-		mikado = config["mikado-container"] + " mikado serialise",
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="serialise"),
+		program_params = config["params"]["mikado"]["serialise"],
 		outdir = config["outdir"]
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_serialise.log")
 	threads:
 		32
 	shell:
-		"singularity exec {params.mikado} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
+		"{params.program_call} {params.program_params} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log} && " + \
 		"touch {output[0]}"
 
 rule gmc_mikado_pick:
@@ -438,10 +432,11 @@ rule gmc_mikado_pick:
 	threads:
 		30
 	params:
-		mikado = config["mikado-container"] + " mikado pick",
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="pick"),
+		program_params = config["params"]["mikado"]["pick"],
 		outdir = config["outdir"]
 	shell:
-		"singularity exec {params.mikado} -lv DEBUG -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci-out $(basename {output.subloci}) -db {input.db} {input.gtf}"
+		"{params.program_call} {params.program_params} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci-out $(basename {output.subloci}) -db {input.db} {input.gtf}"
 
 rule gmc_parse_mikado_pick:
 	input:
@@ -459,9 +454,11 @@ rule gmc_gffread_extract_proteins_post_pick:
 		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_post_pick.log")
+	params:
+		program_call = config["program_calls"]["gffread"],
+		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"set +u && source cufflinks-2.2.1_gk && " + \
-		"gffread {input.gff} -g {input.refseq} -W -y {output[0]} &> {log}" 
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -x {output[0]} &> {log}" 
 
 rule gmc_gffread_extract_cdna_post_pick:
 	input:
@@ -471,9 +468,11 @@ rule gmc_gffread_extract_cdna_post_pick:
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_cdna_post_pick.log")
+	params:
+		program_call = config["program_calls"]["gffread"],
+		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"set +u && source cufflinks-2.2.1_gk && " + \
-		"gffread {input.gff} -g {input.refseq} -W -w {output[0]} &> {log}" 
+		"{params.program_call} gffread {input.gff} -g {input.refseq} {params.program_params} -w {output[0]} &> {log}" 
 
 rule gmc_gff_genometools_check_post_pick:
 	input:
@@ -482,9 +481,11 @@ rule gmc_gff_genometools_check_post_pick:
 		gff = os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".post_pick_genometools_check.log")
+	params:
+		program_call = config["program_calls"]["genometools"],
+		program_params = config["params"]["genometools"]["check"]
 	shell:
-		"set +u && source genometools-1.5.9 && " + \
-		"gt gff3 -sort -tidy -retainids yes -addids no {input[0]} > {output.gff} 2> {log}"
+		"{params.program_call} {params.program_params} {input[0]} > {output.gff} 2> {log}"
 
 rule gmc_gff_validate_post_gt:
 	input:
@@ -493,35 +494,37 @@ rule gmc_gff_validate_post_gt:
 		os.path.join(config["outdir"], "mikado.annotation.gt_checked.validation_report.txt")
 	shell:
 		"validate_gff3 {input} > {output}"
-		
-
 
 rule gmc_kallisto_index_post_pick:
 	input:
 		rules.gmc_gffread_extract_cdna_post_pick.output[0]
 	output:
-	    os.path.join(config["outdir"], "kallisto", os.path.basename(rules.gmc_gffread_extract_cdna_post_pick.output[0]) + ".idx")
+		os.path.join(config["outdir"], "kallisto", os.path.basename(rules.gmc_gffread_extract_cdna_post_pick.output[0]) + ".idx")
 	log:
-	    os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index_post_pick.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index_post_pick.log")
+	params:
+		program_call = config["program_calls"]["kallisto"].format(program="index"),
+		program_params = config["params"].get("kallisto", {}).get("index", "")
 	shell:
-	    "set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto index -i {output[0]} {input[0]} &> {log}"
+		"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
 rule gmc_kallisto_quant_post_pick:
 	input:
-	    index = rules.gmc_kallisto_index_post_pick.output[0],
-	    reads = get_rnaseq
+		index = rules.gmc_kallisto_index_post_pick.output[0],
+		reads = get_rnaseq
 	output:
-	    os.path.join(config["outdir"], "kallisto", "{run}", "abundance.tsv")
+		os.path.join(config["outdir"], "kallisto", "{run}", "abundance.tsv")
 	log:
-	    os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.post_pick.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.post_pick.log")
 	params:
-	    stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
-	    bootstrap = 100,
-	    outdir = os.path.join(config["outdir"], "kallisto", "{run}")
+		program_call = config["program_calls"]["kallisto"].format(program="quant"),
+		program_params = config["params"].get("kallisto", {}).get("quant", ""),
+		stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
+		outdir = os.path.join(config["outdir"], "kallisto", "{run}")
 	threads:
-	    32
+		32
 	shell:
-	    "set +u && source kallisto-0.44.0 && /usr/bin/time -v kallisto quant {params.stranded} -i {input.index} -o {params.outdir} -b {params.bootstrap} --threads {threads} {input.reads} &> {log}"
+		"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
 rule gmc_collapse_metrics:
 	input:
@@ -557,10 +560,12 @@ rule gmc_sort_release_gffs:
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release_browser.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".sort_release_gffs.log")
+	params:
+		program_call = config["program_calls"]["genometools"],
+		program_params = config["params"]["genometools"]["sort"]
 	shell:
-		"set +u && source genometools-1.5.9 && " + \
-		"gt gff3 -sort -tidy -retainids yes {input[0]} > {output[0]} 2> {log} && " + \
-		"gt gff3 -sort -tidy -retainids yes {input[1]} > {output[1]} 2>> {log}" 
+		"{params.program_call} {params.program_params} {input[0]} > {output[0]} 2> {log} && " + \
+		"{params.program_call} {params.program_params} {input[1]} > {output[1]} 2>> {log}" 
 
 rule gmc_final_sanity_check:
 	input:
@@ -578,9 +583,9 @@ rule gmc_generate_mikado_stats:
 	output:
 		rules.gmc_final_sanity_check.output[0] + ".mikado_stats.txt"
 	params:
-		mikado = config["mikado-container"] + " mikado util stats"
+		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="util stats"),
 	shell:
-		"singularity exec {params.mikado} {input} > {output} && " + \
+		"{params.program_call} {input} > {output} && " + \
 		"parse_mikado_stats {output} > {output}.summary"
 
 rule gmc_extract_final_sequences:
@@ -591,9 +596,11 @@ rule gmc_extract_final_sequences:
 		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta",
 		cds = rules.gmc_final_sanity_check.output[0] + ".cds.fasta",
 		pep = rules.gmc_final_sanity_check.output[0] + ".pep.raw.fasta",
+	params:
+		program_call = config["program_calls"]["gffread"],
+		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"set +u && source cufflinks-2.2.1_gk && " + \
-		"gffread {input.gff} -g {input.refseq} -W -w {output.cdna} -x {output.cds} -y {output.pep}"
+		"{program_call} {input.gff} -g {input.refseq} {program_params} -w {output.cdna} -x {output.cds} -y {output.pep}"
 
 rule gmc_cleanup_final_proteins:
 	input:
@@ -603,10 +610,11 @@ rule gmc_cleanup_final_proteins:
 	log:
 		os.path.join(LOG_DIR, "cleanup_proteins.log")
 	params:
-		prefix = rules.gmc_extract_final_sequences.output[2].replace(".raw.fasta", "")
+		prefix = rules.gmc_extract_final_sequences.output[2].replace(".raw.fasta", ""),
+		program_call = config["program_calls"]["prinseq"],
+		program_params = config["params"]["prinseq"]
 	shell:
-		"set +u && source prinseq-0.20.3 && " + \
-		"prinseq -fasta {input} -min_len 1 -line_width 70 -out_good {params.prefix} -out_bad {params.prefix}.bad"
+		"{params.program_call} -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
 rule gmc_protein_completeness:
 	input:
