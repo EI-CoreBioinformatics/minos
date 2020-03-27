@@ -600,7 +600,7 @@ rule gmc_extract_final_sequences:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"{program_call} {input.gff} -g {input.refseq} {program_params} -w {output.cdna} -x {output.cds} -y {output.pep}"
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -w {output.cdna} -x {output.cds} -y {output.pep}"
 
 rule gmc_cleanup_final_proteins:
 	input:
