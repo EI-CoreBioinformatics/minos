@@ -125,6 +125,27 @@ def generate_final_info(metrics_matrix, metrics_info, transcripts_info, kallisto
 	return model_info, gene_info
 
 
+def cmp_score(a, b, op):
+	if op == "eq":
+		return a == b
+	if op == "lt":
+		return a < b
+	if op == "gt":
+		return a > b
+	if op == "ge":
+		return a >= b
+	raise ValueError("Invalid check: {} {} {}".format(a, b, op))
+
+def check_expression(expression, values):
+	if type(expression[0]) is str:
+		a, b, op = expression
+		expression = (values[a], b, op)
+		return cmp_score(*expression)
+	operator = expression[0]
+	return operator(
+		check_expression(exp, values) for exp in expression[1:]
+	)
+
 def write_scores(model_info, gene_info):
 	
 	print(*HEADER, sep="\t")
@@ -140,43 +161,37 @@ def write_scores(model_info, gene_info):
 			raise ValueError("Error: Cannot find all gene scores:\n{}".format("\n".join(zip(SCORES, gene_scores))))
 		row.extend(gene_scores)
 		
-		high_confidence = gene_info[gid]["classification"] == 1 or gene_info[gid]["hom_acov_score"] >= 0.8 or (gene_info[gid]["hom_acov_score"] >= 0.6 and gene_info[gid]["transcript_score"] >= 0.4)
+		biotype = "protein_coding_gene"
 		repeat_associated = gene_info[gid]["te_score"] >= 0.4
-		biotype = None
 		if repeat_associated:
 			biotype = "transposable_element_gene"
-		elif gene_info[gid]["hom_acov_score"] < 0.3 and gene_info[gid]["cpc_score"] < 0.25: # and gene_info[gid]["classification"] == 0: ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
-			biotype = "predicted_gene"
 		else:
-			biotype = "protein_coding_gene"
-		if biotype is None:
-			raise ValueError("Error: Could not determine biotype for transcript " + tid)
+			predicted_gene_checks = (
+				all,
+				("hom_acov_score", 0.3, "lt"), 
+				("cpc_score", 0.25, "lt"),
+				# and gene_info[gid]["classification"] == 0: ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
+			)
+			if check_expression(predicted_gene_checks, gene_info[gid]):
+				biotype = "predicted_gene"
 
-		# original check from quillaja.pl
-		# my $discard_boolen = ( ($gene_ext_aln_ptn == 0) && ($gene_ext_aln_nuc == 0) && ($gene_ext_hom_cla == 0) && ($gene_ext_hom_aCov == 0) && ($gene_ext_tpm < 0.3) ) ? "True" : "False";
-		discard_checks = {
-			("protein_score", "eq", 0),
-			("transcript_score", "eq", 0),
-			("hom_acov_score", "eq", 0),
-			("expression_score", "lt", 0.3),
+		hiconf_checks = (
+			any,
+			("classification", 1, "eq"),
+			("hom_acov_score", 0.8, "ge"),
+			(all, ("hom_acov_score", 0.6, "ge"), ("transcript_score", 0.4, "ge"))
+		)
+		high_confidence = check_expression(hiconf_checks, gene_info[gid])
+
+		discard_checks = (
+			all,
+			("protein_score", 0, "eq"),
+			("transcript_score", 0, "eq"),
+			("hom_acov_score", 0, "eq"),
+			("expression_score", 0.3, "lt"),
 			# ("classification", "eq", 0) ## cschu 20200203: issue9: disabled until full-lengther replacement implemented 
-		}
-
-		def cmp_score(a, b, op):
-			if op == "eq":
-				return a == b
-			if op == "lt":
-				return a < b
-			if op == "gt":
-				return a > b
-			raise ValueError("Invalid check: {} {} {}".format(a, op, b))
-
-		discard = True
-		for score, cmp_op, threshold in discard_checks:
-			check = cmp_score(gene_info[gid][score], threshold, cmp_op)
-			discard &= check
-			if not discard:
-				break
+		)
+		discard = check_expression(discard_checks, gene_info[gid])
 
 		row.extend([
 			"High" if high_confidence else "Low",
