@@ -18,6 +18,7 @@ params:
     blastp: "-y"
     blastx: "-W -x"
     default: "-W"
+    final: "-P -W --table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
   cpc2: "-r"
   kallisto:
     index: ""
