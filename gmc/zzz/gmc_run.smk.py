@@ -65,7 +65,8 @@ localrules:
 	gmc_gffread_extract_proteins,
 	gmc_protein_completeness,
 	gmc_gffread_extract_cdna_post_pick,
-	gmc_gff_genometools_check_post_pick
+	gmc_gff_genometools_check_post_pick,
+	gmc_collect_biotype_conf_stats
 
 rule all:
 	input:
@@ -90,6 +91,8 @@ rule all:
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release_browser.gff3"),  
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3"),
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.mikado_stats.txt"),
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.mikado_stats.tsv"),
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.biotype_conf.tsv"),
 		[
 			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
@@ -581,12 +584,40 @@ rule gmc_generate_mikado_stats:
 	input:
 		rules.gmc_final_sanity_check.output[0]
 	output:
-		rules.gmc_final_sanity_check.output[0] + ".mikado_stats.txt"
+		rules.gmc_final_sanity_check.output[0] + ".mikado_stats.txt",
+		rules.gmc_final_sanity_check.output[0] + ".mikado_stats.tsv"
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="util stats"),
 	shell:
-		"{params.program_call} {input} > {output} && " + \
-		"parse_mikado_stats {output} > {output}.summary"
+		"{params.program_call} {input} --tab-stats {output[1]} > {output[0]} && " + \
+		"parse_mikado_stats {output[0]} > {output[0]}.summary"
+
+rule gmc_collect_biotype_conf_stats:
+	input:
+		rules.gmc_final_sanity_check.output[0]
+	output:
+		rules.gmc_final_sanity_check.output[0] + ".biotype_conf.tsv"
+	run:
+		import csv
+		from collections import Counter
+		biotypes, transcripts = dict(), dict()
+		for row in csv.reader(open(input[0]), delimiter="\t"):
+			if not row[0].startswith("#"):
+				if row[2].lower() in {"gene", "mrna", "ncrna"}:
+					attrib = dict(item.split("=") for item in row[8].strip().split(";"))
+					if row[2].lower() == "gene":
+						biotypes[attrib["ID"]] = attrib["biotype"]
+					else:
+						transcripts[attrib["ID"]] = (biotypes.get(attrib["Parent"], None), attrib["confidence"])
+		with open(output[0], "w") as tbl_out:
+			print("#1.transcript_id", "#2.biotype", "#3.confidence", sep="\t", file=tbl_out)
+			for tid, bt_conf in sorted(transcripts.items()):
+				print(tid, *bt_conf, sep="\t", file=tbl_out)
+		counts = Counter(transcripts.values())
+		with open(output[0].replace(".tsv", ".summary"), "w") as summary_out:
+			for bt_conf, count in sorted(counts.items()):
+				print(*bt_conf, count, sep="\t", file=summary_out)
+
 
 rule gmc_extract_final_sequences:
 	input:
@@ -596,11 +627,12 @@ rule gmc_extract_final_sequences:
 		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta",
 		cds = rules.gmc_final_sanity_check.output[0] + ".cds.fasta",
 		pep = rules.gmc_final_sanity_check.output[0] + ".pep.raw.fasta",
+		tbl = rules.gmc_final_sanity_check.output[0] + ".gffread.table.txt"
 	params:
 		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"]["default"]
+		program_params = config["params"]["gffread"]["final"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -w {output.cdna} -x {output.cds} -y {output.pep}"
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
 
 rule gmc_cleanup_final_proteins:
 	input:
