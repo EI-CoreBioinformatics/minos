@@ -44,13 +44,15 @@ program_calls:
   genometools: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img gt"
   prinseq: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img prinseq-lite.pl"
 
-metrics_collapse:
-  check_thresholds:
-    classification:
-      repeat_associated: "te_score ge 0.4"
-      predicted_gene: "hom_acov_score lt 0.3 & cpc_score lt 0.25"
-    hi_confidence: "classification eq 1 | hom_acov_score ge 0.8 | (hom_acov_score ge 0.6 & transcript_score ge 0.4)"
-    discard: "protein_score eq 0 & transcript_score eq 0 & hom_acov_score eq 0 & expression_score lt 0.3"
+collapse_metrics_thresholds:
+  repeat_associated: "{te_score} >= 0.4"
+  predicted_gene: "{hom_acov_score} < 0.3 and {cpc_score} < 0.25"
+  hi_confidence: "{classification} == 1 or {hom_acov_score} >= 0.8 or ({hom_acov_score} >= 0.6 and {transcript_score} >= 0.4)"
+  discard: "{protein_score} == 0 and {transcript_score} == 0 and {hom_acov_score} == 0 and {expression_score} < 0.3"
+  #repeat_associated: "te_score ge 0.4"
+  #predicted_gene: "hom_acov_score lt 0.3 & cpc_score lt 0.25"
+  #hi_confidence: "classification eq 1 | hom_acov_score ge 0.8 | (hom_acov_score ge 0.6 & transcript_score ge 0.4)"
+  #discard: "protein_score eq 0 & transcript_score eq 0 & hom_acov_score eq 0 & expression_score lt 0.3"
       
 
 

@@ -543,7 +543,7 @@ rule gmc_collapse_metrics:
 		from gmc.scripts.collapse_metrics import MetricCollapser
 		mc = MetricCollapser(input.gff, input.metrics_info, input.ext_scores, input.expression)
 		with open(output[0], "w") as out:
-			mc.write_scores(stream=out)
+			mc.write_scores(config["collapse_metrics_thresholds"], stream=out)
 
 rule gmc_create_release_gffs:
 	input:

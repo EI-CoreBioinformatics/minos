@@ -177,7 +177,7 @@ class MetricCollapser:
 		self.model_info, self.gene_info = dict(), dict()
 		self.read_metrics(metrics_matrix)
 
-	def write_scores(self, stream=sys.stdout):
+	def write_scores(self, checks, stream=sys.stdout):
 		print(*HEADER, sep="\t", file=stream)
 
 		for tid, tinfo in sorted(self.model_info.items(), key=lambda x:x[0]):
@@ -192,15 +192,20 @@ class MetricCollapser:
 			row.extend(gene_scores)
 
 			biotype = "protein_coding_gene"
-			repeat_associated = check_expression(REPEAT_ASSOCIATED_CHECKS, self.gene_info[gid])
+			
+			#repeat_associated = check_expression(REPEAT_ASSOCIATED_CHECKS, self.gene_info[gid])
+			repeat_associated = eval(checks["repeat_associated"].format(**self.gene_info[gid]))
 			if repeat_associated:
 				biotype = "transposable_element_gene"
 			else:
-				if check_expression(PREDICTED_GENE_CHECKS, self.gene_info[gid]):
+				#if check_expression(PREDICTED_GENE_CHECKS, self.gene_info[gid]):
+				if eval(checks["predicted_gene"].format(**self.gene_info[gid])):
 					biotype = "predicted_gene"
 
-			high_confidence = check_expression(HICONF_CHECKS, self.gene_info[gid])
-			discard = check_expression(DISCARD_CHECKS, self.gene_info[gid])
+			#high_confidence = check_expression(HICONF_CHECKS, self.gene_info[gid])
+			#discard = check_expression(DISCARD_CHECKS, self.gene_info[gid])
+			high_confidence = eval(checks["hi_confidence"].format(**self.gene_info[gid]))
+			discard = eval(checks["discard"].format(**self.gene_info[gid]))
 
 			row.extend([
 				"High" if high_confidence else "Low",
