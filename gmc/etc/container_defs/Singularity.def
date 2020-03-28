@@ -5,7 +5,7 @@ Include: yum which wget
 
 %environment
 	export CPC_HOME=/opt/software/CPC2-beta
-	export PATH=$PATH:$CPC_HOME/bin
+	export PATH=$PATH:$CPC_HOME/bin:/opt/software/gffread
 
 
 %post
@@ -14,9 +14,16 @@ Include: yum which wget
 	yum -y install git bzip2 wget which sudo vi
 	yum -y group install "Development Tools"
 
-	conda install -c bioconda -y cufflinks=2.2.1 kallisto=0.44.0 blast biopython prinseq numpy genometools-genometools
+	conda install -c bioconda -y kallisto=0.44.0 blast biopython prinseq numpy genometools-genometools
 
 	mkdir -p /opt/software
+	cd /opt/software
+
+	git clone https://github.com/gpertea/gclib
+	git clone https://github.com/gpertea/gffread
+	cd gffread
+  	make release
+
 	cd /opt/software
 	# http://cpc2.cbi.pku.edu.cn/download.php
 	wget http://cpc2.cbi.pku.edu.cn/data/CPC2-beta.tar.gz
@@ -41,12 +48,9 @@ Include: yum which wget
 	echo $'\t'$'\t'"os.system('mv ' + outfile + '.txt ' + outfile)" >> CPC2.py.1
 	tail -n +356 CPC2.py >> CPC2.py.1
 	mv CPC2.py.1 CPC2.py
-
-	chmod 775 *.py
-
-
 	# patch seqio.py
 	sed -i "s/print \([^ $]\+\)/print(\1)/g" seqio.py
+	chmod 775 *.py
 
 	python3 CPC2.py -h
 
