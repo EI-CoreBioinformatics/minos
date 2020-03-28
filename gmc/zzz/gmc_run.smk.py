@@ -539,8 +539,11 @@ rule gmc_collapse_metrics:
 		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
-	shell:
-		"collapse_metrics {input.gff} {input.ext_scores} {input.metrics_info} {input.expression} > {output} 2> {log}"
+	run:
+		from gmc.scripts.collapse_metrics import MetricCollapser
+		mc = MetricCollapser(input.gff, input.metrics_info, input.ext_scores, input.expression)
+		with open(output[0], "w") as out:
+			mc.write_scores(stream=out)
 
 rule gmc_create_release_gffs:
 	input:
