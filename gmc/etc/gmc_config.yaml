@@ -13,7 +13,7 @@ params:
         transcripts: "--extended-refmap"
         proteins: "--exclude-utr --extended-refmap"
     serialise: ""
-    pick: "-lv DEBUG"
+    pick: ""
   gffread:
     blastp: "-y"
     blastx: "-W -x"
