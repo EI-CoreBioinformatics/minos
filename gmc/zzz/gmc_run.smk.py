@@ -96,7 +96,8 @@ rule all:
 		[
 			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
-		[os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".pep.raw.{}".format(suffix) for suffix in {"protein_status.tsv", "protein_status.summary"}]	
+		[os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".pep.raw.{}".format(suffix) for suffix in {"protein_status.tsv", "protein_status.summary"}],
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.final_table.tsv")
 
 rule gmc_mikado_prepare:
 	input:
@@ -667,3 +668,28 @@ rule gmc_protein_completeness:
 	shell:
 		"protein_completeness -o {params.outdir} -p {params.prefix1} {input.proteins1} && "  + \
 		"protein_completeness -o {params.outdir} -p {params.prefix2} {input.proteins2}"
+
+# @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness
+rule gmc_generate_full_table:
+	input:
+		stats_table = rules.gmc_generate_mikado_stats.output[1],
+		pc_table = rules.gmc_protein_completeness.output.tsv2,
+		seq_table = rules.gmc_extract_final_sequences.output.tbl,
+		bt_conf_table = rules.gmc_collect_biotype_conf_stats.output[0]
+	output:
+		rules.gmc_final_sanity_check.output[0] + ".final_table.tsv"
+	run:
+		import csv
+		bt_conf = dict((row[0], row[1:3][::-1]) for row in csv.reader(open(input.bt_conf_table), delimiter="\t"))
+		pr_stat = dict((row[0], row[1:]) for row in csv.reader(open(input.pc_table), delimiter="\t"))
+		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
+		r = csv.reader(open(input.stats_table), delimiter="\t")
+		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
+		head.extend("#{}.{}".format(c, col) for c, col in enumerate(["Confidence", "Biotype", "Partialness", "InFrameStop", "Partialness_gr"], start=len(head)+1))
+		with open(output[0], "w") as tbl_out:
+			print(*head, sep="\t", flush=True, file=tbl_out)
+			for row in r:
+				row.extend(bt_conf.get(row[0], [".", "."]))
+				row.extend(pr_stat.get(row[0], ["."]))
+				row.extend(if_pt.get(row[0], [".", "."]))
+				print(*row, sep="\t", flush=True, file=tbl_out)
