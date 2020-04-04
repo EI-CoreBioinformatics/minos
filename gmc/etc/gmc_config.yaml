@@ -46,8 +46,10 @@ program_calls:
 
 collapse_metrics_thresholds:
   repeat_associated: "{te_score} >= 0.4"
+  # predicted_gene will also depend on classification status, but this is currently not implemented
   predicted_gene: "{hom_acov_score} < 0.3 and {cpc_score} < 0.25"
   hi_confidence: "{classification} == 1 or {hom_acov_score} >= 0.8 or ({hom_acov_score} >= 0.6 and {transcript_score} >= 0.4)"
+  # discard will also depend on classification status, but this is currently not implemented
   discard: "{protein_score} == 0 and {transcript_score} == 0 and {hom_acov_score} == 0 and {expression_score} < 0.3"
   #repeat_associated: "te_score ge 0.4"
   #predicted_gene: "hom_acov_score lt 0.3 & cpc_score lt 0.25"

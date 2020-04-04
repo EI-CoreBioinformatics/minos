@@ -67,18 +67,18 @@ class ScoringMetricsManager(object):
 	
 	def generateScoringFile(self, scoring_template, outfile):
 		ext_metrics = list()
-		for mclass in self.metrics:
-			ext_metrics.extend("external.{}_aF1".format(run) for run in self.metrics[mclass])
+		for mclass, runs in self.metrics.items():
+			ext_metrics.extend("external.{}_aF1".format(runid) for runid, run in runs.items())
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
 			blast_metrics = {"seq_prot", "blastdb_prot"}
-			for mclass in self.metrics:
+			for mclass, runs in self.metrics.items():
 				if mclass not in {"junction", "expression"}:
 					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
-					for run in metrics[mclass]:
+					for runid, run in runs.items():
 						for suffix in suffixes:						
-							ext_metrics.append("external.{}_{}".format(run, suffix))				
+							ext_metrics.append("external.{}_{}".format(runid, suffix))				
 					#ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
@@ -89,12 +89,12 @@ class ScoringMetricsManager(object):
 		def generate_nf_params(metrics):
 			params = list() 
 			blast_metrics = {"seq_prot", "blastdb_prot"}
-			for mclass in metrics:
+			for mclass, runs in metrics.items():
 				if mclass not in {"junction", "expression"}:
 					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
-					for run in metrics[mclass]:
+					for runid, run in runs.items():
 						for suffix in suffixes:
-							params.append("    external.{}_{}: {{operator: gt, value: {}}}".format(run, suffix, metrics[mclass][run][0]["min_value"]))
+							params.append("    external.{}_{}: {{operator: gt, value: {}}}".format(runid, suffix, run[0]["min_value"]))
 
 			return params
 			
@@ -102,7 +102,7 @@ class ScoringMetricsManager(object):
 			blast_metrics = {"seq_prot", "blastdb_prot"}
 			scoring = list()			
 
-			for mclass in metrics:
+			for mclass, runs in metrics.items():
 				if mclass == "expression":
 					suffixes = ["tpm"]
 				elif mclass in blast_metrics:
@@ -111,21 +111,23 @@ class ScoringMetricsManager(object):
 					continue
 				else:
 					suffixes = ["nF1", "jF1", "eF1", "aF1"]					
-					
-				for run in metrics[mclass]:
+
+				for runid, run in runs.items():
 					for suffix in suffixes:
 						comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
+						multiplier = run[0]["multiplier"]
 						if suffix == "tpm":
-							expression = "{{rescaling: min, filter: {{operator: lt, value: {}}}, multiplier: {}}}".format(
-								0.5, #! GET VALUE!
-								metrics[mclass][run][0]["multiplier"]
-							)
+							#expression = "{{rescaling: min, filter: {{operator: lt, value: {}}}, multiplier: {}}}".format(
+							#	0.5, #! GET VALUE!
+							#	multiplier # metrics[mclass][run][0]["multiplier"]
+							#)
+							expression = "{{rescaling: max, multiplier: {}}}".format(multiplier) #metrics[mclass][run][0]["multiplier"])
 							suffix = ""
 						else:
-							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(metrics[mclass][run][0]["multiplier"])
+							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier) #metrics[mclass][run][0]["multiplier"])
 							suffix = "_" + suffix
 						scoring.append(
-							"  {}external.{}{}: {}".format(comment, run, suffix, expression)
+							"  {}external.{}{}: {}".format(comment, runid, suffix, expression)
 						)
 			
 			return scoring		
