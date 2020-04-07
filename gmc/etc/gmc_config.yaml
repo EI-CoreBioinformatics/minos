@@ -15,10 +15,10 @@ params:
     serialise: ""
     pick: ""
   gffread:
-    blastp: "-y"
-    blastx: "-W -x"
-    default: "-W"
-    final: "-P -W --table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
+    blastp: ""
+    blastx: ""
+    default: ""
+    final: ""
   cpc2: "-r"
   kallisto:
     index: ""

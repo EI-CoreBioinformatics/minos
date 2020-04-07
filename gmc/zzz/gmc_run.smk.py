@@ -141,9 +141,10 @@ rule gmc_gffread_extract_proteins:
 		1
 	params:
 		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"][config["blast-mode"]]
+		program_params = config["params"]["gffread"][config["blast-mode"]],
+		output_params = "-W -x" if config["blast-mode"] == "blastx" else ("-y" if config["blast-mode"] == "blastp" else "")
 	shell:
-		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} {output[0]}.raw &> {log} && " + \
+		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} {params.output_params} {output[0]}.raw &> {log} && " + \
 		"awk '/^[^>]/ {{ $1=gensub(\"\\\\.\", \"\", \"g\", $1) }} {{ print $0 }}' {output[0]}.raw > {output[0]}"
 
 
@@ -462,7 +463,7 @@ rule gmc_gffread_extract_proteins_post_pick:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -x {output[0]} &> {log}" 
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -x {output[0]} &> {log}" 
 
 rule gmc_gffread_extract_cdna_post_pick:
 	input:
@@ -476,7 +477,7 @@ rule gmc_gffread_extract_cdna_post_pick:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -w {output[0]} &> {log}" 
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -w {output[0]} &> {log}" 
 
 rule gmc_gff_genometools_check_post_pick:
 	input:
@@ -623,48 +624,72 @@ rule gmc_collect_biotype_conf_stats:
 				print(*bt_conf, count, sep="\t", file=summary_out)
 
 
-rule gmc_extract_final_sequences:
+rule gmc_extract_final_transcripts:
 	input:
 		gff = rules.gmc_final_sanity_check.output[0],
 		refseq = config["reference-sequence"]
 	output:
-		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta",
+		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta"
+	params:
+		program_call = config["program_calls"]["gffread"],
+		program_params = config["params"]["gffread"]["final"],
+	shell:
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -w {output.cdna}"
+
+rule gmc_extract_final_transcript_stats:
+	input:
+		gff = rules.gmc_final_sanity_check.output[0],
+		refseq = config["reference-sequence"]
+	output:
+		tbl = rules.gmc_final_sanity_check.output[0] + ".gffread.table.txt"
+	params:
+		program_call = config["program_calls"]["gffread"],
+		program_params = config["params"]["gffread"]["final"],
+		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
+	shell:
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -P {params.table_format} -o {output.tbl}"
+
+
+rule gmc_extract_final_proteins:
+	input:
+		gff = rules.gmc_final_sanity_check.output[0],
+		refseq = config["reference-sequence"]
+	output:
 		cds = rules.gmc_final_sanity_check.output[0] + ".cds.fasta",
 		pep = rules.gmc_final_sanity_check.output[0] + ".pep.raw.fasta",
-		tbl = rules.gmc_final_sanity_check.output[0] + ".gffread.table.txt"
 	params:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["final"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -x {output.cds} -y {output.pep}"
 
 rule gmc_cleanup_final_proteins:
 	input:
-		rules.gmc_extract_final_sequences.output[2]
+		rules.gmc_extract_final_proteins.output.pep
 	output:
-		rules.gmc_extract_final_sequences.output[2].replace(".raw.fasta", ".fasta")
+		rules.gmc_extract_final_proteins.output.pep.replace(".raw.fasta", ".fasta")
 	log:
 		os.path.join(LOG_DIR, "cleanup_proteins.log")
 	params:
-		prefix = rules.gmc_extract_final_sequences.output[2].replace(".raw.fasta", ""),
+		prefix = rules.gmc_extract_final_proteins.output.pep.replace(".raw.fasta", ""),
 		program_call = config["program_calls"]["prinseq"],
 		program_params = config["params"]["prinseq"]
 	shell:
-		"{params.program_call} -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
+		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
 rule gmc_protein_completeness:
 	input:
 		proteins1 = rules.gmc_gffread_extract_proteins_post_pick.output[0],
-		proteins2 = rules.gmc_extract_final_sequences.output[2]		
+		proteins2 = rules.gmc_extract_final_proteins.output.pep		
 	output:
 		tsv1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
 		summary1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
-		tsv2 = rules.gmc_extract_final_sequences.output[2].replace(".fasta", ".protein_status.tsv"),
-		summary2 = rules.gmc_extract_final_sequences.output[2].replace(".fasta", ".protein_status.summary")
+		tsv2 = rules.gmc_extract_final_proteins.output.pep.replace(".fasta", ".protein_status.tsv"),
+		summary2 = rules.gmc_extract_final_proteins.output.pep.replace(".fasta", ".protein_status.summary")
 	params:
 		outdir = config["outdir"],
 		prefix1 = "mikado.annotation",
-		prefix2 = os.path.basename(rules.gmc_extract_final_sequences.output[2].replace(".fasta", ""))
+		prefix2 = os.path.basename(rules.gmc_extract_final_proteins.output.pep.replace(".fasta", ""))
 	shell:
 		"protein_completeness -o {params.outdir} -p {params.prefix1} {input.proteins1} && "  + \
 		"protein_completeness -o {params.outdir} -p {params.prefix2} {input.proteins2}"
@@ -673,23 +698,26 @@ rule gmc_protein_completeness:
 rule gmc_generate_full_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
-		pc_table = rules.gmc_protein_completeness.output.tsv2,
-		seq_table = rules.gmc_extract_final_sequences.output.tbl,
+		# pc_table = rules.gmc_protein_completeness.output.tsv2,
+		seq_table = rules.gmc_extract_final_transcript_stats.output.tbl,
 		bt_conf_table = rules.gmc_collect_biotype_conf_stats.output[0]
 	output:
 		rules.gmc_final_sanity_check.output[0] + ".final_table.tsv"
 	run:
 		import csv
+		colheaders = ["Confidence", "Biotype", "InFrameStop", "Partialness"]
+		pt_cats = {".": "complete", "5_3": "fragment", "3": "3prime_partial", "5": "5prime_partial"}
 		bt_conf = dict((row[0], row[1:3][::-1]) for row in csv.reader(open(input.bt_conf_table), delimiter="\t"))
-		pr_stat = dict((row[0], row[1:]) for row in csv.reader(open(input.pc_table), delimiter="\t"))
+		# pr_stat = dict((row[0], row[1:]) for row in csv.reader(open(input.pc_table), delimiter="\t"))
 		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
 		r = csv.reader(open(input.stats_table), delimiter="\t")
 		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
-		head.extend("#{}.{}".format(c, col) for c, col in enumerate(["Confidence", "Biotype", "Partialness", "InFrameStop", "Partialness_gr"], start=len(head)+1))
+		head.extend("#{}.{}".format(c, col) for c, col in enumerate(colheaders, start=len(head)+1))
 		with open(output[0], "w") as tbl_out:
 			print(*head, sep="\t", flush=True, file=tbl_out)
 			for row in r:
 				row.extend(bt_conf.get(row[0], [".", "."]))
-				row.extend(pr_stat.get(row[0], ["."]))
+				# row.extend(pr_stat.get(row[0], ["."]))
 				row.extend(if_pt.get(row[0], [".", "."]))
+				row[-1] = pt_cats.get(row[-1], "NA")
 				print(*row, sep="\t", flush=True, file=tbl_out)
