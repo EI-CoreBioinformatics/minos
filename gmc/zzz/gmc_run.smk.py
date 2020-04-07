@@ -141,7 +141,7 @@ rule gmc_gffread_extract_proteins:
 		1
 	params:
 		program_call = config["program_calls"]["gffread"],
-		#program_params = config["params"]["gffread"][config["blast-mode"]]
+		program_params = config["params"]["gffread"][config["blast-mode"]],
 		output_params = "-W -x" if config["blast-mode"] == "blastx" else ("-y" if config["blast-mode"] == "blastp" else "")
 	shell:
 		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} {params.output_params} {output[0]}.raw &> {log} && " + \
@@ -651,7 +651,6 @@ rule gmc_extract_final_proteins:
 	shell:
 		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -x {output.cds} -y {output.pep}"
 
-
 rule gmc_cleanup_final_proteins:
 	input:
 		rules.gmc_extract_final_proteins.output.pep
@@ -664,7 +663,7 @@ rule gmc_cleanup_final_proteins:
 		program_call = config["program_calls"]["prinseq"],
 		program_params = config["params"]["prinseq"]
 	shell:
-		"{params.program_call} -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
+		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
 rule gmc_protein_completeness:
 	input:
@@ -687,7 +686,6 @@ rule gmc_protein_completeness:
 rule gmc_generate_full_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
-		#pc_table = rules.gmc_protein_completeness.output.tsv2,
 		seq_table = rules.gmc_extract_final_transcripts.output.tbl,
 		bt_conf_table = rules.gmc_collect_biotype_conf_stats.output[0]
 	output:
@@ -707,7 +705,6 @@ rule gmc_generate_full_table:
 			print(*head, sep="\t", flush=True, file=tbl_out)
 			for row in r:
 				row.extend(bt_conf.get(row[0], [".", "."]))
-				#row.extend(pr_stat.get(row[0], ["."]))
 				row.extend(if_pt.get(row[0], [".", "."]))
 				row[-1] = pt_cats.get(row[-1], "NA")
 				print(*row, sep="\t", flush=True, file=tbl_out)

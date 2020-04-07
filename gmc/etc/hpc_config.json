@@ -125,7 +125,7 @@
   "gmc_extract_final_transcripts": {
     "memory": "2000",
     "c": "1",
-    "J": "gmc_extract_final_transcripts"
+    "J": "gmc_extract_final_sequences"
   },
   "gmc_extract_final_proteins": {
     "memory": "2000",
