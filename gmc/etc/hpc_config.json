@@ -122,6 +122,11 @@
     "c": "1",
     "J": "gmc_generate_mikado_stats"
   },
+  "gmc_extract_final_sequences": {
+    "memory": "2000",
+    "c": "1",
+    "J": "gmc_extract_final_sequences"
+  },
   "gmc_extract_final_transcripts": {
     "memory": "2000",
     "c": "1",

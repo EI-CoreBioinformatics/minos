@@ -66,7 +66,8 @@ localrules:
 	gmc_protein_completeness,
 	gmc_gffread_extract_cdna_post_pick,
 	gmc_gff_genometools_check_post_pick,
-	gmc_collect_biotype_conf_stats
+	gmc_collect_biotype_conf_stats,
+	gmc_calculate_cds_lengths_post_pick
 
 rule all:
 	input:
@@ -77,6 +78,8 @@ rule all:
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
 		os.path.join(config["outdir"], "mikado.annotation.gff"),
 		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
+		os.path.join(config["outdir"], "mikado.annotation.cds.fasta"),
+		os.path.join(config["outdir"], "mikado.annotation.cds.fasta.lengths"),
 		os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
 		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
@@ -96,7 +99,6 @@ rule all:
 		[
 			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
-		[os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".pep.raw.{}".format(suffix) for suffix in {"protein_status.tsv", "protein_status.summary"}],
 		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.final_table.tsv")
 
 rule gmc_mikado_prepare:
@@ -456,14 +458,42 @@ rule gmc_gffread_extract_proteins_post_pick:
 		gff = rules.gmc_parse_mikado_pick.output[0],
 		refseq = config["reference-sequence"]
 	output:
-		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta")
+		pep = os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
+		cds = os.path.join(config["outdir"], "mikado.annotation.cds.fasta")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_post_pick.log")
 	params:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["default"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -x {output[0]} &> {log}" 
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -x {output.cds} -y {output.pep} &> {log}" 
+
+rule gmc_calculate_cds_lengths_post_pick:
+	input:
+		rules.gmc_gffread_extract_proteins_post_pick.output.cds
+	output:
+		rules.gmc_gffread_extract_proteins_post_pick.output.cds + ".lengths"
+	params:
+		min_cds_length = config["misc"]["min_cds_length"]
+	run:
+		def read_fasta(f):
+			sid, seq = None, list()
+			for line in open(f):
+				line = line.strip()
+				if line.startswith(">"):
+					if seq:
+						yield sid, "".join(seq)
+						seq = list()
+					sid = line[1:].split()[0]
+				else:
+					seq.append(line)
+			if seq:
+				yield sid, "".join(seq).upper().replace("U", "T")
+		with open(output[0], "w") as fout:
+			for sid, seq in read_fasta(input[0]):
+				has_stop = any(seq.endswith(stop_codon) for stop_codon in ("TAA", "TGA", "TAG"))
+				discard = (has_stop and len(seq) < params.min_cds_length) or (not has_stop and len(seq) < params.min_cds_length - 3)
+				print(sid, int(discard), sep="\t", file=fout)
 
 rule gmc_gffread_extract_cdna_post_pick:
 	input:
@@ -536,14 +566,15 @@ rule gmc_collapse_metrics:
 		gff = rules.gmc_parse_mikado_pick.output[0],
 		ext_scores = rules.gmc_metrics_generate_metrics_matrix.output[0],
 		metrics_info = rules.gmc_metrics_generate_metrics_info.output[0],
-		expression = expand(rules.gmc_kallisto_quant_post_pick.output, run=config["data"]["expression-runs"].keys())
+		expression = expand(rules.gmc_kallisto_quant_post_pick.output, run=config["data"]["expression-runs"].keys()),
+		cds_lengths = rules.gmc_calculate_cds_lengths_post_pick.output[0]
 	output:
 		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
 	run:
 		from gmc.scripts.collapse_metrics import MetricCollapser
-		mc = MetricCollapser(input.gff, input.metrics_info, input.ext_scores, input.expression)
+		mc = MetricCollapser(input.gff, input.metrics_info, input.ext_scores, input.cds_lengths, input.expression)
 		with open(output[0], "w") as out:
 			mc.write_scores(config["collapse_metrics_thresholds"], stream=out)
 
@@ -623,43 +654,30 @@ rule gmc_collect_biotype_conf_stats:
 			for bt_conf, count in sorted(counts.items()):
 				print(*bt_conf, count, sep="\t", file=summary_out)
 
-
-rule gmc_extract_final_transcripts:
+rule gmc_extract_final_sequences:
 	input:
 		gff = rules.gmc_final_sanity_check.output[0],
 		refseq = config["reference-sequence"]
 	output:
 		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta",
-		tbl = rules.gmc_final_sanity_check.output[0] + ".gffread.table.txt"
+		tbl = rules.gmc_final_sanity_check.output[0] + ".gffread.table.txt",
+		cds = rules.gmc_final_sanity_check.output[0] + ".cds.fasta",
+		pep = rules.gmc_final_sanity_check.output[0] + ".pep.raw.fasta"
 	params:
 		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"]["final"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -P {params.table_format} -W -w {output.cdna} -o {output.tbl}"
-
-rule gmc_extract_final_proteins:
-	input:
-		gff = rules.gmc_final_sanity_check.output[0],
-		refseq = config["reference-sequence"]
-	output:
-		cds = rules.gmc_final_sanity_check.output[0] + ".cds.fasta",
-		pep = rules.gmc_final_sanity_check.output[0] + ".pep.raw.fasta",
-	params:
-		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"]["final"]
-	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -x {output.cds} -y {output.pep}"
+		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
 
 rule gmc_cleanup_final_proteins:
 	input:
-		rules.gmc_extract_final_proteins.output.pep
+		rules.gmc_extract_final_sequences.output.pep
 	output:
-		rules.gmc_extract_final_proteins.output.pep.replace(".raw.fasta", ".fasta")
+		rules.gmc_extract_final_sequences.output.pep.replace(".raw.fasta", ".fasta")
 	log:
 		os.path.join(LOG_DIR, "cleanup_proteins.log")
 	params:
-		prefix = rules.gmc_extract_final_proteins.output.pep.replace(".raw.fasta", ""),
+		prefix = rules.gmc_extract_final_sequences.output.pep.replace(".raw.fasta", ""),
 		program_call = config["program_calls"]["prinseq"],
 		program_params = config["params"]["prinseq"]
 	shell:
@@ -667,26 +685,21 @@ rule gmc_cleanup_final_proteins:
 
 rule gmc_protein_completeness:
 	input:
-		proteins1 = rules.gmc_gffread_extract_proteins_post_pick.output[0],
-		proteins2 = rules.gmc_extract_final_proteins.output.pep
+		proteins1 = rules.gmc_gffread_extract_proteins_post_pick.output.pep,
 	output:
 		tsv1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
 		summary1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
-		tsv2 = rules.gmc_extract_final_proteins.output.pep.replace(".fasta", ".protein_status.tsv"),
-		summary2 = rules.gmc_extract_final_proteins.output.pep.replace(".fasta", ".protein_status.summary")
 	params:
 		outdir = config["outdir"],
 		prefix1 = "mikado.annotation",
-		prefix2 = os.path.basename(rules.gmc_extract_final_proteins.output.pep.replace(".fasta", ""))
 	shell:
-		"protein_completeness -o {params.outdir} -p {params.prefix1} {input.proteins1} && "  + \
-		"protein_completeness -o {params.outdir} -p {params.prefix2} {input.proteins2}"
+		"protein_completeness -o {params.outdir} -p {params.prefix1} {input.proteins1}"
 
 # @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness
 rule gmc_generate_full_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
-		seq_table = rules.gmc_extract_final_transcripts.output.tbl,
+		seq_table = rules.gmc_extract_final_sequences.output.tbl,
 		bt_conf_table = rules.gmc_collect_biotype_conf_stats.output[0]
 	output:
 		rules.gmc_final_sanity_check.output[0] + ".final_table.tsv"
@@ -695,11 +708,9 @@ rule gmc_generate_full_table:
 		colheaders = ["Confidence", "Biotype", "InFrameStop", "Partialness"]
 		pt_cats = {".": "complete", "5_3": "fragment", "3": "3prime_partial", "5": "5prime_partial"}
 		bt_conf = dict((row[0], row[1:3][::-1]) for row in csv.reader(open(input.bt_conf_table), delimiter="\t"))
-		#pr_stat = dict((row[0], row[1:]) for row in csv.reader(open(input.pc_table), delimiter="\t"))
 		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
 		r = csv.reader(open(input.stats_table), delimiter="\t")
 		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
-		#head.extend("#{}.{}".format(c, col) for c, col in enumerate(["Confidence", "Biotype", "Partialness", "InFrameStop", "Partialness_gr"], start=len(head)+1))
 		head.extend("#{}.{}".format(c, col) for c, col in enumerate(colheaders, start=len(head)+1))
 		with open(output[0], "w") as tbl_out:
 			print(*head, sep="\t", flush=True, file=tbl_out)

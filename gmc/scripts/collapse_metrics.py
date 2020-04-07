@@ -66,7 +66,8 @@ class TranscriptData(dict):
 		try:
 			for row in csv.reader(open(gff), delimiter="\t"):
 				if not row[0].startswith("#"):
-					if row[2].strip().lower() in {"mrna", "ncrna"}:
+					ftype = row[2].strip().lower()
+					if ftype in {"mrna", "ncrna"}:
 						attrib = dict(item.split("=") for item in row[8].strip(";").split(";"))
 
 						if any(map(lambda x: x is None, (attrib.get("ID"), attrib.get("Parent"), attrib.get("Name")))):
@@ -82,7 +83,8 @@ class TranscriptData(dict):
 							"id": attrib["ID"],
 							"parent": attrib["Parent"],
 							"alias": attrib["Name"],
-							"region": "{}:{}..{}".format(row[0], start, end)
+							"region": "{}:{}..{}".format(row[0], start, end),
+							"type": ftype
 						}
 		except FileNotFoundError:
 			raise FileNotFoundError("Cannot find input gff at " + gff)
@@ -111,7 +113,7 @@ class ExpressionData(dict):
 			raise ValueError("No kallisto data processed")
 
 class TranscriptScores:
-	def __init__(self, metrics_info, expression_score, **metrics):
+	def __init__(self, metrics_info, expression_score, short_cds, **metrics):
 		self.tid = metrics["tid"]
 		self.protein_score = max(float(metrics[m + "_aF1"]) for m in metrics_info.get("mikado.protein", set()))
 		self.transcript_score = max(float(metrics[m + "_aF1"]) for m in metrics_info.get("mikado.transcript", set()))
@@ -122,6 +124,7 @@ class TranscriptScores:
 		self.cpc_score = float(metrics["cpc"])
 		self.expression_score = expression_score
 		self.classification = 0 ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
+		self.short_cds = short_cds
 
 
 class MetricCollapser:
@@ -151,7 +154,7 @@ class MetricCollapser:
 					self.model_info[metrics["tid"]] = dict(tdata)
 					gid = self.model_info[metrics["tid"]]["gene"] = tdata["parent"]
 					del self.model_info[metrics["tid"]]["parent"]
-					tmetrics = TranscriptScores(self.metrics_info, kallisto_score, **metrics).__dict__
+					tmetrics = TranscriptScores(self.metrics_info, kallisto_score, self.short_cds[tdata["id"]], **metrics).__dict__
 					self.model_info[metrics["tid"]].update(tmetrics)
 
 					# get the highest metrics value for gene
@@ -161,18 +164,18 @@ class MetricCollapser:
 						self.gene_info[gid] = dict(tmetrics)
 					else:
 						for k, v in ginfo.items():
-							cmp_f = max if k != "te_score" else min
+							cmp_f = max if k not in {"te_score", "short_cds"} else min
 							self.gene_info[gid][k] = cmp_f(v, tmetrics[k])
-
 
 
 		except FileNotFoundError:
 			raise FileNotFoundError("Cannot find metrics matrix at " + matrix)
 
-	def __init__(self, gff, metrics_info, metrics_matrix, expression_data):
+	def __init__(self, gff, metrics_info, metrics_matrix, short_cds, expression_data):
 		self.read_metrics_info(metrics_info)
 		self.transcripts_data = TranscriptData(gff)
 		self.expression_data = ExpressionData(*expression_data)
+		self.short_cds = dict((row[0], int(row[1])) for row in csv.reader(open(short_cds), delimiter="\t"))
 
 		self.model_info, self.gene_info = dict(), dict()
 		self.read_metrics(metrics_matrix)
@@ -192,20 +195,17 @@ class MetricCollapser:
 			row.extend(gene_scores)
 
 			biotype = "protein_coding_gene"
-			
-			#repeat_associated = check_expression(REPEAT_ASSOCIATED_CHECKS, self.gene_info[gid])
 			repeat_associated = eval(checks["repeat_associated"].format(**self.gene_info[gid]))
 			if repeat_associated:
 				biotype = "transposable_element_gene"
-			else:
-				#if check_expression(PREDICTED_GENE_CHECKS, self.gene_info[gid]):
-				if eval(checks["predicted_gene"].format(**self.gene_info[gid])):
-					biotype = "predicted_gene"
+			elif eval(checks["predicted_gene"].format(**self.gene_info[gid])):
+				biotype = "predicted_gene"
 
-			#high_confidence = check_expression(HICONF_CHECKS, self.gene_info[gid])
-			#discard = check_expression(DISCARD_CHECKS, self.gene_info[gid])
 			high_confidence = eval(checks["hi_confidence"].format(**self.gene_info[gid]))
 			discard = eval(checks["discard"].format(**self.gene_info[gid]))
+
+			if tinfo["type"] == "ncrna":
+				high_confidence, biotype = False, "predicted_gene"
 
 			row.extend([
 				"High" if high_confidence else "Low",
@@ -223,6 +223,7 @@ def main():
 	ap.add_argument("input_gff", type=str)
 	ap.add_argument("metrics_matrix", type=str)
 	ap.add_argument("metrics_info", type=str)
+	ap.add_argument("short_cds", type=str)
 	ap.add_argument("kallisto_tpm", nargs="*")
 	args = ap.parse_args()
 

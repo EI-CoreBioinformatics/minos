@@ -35,6 +35,9 @@ params:
     sort: "gff3 -sort -tidy -retainids yes"
   prinseq: "-min_len 1 -line_width 70"
 
+misc:
+  min_cds_length: 30
+
 program_calls:
   mikado: "singularity exec {container} mikado {program}"
   gffread: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img gffread"
@@ -50,7 +53,7 @@ collapse_metrics_thresholds:
   predicted_gene: "{hom_acov_score} < 0.3 and {cpc_score} < 0.25"
   hi_confidence: "{classification} == 1 or {hom_acov_score} >= 0.8 or ({hom_acov_score} >= 0.6 and {transcript_score} >= 0.4)"
   # discard will also depend on classification status, but this is currently not implemented
-  discard: "{protein_score} == 0 and {transcript_score} == 0 and {hom_acov_score} == 0 and {expression_score} < 0.3"
+  discard: "{protein_score} == 0 and {transcript_score} == 0 and {hom_acov_score} == 0 and ({expression_score} < 0.3 or {short_cds} == 1)"
   #repeat_associated: "te_score ge 0.4"
   #predicted_gene: "hom_acov_score lt 0.3 & cpc_score lt 0.25"
   #hi_confidence: "classification eq 1 | hom_acov_score ge 0.8 | (hom_acov_score ge 0.6 & transcript_score ge 0.4)"
