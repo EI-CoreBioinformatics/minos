@@ -629,26 +629,14 @@ rule gmc_extract_final_transcripts:
 		gff = rules.gmc_final_sanity_check.output[0],
 		refseq = config["reference-sequence"]
 	output:
-		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta"
-	params:
-		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"]["final"],
-	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -w {output.cdna}"
-
-rule gmc_extract_final_transcript_stats:
-	input:
-		gff = rules.gmc_final_sanity_check.output[0],
-		refseq = config["reference-sequence"]
-	output:
+		cdna = rules.gmc_final_sanity_check.output[0] + ".cdna.fasta",
 		tbl = rules.gmc_final_sanity_check.output[0] + ".gffread.table.txt"
 	params:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"]["final"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -P {params.table_format} -o {output.tbl}"
-
+		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -P {params.table_format} -W -w {output.cdna} -o {output.tbl}"
 
 rule gmc_extract_final_proteins:
 	input:
@@ -680,7 +668,7 @@ rule gmc_cleanup_final_proteins:
 rule gmc_protein_completeness:
 	input:
 		proteins1 = rules.gmc_gffread_extract_proteins_post_pick.output[0],
-		proteins2 = rules.gmc_extract_final_proteins.output.pep		
+		proteins2 = rules.gmc_extract_final_proteins.output.pep
 	output:
 		tsv1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
 		summary1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
@@ -698,8 +686,7 @@ rule gmc_protein_completeness:
 rule gmc_generate_full_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
-		# pc_table = rules.gmc_protein_completeness.output.tsv2,
-		seq_table = rules.gmc_extract_final_transcript_stats.output.tbl,
+		seq_table = rules.gmc_extract_final_transcripts.output.tbl,
 		bt_conf_table = rules.gmc_collect_biotype_conf_stats.output[0]
 	output:
 		rules.gmc_final_sanity_check.output[0] + ".final_table.tsv"
@@ -708,16 +695,16 @@ rule gmc_generate_full_table:
 		colheaders = ["Confidence", "Biotype", "InFrameStop", "Partialness"]
 		pt_cats = {".": "complete", "5_3": "fragment", "3": "3prime_partial", "5": "5prime_partial"}
 		bt_conf = dict((row[0], row[1:3][::-1]) for row in csv.reader(open(input.bt_conf_table), delimiter="\t"))
-		# pr_stat = dict((row[0], row[1:]) for row in csv.reader(open(input.pc_table), delimiter="\t"))
+		#pr_stat = dict((row[0], row[1:]) for row in csv.reader(open(input.pc_table), delimiter="\t"))
 		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
 		r = csv.reader(open(input.stats_table), delimiter="\t")
 		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
+		#head.extend("#{}.{}".format(c, col) for c, col in enumerate(["Confidence", "Biotype", "Partialness", "InFrameStop", "Partialness_gr"], start=len(head)+1))
 		head.extend("#{}.{}".format(c, col) for c, col in enumerate(colheaders, start=len(head)+1))
 		with open(output[0], "w") as tbl_out:
 			print(*head, sep="\t", flush=True, file=tbl_out)
 			for row in r:
 				row.extend(bt_conf.get(row[0], [".", "."]))
-				# row.extend(pr_stat.get(row[0], ["."]))
 				row.extend(if_pt.get(row[0], [".", "."]))
 				row[-1] = pt_cats.get(row[-1], "NA")
 				print(*row, sep="\t", flush=True, file=tbl_out)
