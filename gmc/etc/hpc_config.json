@@ -57,7 +57,7 @@
     "c": "1",
     "J": "gmc_chunk_cds"
   },
-  "gmc_gffread_extract_proteins": {
+  "gmc_gffread_extract_sequences": {
     "memory": "2000",
     "c": "1",
     "J": "gmc_generate_cds"
