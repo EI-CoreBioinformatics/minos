@@ -14,8 +14,6 @@ class ExternalMetrics(Enum):
 	KALLISTO_TPM_EXPRESSION	= auto()
 	REPEAT_ANNOTATION = auto()
 
-
-
 def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
 
@@ -53,6 +51,26 @@ for run in config.get("data", dict()).get("transcript-runs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", run, "mikado_" + run + ".refmap"))
 for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
+
+
+BUSCO_CMD = """
+	mkdir -p {BUSCO_PATH}/runs/run_{params.run}
+	&& mkdir -p {BUSCO_PATH}/logs
+	&& tmpdir={BUSCO_PATH}/tmp/run_{params.run} && mkdir -p $tmpdir
+	&& cfgdir={BUSCO_PATH}/config/run_{params.run} && mkdir -p $cfgdir
+	&& export AUGUSTUS_CONFIG_PATH=$cfgdir
+	&& cd {BUSCO_PATH}/runs
+	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -t $tmpdir -l {params.lineage} -o {params.run} &> {log}
+	&& cd run_{params.run} && ln -sf short_summary_{params.run}.txt short_summary.txt
+""".strip().replace("\n\t", " ")
+
+BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
+#config["busco_lineage"] = "/ei/workarea/group-pb/BUSCO_DATABASES/odb9/embryophyta_odb9"
+
+BUSCO_ANALYSES = list()
+if config["busco_analyses"]["proteins"]:
+	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "run_proteins_prepare", "short_summary_proteins_prepare.txt"))
+	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "run_proteins_final", "short_summary_proteins_final.txt"))
 
 
 localrules:
@@ -99,7 +117,8 @@ rule all:
 		[
 			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.final_table.tsv")
+		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.final_table.tsv"),
+		BUSCO_ANALYSES
 
 rule gmc_mikado_prepare:
 	input:
@@ -719,3 +738,43 @@ rule gmc_generate_full_table:
 				row.extend(if_pt.get(row[0], [".", "."]))
 				row[-1] = pt_cats.get(row[-1], "NA")
 				print(*row, sep="\t", flush=True, file=tbl_out)
+
+
+
+rule busco_proteins_prepare:
+	input:
+		rules.gmc_gffread_extract_proteins.output[0]
+	output:
+		os.path.join(BUSCO_PATH, "runs", "run_proteins_prepare", "short_summary_proteins_prepare.txt")
+	log:
+		os.path.join(BUSCO_PATH, "logs", "run_proteins_prepare.log")
+	params:
+		input = os.path.abspath(rules.gmc_gffread_extract_proteins.output[0]),
+		program_call = config["program_calls"]["busco"],
+		program_params = config["params"]["busco"]["proteins_prepare"],
+		lineage = config["busco_analyses"]["lineage"],
+		run = "proteins_prepare",
+		busco_mode = "proteins"
+	threads:
+		8
+	shell:
+		BUSCO_CMD
+
+rule busco_proteins_final:
+	input:
+		rules.gmc_extract_final_sequences.output.pep
+	output:
+		os.path.join(BUSCO_PATH, "runs", "run_proteins_final", "short_summary_proteins_final.txt")
+	log:
+		os.path.join(BUSCO_PATH, "logs", "run_proteins_final.log")
+	params:
+		input = os.path.abspath(rules.gmc_extract_final_sequences.output.pep),
+		program_call = config["program_calls"]["busco"],
+		program_params = config["params"]["busco"]["proteins_final"],
+		lineage = config["busco_analyses"]["lineage"],
+		run = "proteins_final",
+		busco_mode = "proteins"
+	threads:
+		8
+	shell:
+		BUSCO_CMD

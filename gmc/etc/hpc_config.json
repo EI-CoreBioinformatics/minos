@@ -141,5 +141,15 @@
     "memory": "2000",
     "c": "1",
     "J": "gmc_cleanup_final_proteins"
+  },
+  "busco_proteins_prepare": {
+	"memory": "8000",
+    "c": "8",
+    "J": "gmc_busco_proteins_prepare"
+  },
+  "busco_proteins_final": {
+	"memory": "8000",
+    "c": "8",
+    "J": "gmc_busco_proteins_final"
   }
 }

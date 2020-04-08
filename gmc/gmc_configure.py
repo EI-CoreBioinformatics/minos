@@ -10,8 +10,13 @@ from collections import OrderedDict
 
 from . import __version__
 
-STRANDINFO = {"_xx", "_rf", "_fr"}
-MIKADO_CONFIGURE_CMD = "singularity exec {container} mikado configure --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
+STRANDINFO = {"_xx": "unstranded", "_rf": "rf-stranded", "_fr": "fr-stranded"}
+
+MIKADO_CONFIGURE_CMD = "{cmd} --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
+
+BUSCO_LEVELS = {"proteins", "transcripts", "genome", "none", "off", "p", "t", "g", "all", "prot", "tran", "geno"}
+
+EXTERNAL_METRICS_HEADERS = ["metric_name_prefix", "metric_class", "multiplier", "not_fragmentary_min_value", "file_path"]
 
 class ScoringMetricsManager(object):
 	def __importMetricsData(self, fn, use_tpm=False):
@@ -20,7 +25,7 @@ class ScoringMetricsManager(object):
 			try:
 				metric_name, metric_class, multiplier, nf_minval, files = row
 			except:
-				raise ValueError("External metrics record has to comply to the format: metric_name_prefix    metric_class    multiplier  not_fragmentary_min_value   file_path\n{}".format(row))
+				raise ValueError("External metrics record has to comply to the format: {}\n{}".format(EXTERNAL_METRICS_HEADERS, row))
 
 			if metric_name.startswith("#"):
 				continue
@@ -40,7 +45,9 @@ class ScoringMetricsManager(object):
 			if metric_class == "expression":
 				if use_tpm:
 					if metric_name[-3:] not in STRANDINFO:
-						raise ValueError("Expression metric does not have strandedness information. Please add a suffix to indicate strandedness (_xx: unstranded, _rf: rf-stranded, _fr: fr-stranded). " + metric_name)
+						raise ValueError("Expression metric {} does not have strandedness information. Please add a suffix to indicate strandedness ({})".format(
+							metric_name, STRANDINFO
+						))
 				else:
 					print("Found expression metric: {} but --use-tpm-for-picking was not set. Ignoring.".format(metric_name))
 					continue
@@ -48,7 +55,7 @@ class ScoringMetricsManager(object):
 			self.metrics.setdefault(metric_class, OrderedDict()).setdefault(metric_name, list()).append(data)
 	
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
-			raise ValueError("More than one junction file detected. " + self.metrics.get("junction", list()))
+			raise ValueError("More than one junction file supplied. " + self.metrics.get("junction", list()))
 
 		for k in self.metrics:
 			print(k)
@@ -117,14 +124,10 @@ class ScoringMetricsManager(object):
 						comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
 						multiplier = run[0]["multiplier"]
 						if suffix == "tpm":
-							#expression = "{{rescaling: min, filter: {{operator: lt, value: {}}}, multiplier: {}}}".format(
-							#	0.5, #! GET VALUE!
-							#	multiplier # metrics[mclass][run][0]["multiplier"]
-							#)
-							expression = "{{rescaling: max, multiplier: {}}}".format(multiplier) #metrics[mclass][run][0]["multiplier"])
+							expression = "{{rescaling: max, multiplier: {}}}".format(multiplier)
 							suffix = ""
 						else:
-							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier) #metrics[mclass][run][0]["multiplier"])
+							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier)
 							suffix = "_" + suffix
 						scoring.append(
 							"  {}external.{}{}: {}".format(comment, runid, suffix, expression)
@@ -166,6 +169,15 @@ class ScoringMetricsManager(object):
 			
 	pass
 
+def parse_busco_levels(levels):
+	unique_levels = set(level[0].lower() for level in levels)
+	switch_off = unique_levels.intersection({"o", "n"})
+	do_proteins = unique_levels.intersection({"a", "p"}) and not switch_off
+	do_transcripts = unique_levels.intersection({"a", "t"}) and not switch_off
+	do_genome = unique_levels.intersection({"a", "g"}) and not switch_off
+
+	return do_proteins, do_transcripts, do_genome	
+
 
 
 def run_configure(args):
@@ -187,8 +199,9 @@ def run_configure(args):
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 	gmc_config = yaml.load(open(args.config_file), Loader=yaml.SafeLoader)
 
+
 	cmd = MIKADO_CONFIGURE_CMD.format(
-		container=args.mikado_container,
+		cmd=gmc_config["program_calls"]["mikado"].format(container=args.mikado_container, program="configure"),
 		list_file=args.list_file,
 		external_metrics=(" --external " + args.external + " ") if args.external else " ",
 		output_dir=args.outdir,
@@ -201,7 +214,7 @@ def run_configure(args):
 	print(cmd)
 	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 
-	run_zzz_config = {
+	run_config = {
 		"prefix": args.prefix,
 		"outdir": args.outdir,
 		"mikado-container": args.mikado_container,
@@ -212,10 +225,18 @@ def run_configure(args):
 		"use-tpm-for-picking": args.use_tpm_for_picking,
 		"external-metrics-data": args.external_metrics,
 		"annotation_version": args.annotation_version,
-		"genus_identifier": args.genus_identifier
+		"genus_identifier": args.genus_identifier,
+		"busco_analyses": dict(zip(("proteins", "transcripts", "genome"), parse_busco_levels(args.busco_level)))
 	}
 
-	run_zzz_data = { 
+	if any(run_config["busco_analyses"].values()) and (args.busco_lineage is None or not os.path.exists(args.busco_lineage)):
+		raise ValueError("BUSCO analysis requested (P:{}, T:{}, G:{}) but no valid lineage specified ({}).".format(
+			*run_config["busco_analyses"].values(), 
+			args.busco_lineage
+		))
+	run_config["busco_analyses"]["lineage"] = args.busco_lineage	
+	
+	run_data = { 
 		"data": {
 			"expression-runs": smm.getMetricsData("expression"), 
 			"transcript-runs": smm.getMetricsData("aln_tran"), 
@@ -229,8 +250,8 @@ def run_configure(args):
 
 	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
-		yaml.dump(run_zzz_config, run_config_out, default_flow_style=False)
-		yaml.dump(run_zzz_data, run_config_out, default_flow_style=False)
+		yaml.dump(run_config, run_config_out, default_flow_style=False)
+		yaml.dump(run_data, run_config_out, default_flow_style=False)
 		yaml.dump(gmc_config, run_config_out, default_flow_style=False)
 
 	pass
