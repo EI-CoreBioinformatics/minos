@@ -170,11 +170,13 @@ class ScoringMetricsManager(object):
 	pass
 
 def parse_busco_levels(levels):
+	if not levels:
+		return True, True, True
 	unique_levels = set(level[0].lower() for level in levels)
-	switch_off = unique_levels.intersection({"o", "n"})
-	do_proteins = unique_levels.intersection({"a", "p"}) and not switch_off
-	do_transcripts = unique_levels.intersection({"a", "t"}) and not switch_off
-	do_genome = unique_levels.intersection({"a", "g"}) and not switch_off
+	switch_off = not not unique_levels.intersection({"o", "n"})
+	do_proteins = not not unique_levels.intersection({"a", "p"}) and not switch_off
+	do_transcripts = not not unique_levels.intersection({"a", "t"}) and not switch_off
+	do_genome = not not unique_levels.intersection({"a", "g"}) and not switch_off
 
 	return do_proteins, do_transcripts, do_genome	
 
