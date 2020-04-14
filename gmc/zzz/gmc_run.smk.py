@@ -101,6 +101,7 @@ rule all:
 		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
 		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
+        os.path.join(config["outdir"], "busco.txt"),
 		POST_PICK_EXPRESSION,
 		os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff"),
 		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv"),
@@ -273,12 +274,12 @@ checkpoint gmc_chunk_proteins:
 	input:
 		rules.gmc_gffread_extract_sequences.output[0]
 	output:
-		chunk_dir = directory(TEMP_DIR)
+		chunk_dir = directory(os.path.join(TEMP_DIR, "chunked_proteins"))
 	log:
 		os.path.join(LOG_DIR, os.path.basename(rules.gmc_gffread_extract_sequences.output[0]) + ".chunk.log")
 	params:
 		chunksize = 1000,
-		outdir = TEMP_DIR
+		outdir = os.path.join(TEMP_DIR, "chunked_proteins")
 	shell:
 		"mkdir -p {params.outdir}" + \
 		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
@@ -286,10 +287,10 @@ checkpoint gmc_chunk_proteins:
 
 rule gmc_metrics_blastp_chunked:
 	input:
-		chunk = os.path.join(TEMP_DIR, "chunk-{chunk}.txt"),
+		chunk = os.path.join(TEMP_DIR, "chunked_proteins", "chunk-{chunk}.txt"),
 		db = rules.gmc_metrics_blastp_mkdb.output[0]
 	output:
-		os.path.join(TEMP_DIR, "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv")
+		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv")
 	log:
 		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}." + config["blast-mode"] + ".log")
 	threads:
@@ -302,10 +303,10 @@ rule gmc_metrics_blastp_chunked:
 		"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
 
 
-def aggregate_input(wildcards):
+def aggregate_blastp_input(wildcards):
 	checkpoint_output = checkpoints.gmc_chunk_proteins.get(**wildcards).output.chunk_dir
 	return expand(
-		os.path.join(TEMP_DIR, "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"),
+		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"),
 		run=wildcards.run,
 		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
 	)
@@ -313,7 +314,7 @@ def aggregate_input(wildcards):
 
 rule gmc_metrics_blastp_combine:
 	input:
-		aggregate_input 
+		aggregate_blastp_input 
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}." + config["blast-mode"] + ".tsv")		
 	shell:
@@ -351,6 +352,70 @@ rule gmc_metrics_blastp_tophit:
 				if float(row[2]) >= params.pident_threshold and qcov >= params.qcov_threshold:
 					print(*row, "{:.2f}".format(qcov), "{:.2f}".format(scov), sep="\t", file=blast_out)
 					seen.add(row[0])
+
+checkpoint gmc_chunk_cdna:
+	input:
+		rules.gmc_gffread_extract_sequences.output[1]
+	output:
+		chunk_dir = directory(os.path.join(TEMP_DIR, "chunked_cdna"))
+	log:
+		os.path.join(LOG_DIR, os.path.basename(rules.gmc_gffread_extract_sequences.output[1]) + ".chunk.log")
+	params:
+		chunksize = 1000,
+		outdir = os.path.join(TEMP_DIR, "chunked_cdna")
+	shell:
+		"mkdir -p {params.outdir}" + \
+		" && awk 'BEGIN {{n=0;m=1;}} /^>/ {{ if (n%{params.chunksize}==0) {{f=sprintf(\"{params.outdir}/chunk-%d.txt\",m); m++;}}; n++; }} {{ print >> f }}' {input[0]} &> {log}"
+
+rule gmc_busco_transcripts_chunked:
+	input:
+		chunk = os.path.join(TEMP_DIR, "chunked_cdna", "chunk-{chunk}.txt"),
+	output:
+		os.path.join(TEMP_DIR, "chunked_cdna", "chunk-{chunk}.touch")
+	log:
+		os.path.join(LOG_DIR, "busco_logs", "chunk-{chunk}.log")
+	threads:
+		8
+	shell:
+		"echo {wildcards.chunk} > {output[0]}"
+
+def aggregate_busco_input(wildcards):
+	checkpoint_output = checkpoints.gmc_chunk_cdna.get(**wildcards).output.chunk_dir
+	return expand(
+		os.path.join(TEMP_DIR, "chunked_cdna", "chunk-{chunk}.touch"),
+		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
+	)
+
+
+rule gmc_metrics_busco_combine:
+	input:
+		aggregate_busco_input 
+	output:
+		os.path.join(config["outdir"], "busco.txt")
+	shell:
+		"cat {input} > {output[0]} && rm {input}"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 rule gmc_metrics_generate_metrics_info:
