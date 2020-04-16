@@ -15,10 +15,10 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 	description = long_description = description.read()
 
 name="gmc"
-version = "0.6.1"
+version = "0.7"
 
 if sys.version_info.major != 3:
-	raise EnvironmentError("""gmc is a python module that requires python3, and is not compatible with python2. Also, it is now 2019 and support for 2.x will cease soon.""")
+	raise EnvironmentError("""gmc is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
 
 
 setup(
@@ -26,7 +26,6 @@ setup(
 	version=version,
 	description=description,
 	long_description=long_description,
-	# url="https://github.com/EI-CoreBioinformatics/bg",
 	author="Christian Schudoma",
 	author_email="christian.schudoma@earlham.ac.uk",
 	license="MIT",

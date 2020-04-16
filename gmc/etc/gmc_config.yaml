@@ -35,8 +35,11 @@ params:
     sort: "gff3 -sort -tidy -retainids yes"
   prinseq: "-min_len 1 -line_width 70"
   busco:
-    proteins_prepare: ""
-    proteins_final: ""
+    proteins_prepare: "--offline"
+    proteins_final: "--offline"
+    transcripts_prepare: "--offline"
+    transcripts_final: "--offline"
+    genome: "--offline"
 
 misc:
   min_cds_length: 30
@@ -49,7 +52,8 @@ program_calls:
   blast: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img {program}"
   genometools: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img gt"
   prinseq: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img prinseq-lite.pl"
-  busco: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img run_BUSCO.py"
+  busco: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.busco.img busco"
+  copy: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.busco.img cp -r"
 
 collapse_metrics_thresholds:
   repeat_associated: "{te_score} >= 0.4"

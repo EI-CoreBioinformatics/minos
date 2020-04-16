@@ -3,6 +3,7 @@ import sys
 import yaml
 import argparse
 import os
+import glob
 import pathlib
 import subprocess
 
@@ -14,7 +15,7 @@ STRANDINFO = {"_xx": "unstranded", "_rf": "rf-stranded", "_fr": "fr-stranded"}
 
 MIKADO_CONFIGURE_CMD = "{cmd} --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
 
-BUSCO_LEVELS = {"proteins", "transcripts", "genome", "none", "off", "p", "t", "g", "all", "prot", "tran", "geno"}
+BUSCO_LEVELS = {"proteins", "proteome", "transcripts", "transcriptome", "genome", "none", "off", "p", "t", "g", "a", "all", "prot", "tran", "geno"}
 
 EXTERNAL_METRICS_HEADERS = ["metric_name_prefix", "metric_class", "multiplier", "not_fragmentary_min_value", "file_path"]
 
@@ -169,16 +170,22 @@ class ScoringMetricsManager(object):
 			
 	pass
 
-def parse_busco_levels(levels):
-	if not levels:
-		return True, True, True
-	unique_levels = set(level[0].lower() for level in levels)
-	switch_off = not not unique_levels.intersection({"o", "n"})
-	do_proteins = not not unique_levels.intersection({"a", "p"}) and not switch_off
-	do_transcripts = not not unique_levels.intersection({"a", "t"}) and not switch_off
-	do_genome = not not unique_levels.intersection({"a", "g"}) and not switch_off
 
-	return do_proteins, do_transcripts, do_genome	
+def parse_busco_levels(levels, precomputed_genome=False):
+	if not levels:
+		return True, True, True # while developing
+		return True, False, False
+	levels = set(l.lower() for l in levels.split(","))
+	invalid_levels = levels.difference(BUSCO_LEVELS)
+	if invalid_levels:
+		raise ValueError("Invalid busco levels specified with --busco-level option ({}). Valid levels are {}.".format(invalid_levels, BUSCO_LEVELS))
+	switch_off = {"off", "none"}.intersection(levels)
+	unique_levels = set(level[0] for level in levels.difference({"off", "none"}))
+	do_proteins = unique_levels.intersection({"a", "p"}) and not switch_off
+	do_transcripts = unique_levels.intersection({"a", "t"}) and not switch_off
+	do_genome = unique_levels.intersection({"a", "g"}) and not switch_off
+
+	return tuple(map(bool, (do_proteins, do_transcripts, do_genome or precomputed_genome)))
 
 
 
@@ -216,6 +223,19 @@ def run_configure(args):
 	print(cmd)
 	out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 
+	precomputed_busco_genome = dict()
+	if args.busco_genome_run is not None:
+		try:
+			precomputed_busco_genome["summary"] = glob.glob(os.path.join(args.busco_genome_run, "*short_summary*.txt"))[0]
+		except:
+			raise ValueError("No valid busco genome summary file in {}".format(args.busco_genome_run))
+		try:
+			precomputed_busco_genome["full_table"] = glob.glob(os.path.join(args.busco_genome_run, "full_table.tsv"))[0]
+		except:
+			raise ValueError("No valid busco genome full table in {}".format(args.busco_genome_run))
+		
+		
+
 	run_config = {
 		"prefix": args.prefix,
 		"outdir": args.outdir,
@@ -228,7 +248,7 @@ def run_configure(args):
 		"external-metrics-data": args.external_metrics,
 		"annotation_version": args.annotation_version,
 		"genus_identifier": args.genus_identifier,
-		"busco_analyses": dict(zip(("proteins", "transcripts", "genome"), parse_busco_levels(args.busco_level)))
+		"busco_analyses": dict(zip(("proteins", "transcriptome", "genome"), parse_busco_levels(args.busco_level, precomputed_genome=args.busco_genome_run is not None))),
 	}
 
 	if any(run_config["busco_analyses"].values()) and (args.busco_lineage is None or not os.path.exists(args.busco_lineage)):
@@ -236,7 +256,9 @@ def run_configure(args):
 			*run_config["busco_analyses"].values(), 
 			args.busco_lineage
 		))
+
 	run_config["busco_analyses"]["lineage"] = args.busco_lineage	
+	run_config["busco_analyses"]["precomputed_genome"] = precomputed_busco_genome
 	
 	run_data = { 
 		"data": {

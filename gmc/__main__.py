@@ -44,8 +44,9 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("--use-tpm-for-picking", action="store_true")
 	configure_parser.add_argument("--force-reconfiguration", "-f", action="store_true")
 	configure_parser.add_argument("--config-file", type=str, default=DEFAULT_CONFIG_FILE)
-	configure_parser.add_argument("--busco-level", choices=BUSCO_LEVELS, action="append", default="all")
+	configure_parser.add_argument("--busco-level", type=str, default="all") # proteins in release 
 	configure_parser.add_argument("--busco-lineage", type=str, help="Required if --busco-level is not in {none,off}.")
+	configure_parser.add_argument("--busco-genome-run",type=str, help="Directory with short_summary.txt and full_table.tsv from processing the reference with busco genome.")
 	
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")
