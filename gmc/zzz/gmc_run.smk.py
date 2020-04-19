@@ -99,7 +99,6 @@ localrules:
 	gmc_parse_mikado_pick,
 	gmc_gffread_extract_sequences_post_pick,
 	gmc_gffread_extract_sequences,
-	gmc_protein_completeness,
 	gmc_gff_genometools_check_post_pick,
 	gmc_collect_biotype_conf_stats,
 	gmc_calculate_cds_lengths_post_pick,
@@ -116,10 +115,9 @@ rule all:
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
 		os.path.join(config["outdir"], "mikado.annotation.gff"),
 		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
+		os.path.join(config["outdir"], "mikado.annotation.table.txt"),
 		os.path.join(config["outdir"], "mikado.annotation.cds.fasta"),
 		os.path.join(config["outdir"], "mikado.annotation.cds.fasta.lengths"),
-		os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
-		os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
 		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
 		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
 		POST_PICK_EXPRESSION,
@@ -495,16 +493,16 @@ rule gmc_gffread_extract_sequences_post_pick:
 		gff = rules.gmc_parse_mikado_pick.output[0],
 		refseq = config["reference-sequence"]
 	output:
-		pep = os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
+		cdna = os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
+		tbl = os.path.join(config["outdir"], "mikado.annotation.table.txt"),
 		cds = os.path.join(config["outdir"], "mikado.annotation.cds.fasta"),
-		cdna = os.path.join(config["outdir"], "mikado.annotation.cdna.fasta")
-	log:
-		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract_post_pick.log")
+		pep = os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
 	params:
 		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"]["default"]
+		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} {params.program_params} -W -w {output.cdna} -x {output.cds} -y {output.pep} &> {log}" 
+		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
+
 
 rule gmc_calculate_cds_lengths_post_pick:
 	input:
@@ -708,17 +706,6 @@ rule gmc_cleanup_final_proteins:
 	shell:
 		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
-rule gmc_protein_completeness:
-	input:
-		proteins1 = rules.gmc_gffread_extract_sequences_post_pick.output.pep,
-	output:
-		tsv1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.tsv"),
-		summary1 = os.path.join(config["outdir"], "mikado.annotation.protein_status.summary"),
-	params:
-		outdir = config["outdir"],
-		prefix1 = "mikado.annotation",
-	shell:
-		"protein_completeness -o {params.outdir} -p {params.prefix1} {input.proteins1}"
 
 # @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness
 rule gmc_generate_full_table:
