@@ -68,7 +68,7 @@ BUSCO_CMD = """
 
 
 BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
-BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"])
+BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"]) if config["busco_analyses"]["lineage"] is not None else None
 
 BUSCO_ANALYSES = list()
 if config["busco_analyses"]["proteins"]:
@@ -85,7 +85,7 @@ if config["busco_analyses"]["transcriptome"]:
 	)
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{lineage}", "short_summary.txt").format(lineage=BUSCO_LINEAGE))
 
-if config["busco_analyses"]["genome"]:
+if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_genome"]:
 	runid = "precomputed" if config["busco_analyses"]["precomputed_genome"] else BUSCO_LINEAGE 
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "short_summary.txt").format(runid))
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "full_table.tsv").format(runid))
@@ -769,7 +769,6 @@ rule busco_proteins_prepare:
 		input = lambda wildcards: os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", wildcards.run + ".proteins.fasta"),
 		program_call = config["program_calls"]["busco"],
 		program_params = config["params"]["busco"]["proteins_prepare"],
-		lineage = os.path.basename(config["busco_analyses"]["lineage"]),
 		lineage_path = config["busco_analyses"]["lineage"],
 		run = lambda wildcards: wildcards.run,
 		busco_mode = "proteins",
@@ -791,7 +790,6 @@ rule busco_proteins_final:
 		input = os.path.abspath(rules.gmc_extract_final_sequences.output.pep),
 		program_call = config["program_calls"]["busco"],
 		program_params = config["params"]["busco"]["proteins_final"],
-		lineage = os.path.basename(config["busco_analyses"]["lineage"]),
 		lineage_path = config["busco_analyses"]["lineage"],
 		run = "proteins_final",
 		busco_mode = "proteins",
@@ -827,7 +825,6 @@ rule busco_transcripts_prepare:
 		input = lambda wildcards: os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", wildcards.run + ".cdna.fasta"),
 		program_call = config["program_calls"]["busco"],
 		program_params = config["params"]["busco"]["transcripts_prepare"],
-		lineage = os.path.basename(config["busco_analyses"]["lineage"]),
 		lineage_path = config["busco_analyses"]["lineage"],
 		run = lambda wildcards: wildcards.run,
 		busco_mode = "transcriptome",
@@ -849,7 +846,6 @@ rule busco_transcripts_final:
 		input = os.path.abspath(rules.gmc_extract_final_sequences.output.cdna),
 		program_call = config["program_calls"]["busco"],
 		program_params = config["params"]["busco"]["transcripts_final"],
-		lineage = os.path.basename(config["busco_analyses"]["lineage"]),
 		lineage_path = config["busco_analyses"]["lineage"],
 		run = "transcripts_final",
 		busco_mode = "transcriptome",
@@ -860,7 +856,7 @@ rule busco_transcripts_final:
 	shell:
 		BUSCO_CMD
 
-if config["busco_analyses"]["genome"]:
+if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_genome"]:
 	rule busco_genome:
 		input:
 			config["busco_analyses"]["precomputed_genome"]["summary"] if config["busco_analyses"]["precomputed_genome"] else config["reference-sequence"],
@@ -868,14 +864,12 @@ if config["busco_analyses"]["genome"]:
 		output:
 			BUSCO_GENOME_OUTPUT_SUMMARY,
 			BUSCO_GENOME_OUTPUT_FULL_TABLE
-			#os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}".format(BUSCO_LINEAGE),  "short_summary.txt")
 		log:
 			os.path.join(BUSCO_PATH, "logs", "genome.log")
 		params:
 			input = os.path.abspath(config["reference-sequence"]),
 			program_call = config["program_calls"]["busco"],
 			program_params = config["params"]["busco"]["genome"],
-			lineage = os.path.basename(config["busco_analyses"]["lineage"]),
 			lineage_path = config["busco_analyses"]["lineage"],
 			run = "genome",
 			busco_mode = "genome",

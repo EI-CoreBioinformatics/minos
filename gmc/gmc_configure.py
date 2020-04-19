@@ -171,7 +171,7 @@ class ScoringMetricsManager(object):
 	pass
 
 
-def parse_busco_levels(levels, precomputed_genome=False):
+def parse_busco_levels(levels):
 	if not levels:
 		return True, True, True # while developing
 		return True, False, False
@@ -185,7 +185,7 @@ def parse_busco_levels(levels, precomputed_genome=False):
 	do_transcripts = unique_levels.intersection({"a", "t"}) and not switch_off
 	do_genome = unique_levels.intersection({"a", "g"}) and not switch_off
 
-	return tuple(map(bool, (do_proteins, do_transcripts, do_genome or precomputed_genome)))
+	return tuple(map(bool, (do_proteins, do_transcripts, do_genome)))
 
 
 
@@ -248,7 +248,7 @@ def run_configure(args):
 		"external-metrics-data": args.external_metrics,
 		"annotation_version": args.annotation_version,
 		"genus_identifier": args.genus_identifier,
-		"busco_analyses": dict(zip(("proteins", "transcriptome", "genome"), parse_busco_levels(args.busco_level, precomputed_genome=args.busco_genome_run is not None))),
+		"busco_analyses": dict(zip(("proteins", "transcriptome", "genome"), parse_busco_levels(args.busco_level))),
 	}
 
 	if any(run_config["busco_analyses"].values()) and (args.busco_lineage is None or not os.path.exists(args.busco_lineage)):
@@ -256,6 +256,9 @@ def run_configure(args):
 			*run_config["busco_analyses"].values(), 
 			args.busco_lineage
 		))
+
+	if precomputed_busco_genome and run_config["busco_analyses"]["genome"]:
+		raise ValueError("BUSCO genome was selected ({}) together with --busco_genome_run ({}).".format(args.busco_level, args.busco_genome_run))
 
 	run_config["busco_analyses"]["lineage"] = args.busco_lineage	
 	run_config["busco_analyses"]["precomputed_genome"] = precomputed_busco_genome
