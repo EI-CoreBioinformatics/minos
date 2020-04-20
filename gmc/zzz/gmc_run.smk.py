@@ -62,7 +62,7 @@ BUSCO_CMD = """
 	&& {params.copy} /usr/local/config $cfgdir/
 	&& export AUGUSTUS_CONFIG_PATH=$cfgdir/config
 	&& cd {BUSCO_PATH}/runs/{params.busco_stage}
-	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} --config $cfgdir/config/config.ini &> {log}
+	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} &> {log}
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
 
@@ -659,23 +659,27 @@ rule gmc_collect_biotype_conf_stats:
 	run:
 		import csv
 		from collections import Counter
-		biotypes, transcripts = dict(), dict()
+		genes, transcripts = dict(), dict()
 		for row in csv.reader(open(input[0]), delimiter="\t"):
 			if not row[0].startswith("#"):
 				if row[2].lower() in {"gene", "mrna", "ncrna"}:
 					attrib = dict(item.split("=") for item in row[8].strip().split(";"))
 					if row[2].lower() == "gene":
-						biotypes[attrib["ID"]] = attrib["biotype"]
+						genes[attrib["ID"]] = (attrib["biotype"], attrib["confidence"])
 					else:
-						transcripts[attrib["ID"]] = (biotypes.get(attrib["Parent"], None), attrib["confidence"])
+						transcripts[attrib["ID"]] = (genes.get(attrib["Parent"], (None, None))[0], attrib["confidence"])
 		with open(output[0], "w") as tbl_out:
 			print("#1.transcript_id", "#2.biotype", "#3.confidence", sep="\t", file=tbl_out)
 			for tid, bt_conf in sorted(transcripts.items()):
 				print(tid, *bt_conf, sep="\t", file=tbl_out)
-		counts = Counter(transcripts.values())
+		tcounts, gcounts = Counter(transcripts.values()), Counter(genes.values())
 		with open(output[0].replace(".tsv", ".summary"), "w") as summary_out:
-			for bt_conf, count in sorted(counts.items()):
-				print(*bt_conf, count, sep="\t", file=summary_out)
+			print("Biotype", "Confidence", "Gene", "Transcript", sep="\t", file=summary_out)
+			categories = set(tcounts).union(set(gcounts))
+			for cat in sorted(categories, key=lambda x:gcounts[x], reverse=True):
+				print(*cat, gcounts[cat], tcounts[cat], sep="\t", file=summary_out)
+			print("Total", "", sum(gcounts.values()), sum(tcounts.values()), sep="\t", file=summary_out)
+
 
 rule gmc_extract_final_sequences:
 	input:
