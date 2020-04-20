@@ -28,6 +28,10 @@ def get_transcript_alignments(wc):
 def get_protein_sequences(wc):
 	return config["data"]["protein-seqs"].get(wc.run, [""])[0]
 
+# output management
+POST_PICK_PREFIX = "mikado.annotation"
+RELEASE_PREFIX = config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1")
+
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
 	os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", "mikado_prepared.fasta.cpc2output.txt"),
@@ -100,11 +104,13 @@ localrules:
 	gmc_gffread_extract_sequences_post_pick,
 	gmc_gffread_extract_sequences,
 	gmc_gff_genometools_check_post_pick,
-	gmc_collect_biotype_conf_stats,
 	gmc_calculate_cds_lengths_post_pick,
 	gmc_extract_final_sequences,
 	split_proteins_prepare,
 	split_transcripts_prepare
+
+
+
 
 rule all:
 	input:
@@ -113,29 +119,28 @@ rule all:
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
 		os.path.join(config["outdir"], "mikado.subloci.gff3"),
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
-		os.path.join(config["outdir"], "mikado.annotation.gff"),
-		os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
-		os.path.join(config["outdir"], "mikado.annotation.table.txt"),
-		os.path.join(config["outdir"], "mikado.annotation.cds.fasta"),
-		os.path.join(config["outdir"], "mikado.annotation.cds.fasta.lengths"),
-		os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
-		os.path.join(config["outdir"], "kallisto", "mikado.annotation.cdna.fasta.idx"),
-		POST_PICK_EXPRESSION,
-		os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff"),
-		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv"),
-		os.path.join(config["outdir"], "mikado.annotation.gt_checked.validation_report.txt"),
-		os.path.join(config["outdir"], "mikado.annotation.release.unsorted.gff3"),
-		os.path.join(config["outdir"], "mikado.annotation.release_browser.unsorted.gff3"),
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release.gff3"),
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release_browser.gff3"),  
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3"),
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.mikado_stats.txt"),
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.mikado_stats.tsv"),
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.biotype_conf.tsv"),
 		[
-			os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
+			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
+			for suffix in {".gff", ".proteins.fasta", ".table.txt", ".cds.fasta", ".cds.fasta.lengths", ".cdna.fasta"}
 		],
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3.final_table.tsv"),
+		os.path.join(config["outdir"], "kallisto", POST_PICK_PREFIX + ".cdna.fasta.idx"),
+		POST_PICK_EXPRESSION,
+		[
+			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
+			for suffix in {".gt_checked.gff", ".collapsed_metrics.tsv", ".gt_checked.validation_report.txt", ".release.unsorted.gff3", ".release_browser.unsorted.gff3"}
+		],
+		[
+			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
+			for suffix in {".release.gff3", ".release_browser.gff3", 
+							".sanity_checked.release.gff3", ".sanity_checked.release.gff3.mikado_stats.txt", ".sanity_checked.release.gff3.mikado_stats.tsv"}
+		],
+		[
+			os.path.join(config["outdir"], RELEASE_PREFIX + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
+		],
+		[
+			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
+			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
+		],
 		BUSCO_ANALYSES
 
 rule gmc_mikado_prepare:
@@ -484,7 +489,7 @@ rule gmc_parse_mikado_pick:
 	input:
 		loci = rules.gmc_mikado_pick.output[0]
 	output:
-		gff = os.path.join(config["outdir"], "mikado.annotation.gff")
+		gff = os.path.join(config["outdir"], POST_PICK_PREFIX + ".gff")
 	shell:
 		"parse_mikado_gff {input.loci} > {output.gff}"
 
@@ -493,10 +498,10 @@ rule gmc_gffread_extract_sequences_post_pick:
 		gff = rules.gmc_parse_mikado_pick.output[0],
 		refseq = config["reference-sequence"]
 	output:
-		cdna = os.path.join(config["outdir"], "mikado.annotation.cdna.fasta"),
-		tbl = os.path.join(config["outdir"], "mikado.annotation.table.txt"),
-		cds = os.path.join(config["outdir"], "mikado.annotation.cds.fasta"),
-		pep = os.path.join(config["outdir"], "mikado.annotation.proteins.fasta"),
+		cdna = os.path.join(config["outdir"], POST_PICK_PREFIX + ".cdna.fasta"),
+		tbl = os.path.join(config["outdir"], POST_PICK_PREFIX + ".table.txt"),
+		cds = os.path.join(config["outdir"], POST_PICK_PREFIX + ".cds.fasta"),
+		pep = os.path.join(config["outdir"], POST_PICK_PREFIX + ".proteins.fasta"),
 	params:
 		program_call = config["program_calls"]["gffread"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
@@ -536,7 +541,7 @@ rule gmc_gff_genometools_check_post_pick:
 	input:
 		rules.gmc_parse_mikado_pick.output[0]
 	output:
-		gff = os.path.join(config["outdir"], "mikado.annotation.gt_checked.gff")
+		gff = os.path.join(config["outdir"], POST_PICK_PREFIX + ".gt_checked.gff")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".post_pick_genometools_check.log")
 	params:
@@ -549,7 +554,7 @@ rule gmc_gff_validate_post_gt:
 	input:
 		rules.gmc_gff_genometools_check_post_pick.output[0]
 	output:
-		os.path.join(config["outdir"], "mikado.annotation.gt_checked.validation_report.txt")
+		os.path.join(config["outdir"], POST_PICK_PREFIX + ".gt_checked.validation_report.txt")
 	shell:
 		"validate_gff3 {input} > {output}"
 
@@ -592,7 +597,7 @@ rule gmc_collapse_metrics:
 		expression = expand(rules.gmc_kallisto_quant_post_pick.output, run=config["data"]["expression-runs"].keys()),
 		cds_lengths = rules.gmc_calculate_cds_lengths_post_pick.output[0]
 	output:
-		os.path.join(config["outdir"], "mikado.annotation.collapsed_metrics.tsv")
+		os.path.join(config["outdir"], POST_PICK_PREFIX + ".collapsed_metrics.tsv")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
 	run:
@@ -606,8 +611,8 @@ rule gmc_create_release_gffs:
 		gff = rules.gmc_gff_genometools_check_post_pick.output[0],
 		metrics_info = rules.gmc_collapse_metrics.output[0]
 	output:
-		os.path.join(config["outdir"], "mikado.annotation.release.unsorted.gff3"),
-		os.path.join(config["outdir"], "mikado.annotation.release_browser.unsorted.gff3")
+		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release.unsorted.gff3"),
+		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release_browser.unsorted.gff3")
 	params:
 		annotation_version = config.get("annotation_version", "EIv1"),
 		genus_identifier = config.get("genus_identifier", "XYZ")
@@ -618,8 +623,8 @@ rule gmc_sort_release_gffs:
 	input:
 		rules.gmc_create_release_gffs.output
 	output:
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release.gff3"),
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".release_browser.gff3")
+		os.path.join(config["outdir"], RELEASE_PREFIX + ".release.gff3"),
+		os.path.join(config["outdir"], RELEASE_PREFIX + ".release_browser.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".sort_release_gffs.log")
 	params:
@@ -633,7 +638,7 @@ rule gmc_final_sanity_check:
 	input:
 		rules.gmc_sort_release_gffs.output[0]
 	output:
-		os.path.join(config["outdir"], config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1") + ".sanity_checked.release.gff3")
+		os.path.join(config["outdir"], RELEASE_PREFIX + ".sanity_checked.release.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".final_sanity_check.log")
 	shell:
@@ -650,36 +655,6 @@ rule gmc_generate_mikado_stats:
 	shell:
 		"{params.program_call} {input} --tab-stats {output[1]} > {output[0]}" + \
 		" && parse_mikado_stats {output[0]} > {output[0]}.summary"
-
-rule gmc_collect_biotype_conf_stats:
-	input:
-		rules.gmc_final_sanity_check.output[0]
-	output:
-		rules.gmc_final_sanity_check.output[0] + ".biotype_conf.tsv"
-	run:
-		import csv
-		from collections import Counter
-		genes, transcripts = dict(), dict()
-		for row in csv.reader(open(input[0]), delimiter="\t"):
-			if not row[0].startswith("#"):
-				if row[2].lower() in {"gene", "mrna", "ncrna"}:
-					attrib = dict(item.split("=") for item in row[8].strip().split(";"))
-					if row[2].lower() == "gene":
-						genes[attrib["ID"]] = (attrib["biotype"], attrib["confidence"])
-					else:
-						transcripts[attrib["ID"]] = (genes.get(attrib["Parent"], (None, None))[0], attrib["confidence"])
-		with open(output[0], "w") as tbl_out:
-			print("#1.transcript_id", "#2.biotype", "#3.confidence", sep="\t", file=tbl_out)
-			for tid, bt_conf in sorted(transcripts.items()):
-				print(tid, *bt_conf, sep="\t", file=tbl_out)
-		tcounts, gcounts = Counter(transcripts.values()), Counter(genes.values())
-		with open(output[0].replace(".tsv", ".summary"), "w") as summary_out:
-			print("Biotype", "Confidence", "Gene", "Transcript", sep="\t", file=summary_out)
-			categories = set(tcounts).union(set(gcounts))
-			for cat in sorted(categories, key=lambda x:gcounts[x], reverse=True):
-				print(*cat, gcounts[cat], tcounts[cat], sep="\t", file=summary_out)
-			print("Total", "", sum(gcounts.values()), sum(tcounts.values()), sep="\t", file=summary_out)
-
 
 rule gmc_extract_final_sequences:
 	input:
@@ -710,32 +685,48 @@ rule gmc_cleanup_final_proteins:
 	shell:
 		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
-
-# @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness
 rule gmc_generate_full_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
 		seq_table = rules.gmc_extract_final_sequences.output.tbl,
-		bt_conf_table = rules.gmc_collect_biotype_conf_stats.output[0]
+		bt_conf_table = rules.gmc_final_sanity_check.output[0]
 	output:
-		rules.gmc_final_sanity_check.output[0] + ".final_table.tsv"
+		final_table = rules.gmc_final_sanity_check.output[0] + ".final_table.tsv",
+		summary = rules.gmc_final_sanity_check.output[0] + ".biotype_conf.summary"
 	run:
 		import csv
+		from collections import Counter
 		colheaders = ["Confidence", "Biotype", "InFrameStop", "Partialness"]
 		pt_cats = {".": "complete", "5_3": "fragment", "3": "3prime_partial", "5": "5prime_partial"}
-		bt_conf = dict((row[0], row[1:3][::-1]) for row in csv.reader(open(input.bt_conf_table), delimiter="\t"))
 		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
+		genes, transcripts = dict(), dict()
+		for row in csv.reader(open(input.bt_conf_table), delimiter="\t"):
+			if not row[0].startswith("#"):
+				if row[2].lower() in {"gene", "mrna", "ncrna"}:
+					attrib = dict(item.split("=") for item in row[8].strip().split(";"))
+					if row[2].lower() == "gene":
+						genes[attrib["ID"]] = (attrib["biotype"], attrib["confidence"])
+					else:
+						transcripts[attrib["ID"]] = (genes.get(attrib["Parent"], (None, None))[0], attrib["confidence"])
+
 		r = csv.reader(open(input.stats_table), delimiter="\t")
 		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
 		head.extend("#{}.{}".format(c, col) for c, col in enumerate(colheaders, start=len(head)+1))
-		with open(output[0], "w") as tbl_out:
+		with open(output.final_table, "w") as tbl_out:
 			print(*head, sep="\t", flush=True, file=tbl_out)
 			for row in r:
-				row.extend(bt_conf.get(row[0], [".", "."]))
+				row.extend(transcripts.get(row[0], [".", "."])[::-1])
 				row.extend(if_pt.get(row[0], [".", "."]))
 				row[-1] = pt_cats.get(row[-1], "NA")
 				print(*row, sep="\t", flush=True, file=tbl_out)
 
+		tcounts, gcounts = Counter(transcripts.values()), Counter(genes.values())
+		with open(output.summary, "w") as summary_out:
+			print("Biotype", "Confidence", "Gene", "Transcript", sep="\t", file=summary_out)
+			categories = set(tcounts).union(set(gcounts))
+			for cat in sorted(categories, key=lambda x:gcounts[x], reverse=True):
+				print(*cat, gcounts[cat], tcounts[cat], sep="\t", file=summary_out)
+			print("Total", "", sum(gcounts.values()), sum(tcounts.values()), sep="\t", file=summary_out)
 
 rule split_proteins_prepare:
 	input:
