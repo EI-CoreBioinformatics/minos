@@ -27,13 +27,16 @@ def get_transcript_alignments(wc):
 	return config["data"]["transcript-runs"][wc.run][0]
 def get_protein_sequences(wc):
 	return config["data"]["protein-seqs"].get(wc.run, [""])[0]
+def get_repeat_data(wc):
+	return config["data"]["repeat-data"][wc.run][0]
 
 # output management
 POST_PICK_PREFIX = "mikado.annotation"
 RELEASE_PREFIX = config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1")
 
 OUTPUTS = [
-	os.path.join(config["outdir"], "mikado_prepared.fasta"), 
+	os.path.join(config["outdir"], "mikado_prepared.fasta"),
+	os.path.join(config["outdir"], "mikado_prepared.exon.gff"),
 	os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", "mikado_prepared.fasta.cpc2output.txt"),
 ]
 
@@ -54,6 +57,12 @@ for run in config.get("data", dict()).get("transcript-runs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", run, "mikado_" + run + ".refmap"))
 for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
+for run in config.get("data", dict()).get("repeat-data", dict()):
+	for repeat in ("all_repeats", "interspersed_repeats"):
+		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", run, "{}.no_strand.exon.gff".format(repeat)))
+		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", run, "{}.no_strand.exon.gff.cbed".format(repeat)))
+		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", run, "{}.no_strand.exon.gff.cbed.parsed.txt".format(repeat)))
+
 
 BUSCO_PRECOMPUTED = """
 	cp {input[0]} {output[0]} && cp {input[1]} {output[1]}
@@ -90,13 +99,16 @@ if config["busco_analyses"]["transcriptome"]:
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{lineage}", "short_summary.txt").format(lineage=BUSCO_LINEAGE))
 
 if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_genome"]:
-	runid = "precomputed" if config["busco_analyses"]["precomputed_genome"] else BUSCO_LINEAGE 
+	runid = "precomputed" if config["busco_analyses"]["precomputed_genome"] else BUSCO_LINEAGE
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "short_summary.txt").format(runid))
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "full_table.tsv").format(runid))
 	BUSCO_GENOME_OUTPUT_SUMMARY, BUSCO_GENOME_OUTPUT_FULL_TABLE = BUSCO_ANALYSES[-2:]
 
 localrules:
 	all,
+	gmc_extract_exons,
+	gmc_metrics_repeats_extract_exons,
+	gmc_metrics_parse_repeat_coverage
 	gmc_metrics_blastp_combine,
 	gmc_metrics_generate_metrics_info,
 	gmc_metrics_generate_metrics_matrix,
@@ -131,7 +143,7 @@ rule all:
 		],
 		[
 			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
-			for suffix in {".release.gff3", ".release_browser.gff3", 
+			for suffix in {".release.gff3", ".release_browser.gff3",
 							".sanity_checked.release.gff3", ".sanity_checked.release.gff3.mikado_stats.txt", ".sanity_checked.release.gff3.mikado_stats.tsv"}
 		],
 		[
@@ -159,6 +171,18 @@ rule gmc_mikado_prepare:
 		30
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
+
+rule gmc_extract_exons:
+	input:
+		rules.gmc_mikado_prepare.output[1]
+	output:
+		rules.gmc_mikado_prepare.output[1].replace(".gtf", ".exon.gff")
+	shell:
+		"""
+		awk '$3 == "exon"' {input[0]} | awk -v FS="\\t" -v OFS="\\t" '{{exon += 1; split($9,a,"\\""); $9="ID="a[4]".exon"exon";Parent="a[4]; print $0}}' > {output[0]}
+		""".strip().replace("\n\t", " ")
+
+
 
 rule gmc_mikado_compare_index_reference:
 	input:
@@ -188,6 +212,52 @@ rule gmc_gffread_extract_sequences:
 		output_params = "-W -x" if config["blast-mode"] == "blastx" else ("-y" if config["blast-mode"] == "blastp" else "")
 	shell:
 		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} -W -w {output[1]} {params.output_params} {output[0]} &> {log}"
+
+rule gmc_metrics_repeats_extract_exons:
+	input:
+		get_repeat_data
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}", "all_repeats.no_strand.exon.gff"),
+		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}", "interspersed_repeats.no_strand.exon.gff"),
+	shell:
+		"""
+		awk '$3 == "match_part"' {input[0]} | sed -e 's/\\tmatch_part\\t/\\texon\\t/' -e 's/\\t[+-]\\t/\\t.\\t/' > {output[0]}
+		&& awk '$3 == "match_part"' {input[1]} | sed -e 's/\\tmatch_part\\t/\\texon\\t/' -e 's/\\t[+-]\\t/\\t.\\t/' > {output[1]}
+		""".strip().replace("\n\t", " ")
+
+rule gmc_metrics_bedtools_repeat_coverage:
+	input:
+		rules.gmc_metrics_repeats_extract_exons.output[0],
+		rules.gmc_metrics_repeats_extract_exons.output[1],
+		rules.gmc_extract_exons.output[0]
+	output:
+		rules.gmc_metrics_repeats_extract_exons.output[0] + ".cbed",
+		rules.gmc_metrics_repeats_extract_exons.output[1] + ".cbed",
+	params:
+		program_call = config["program_calls"]["bedtools"]["coverageBed"]
+	shell:
+		"""
+		{params.program_call} -a {input[2]} -b {input[0]} > {output[0]}.tmp
+		&& {params.program_call} -a {input[2]} -b {input[1]} > {output[1]}.tmp
+		&& cut -f 9 {output[0]}.tmp | cut -d ';' -f 1 | paste - {output[0]}.tmp | sort -k1,1V | cut -f 2- > {output[0]}
+		&& cut -f 9 {output[1]}.tmp | cut -d ';' -f 1 | paste - {output[1]}.tmp | sort -k1,1V | cut -f 2- > {output[1]}
+		&& rm {output[0]}.tmp {output[1]}.tmp
+		""".strip().replace("\n\t", " ")
+
+
+rule gmc_metrics_parse_repeat_coverage:
+	input:
+		rules.gmc_metrics_bedtools_repeat_coverage.output[0],
+		rules.gmc_metrics_bedtools_repeat_coverage.output[1],
+	output:
+		rules.gmc_metrics_bedtools_repeat_coverage.output[0] + ".parsed.txt",
+		rules.gmc_metrics_bedtools_repeat_coverage.output[1] + ".parsed.txt"
+	run:
+		from gmc.scripts.parse_cbed_stats import parse_cbed
+		with open(output[0], "w") as outstream, open(input[0]) as instream:
+			parse_cbed(instream, outstream=outstream)
+		with open(output[1], "w") as outstream, open(input[1]) as instream:
+			parse_cbed(instream, outstream=outstream)
 
 
 rule gmc_metrics_cpc2:
@@ -286,7 +356,7 @@ rule gmc_metrics_blastp_mkdb:
 		os.path.join(LOG_DIR, config["prefix"] + ".makeblastdb.{run}.log")
 	params:
 		program_call = config["program_calls"]["blast"].format(program="makeblastdb"),
-		program_params = config["params"]["blast"]["makeblastdb"], 
+		program_params = config["params"]["blast"]["makeblastdb"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run, "blastdb"),
 		db_prefix = lambda wildcards: wildcards.run
 	shell:
@@ -337,7 +407,7 @@ def aggregate_blastp_input(wildcards):
 
 rule gmc_metrics_blastp_combine:
 	input:
-		aggregate_blastp_input 
+		aggregate_blastp_input
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}." + config["blast-mode"] + ".tsv")		
 	shell:
@@ -364,7 +434,7 @@ rule gmc_metrics_blastp_tophit:
 					continue
 				if len(row) < 17:
 					raise ValueError("Misformatted blastp line (ncols={ncols}) in {blastp_input}. Expected is outfmt 6 (17 cols).".format(
-						ncols=len(row), 
+						ncols=len(row),
 						blastp_input=input[0])
 					)
 				try:
@@ -632,7 +702,7 @@ rule gmc_sort_release_gffs:
 		program_params = config["params"]["genometools"]["sort"]
 	shell:
 		"{params.program_call} {params.program_params} {input[0]} > {output[0]} 2> {log}" + \
-		" && {params.program_call} {params.program_params} {input[1]} > {output[1]} 2>> {log}" 
+		" && {params.program_call} {params.program_params} {input[1]} > {output[1]} 2>> {log}"
 
 rule gmc_final_sanity_check:
 	input:

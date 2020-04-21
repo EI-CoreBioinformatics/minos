@@ -47,6 +47,8 @@ program_calls:
   prinseq: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img prinseq-lite.pl"
   busco: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.busco.img busco"
   copy: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.busco.img cp -r"
+  bedtools:
+    coverageBed: "singularity exec /ei/software/cb/containers/gmc/x86_64/Singularity.img coverageBed"
   time: "/usr/bin/time -v"
 
 collapse_metrics_thresholds:

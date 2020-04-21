@@ -166,5 +166,10 @@
 	"memory": "8000",
     "c": "8",
     "J": "gmc_busco_genome"
+  },
+  "gmc_metrics_bedtools_repeat_coverage": {
+    "memory": "8000",
+    "c": "1",
+    "J": "gmc_metrics_bedtools_repeat_coverage"
   }
 }
