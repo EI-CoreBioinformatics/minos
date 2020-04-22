@@ -171,5 +171,20 @@
     "memory": "8000",
     "c": "1",
     "J": "gmc_metrics_bedtools_repeat_coverage"
+  },
+  "gmc_metrics_blastp_combine": {
+    "memory": "4096",
+    "c": "1",
+    "J": "gmc_metrics_blastp_combine"
+  },
+  "gmc_generate_full_table": {
+    "memory": "4096",
+    "c": "1",
+    "J": "gmc_generate_full_table"
+  },
+  "split_proteins_prepare: {
+    "memory": "4096",
+    "c": "1",
+    "J": "split_proteins_prepare"
   }
 }

@@ -65,10 +65,10 @@ class ScoringMetricsManager(object):
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
 			raise ValueError("More than one junction file supplied. " + self.metrics.get("junction", list()))
 
-		for k in self.metrics:
-			print(k)
-			for j in self.metrics[k]:
-				print(j, self.metrics[k][j], sep="\n")
+		#for k in self.metrics:
+		#	print(k)
+		#	for j in self.metrics[k]:
+		#		print(j, self.metrics[k][j], sep="\n")
 
 	def __init__(self, metrics_file, scoring_template_file, outdir, prefix, use_tpm=False):
 		self.__importMetricsData(metrics_file, use_tpm=use_tpm)
@@ -202,6 +202,7 @@ def run_configure(args):
 	# - warn if not present
 	# - add command line option 
 	
+	print(args)
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 	gmc_config = yaml.load(open(args.config_file), Loader=yaml.SafeLoader)
 
