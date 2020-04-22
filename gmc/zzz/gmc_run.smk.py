@@ -58,10 +58,9 @@ for run in config.get("data", dict()).get("transcript-runs", dict()):
 for run in config.get("data", dict()).get("protein-seqs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
 for run in config.get("data", dict()).get("repeat-data", dict()):
-	for repeat in ("all_repeats", "interspersed_repeats"):
-		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", run, "{}.no_strand.exon.gff".format(repeat)))
-		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", run, "{}.no_strand.exon.gff.cbed".format(repeat)))
-		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", run, "{}.no_strand.exon.gff.cbed.parsed.txt".format(repeat)))
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{}.no_strand.exon.gff".format(run)))
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{}.no_strand.exon.gff.cbed".format(run)))
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{}.no_strand.exon.gff.cbed.parsed.txt".format(run)))
 
 
 BUSCO_PRECOMPUTED = """
@@ -217,46 +216,36 @@ rule gmc_metrics_repeats_extract_exons:
 	input:
 		get_repeat_data
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}", "all_repeats.no_strand.exon.gff"),
-		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}", "interspersed_repeats.no_strand.exon.gff"),
+		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.no_strand.exon.gff")
 	shell:
 		"""
 		awk '$3 == "match_part"' {input[0]} | sed -e 's/\\tmatch_part\\t/\\texon\\t/' -e 's/\\t[+-]\\t/\\t.\\t/' > {output[0]}
-		&& awk '$3 == "match_part"' {input[1]} | sed -e 's/\\tmatch_part\\t/\\texon\\t/' -e 's/\\t[+-]\\t/\\t.\\t/' > {output[1]}
 		""".strip().replace("\n\t", " ")
 
 rule gmc_metrics_bedtools_repeat_coverage:
 	input:
 		rules.gmc_metrics_repeats_extract_exons.output[0],
-		rules.gmc_metrics_repeats_extract_exons.output[1],
 		rules.gmc_extract_exons.output[0]
 	output:
 		rules.gmc_metrics_repeats_extract_exons.output[0] + ".cbed",
-		rules.gmc_metrics_repeats_extract_exons.output[1] + ".cbed",
 	params:
 		program_call = config["program_calls"]["bedtools"]["coverageBed"]
 	shell:
 		"""
-		{params.program_call} -a {input[2]} -b {input[0]} > {output[0]}.tmp
-		&& {params.program_call} -a {input[2]} -b {input[1]} > {output[1]}.tmp
+		{params.program_call} -a {input[1]} -b {input[0]} > {output[0]}.tmp
 		&& cut -f 9 {output[0]}.tmp | cut -d ';' -f 1 | paste - {output[0]}.tmp | sort -k1,1V | cut -f 2- > {output[0]}
-		&& cut -f 9 {output[1]}.tmp | cut -d ';' -f 1 | paste - {output[1]}.tmp | sort -k1,1V | cut -f 2- > {output[1]}
-		&& rm {output[0]}.tmp {output[1]}.tmp
+		&& rm {output[0]}.tmp
 		""".strip().replace("\n\t", " ")
 
 
 rule gmc_metrics_parse_repeat_coverage:
 	input:
 		rules.gmc_metrics_bedtools_repeat_coverage.output[0],
-		rules.gmc_metrics_bedtools_repeat_coverage.output[1],
 	output:
 		rules.gmc_metrics_bedtools_repeat_coverage.output[0] + ".parsed.txt",
-		rules.gmc_metrics_bedtools_repeat_coverage.output[1] + ".parsed.txt"
 	run:
 		from gmc.scripts.parse_cbed_stats import parse_cbed
 		with open(output[0], "w") as outstream, open(input[0]) as instream:
-			parse_cbed(instream, outstream=outstream)
-		with open(output[1], "w") as outstream, open(input[1]) as instream:
 			parse_cbed(instream, outstream=outstream)
 
 
@@ -496,14 +485,19 @@ rule gmc_metrics_generate_metrics_info:
 						cwd, _, _ = next(walk)
 						path = os.path.join(cwd, "abundance.tsv")
 						rows.append((ExternalMetrics.KALLISTO_TPM_EXPRESSION, mclass, mid, path))
-
+				elif cwd_base == "repeats":
+					mclass = "repeat"
+					for path in glob.glob(os.path.join(cwd, "*.no_strand.exon.gff.cbed.parsed.txt")):
+						mid = os.path.basename(path).split(".")[0]
+						rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
+			"""
 			for mid in config["data"].get("repeat-data", dict()):
 				mclass = "repeat"
 				path = config["data"]["repeat-data"][mid][0][0]
 				rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
+			"""
 
 			for _, mclass, mid, path in sorted(rows, key=lambda x:x[0].value):
-			
 				print(mclass, mid, path, sep="\t", file=sys.stderr)
 				print(mclass, mid, os.path.abspath(path), sep="\t", file=metrics_info)
 

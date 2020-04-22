@@ -91,6 +91,17 @@ def read_kallisto(f, seen=set()):
 
 	return model_info
 
+def read_rm_repeats(f, seen=set()):
+	model_info = {"nmetrics": 1}
+	for i, row in enumerate(csv.reader(open(f), delimiter="\t")):
+		if row and not row[0].startswith("#"):
+			tid = row[0]
+			if seen and tid not in seen:
+				raise ValueError("Error: This is repeat modeler run ({}) but transcript {} occurs for the first time. Please check your mikado/rm inputs.".format(f, tid))
+
+			model_info[tid] = collections.OrderedDict({"cov": _round_frac(clean_na(row[3]))})
+
+	return model_info
 			
 
 
@@ -102,7 +113,7 @@ MCLASS_INFO = collections.OrderedDict([
 	("blast", {"metrics": ["qCov", "tCov"], "parser": read_blast}),
 	("cpc", {"metrics": [""], "parser": read_cpc}),
 	("expression", {"metrics": [""], "parser": read_kallisto}),
-	("repeat", {"metrics": ["nF1", "jF1", "eF1", "aF1"], "parser": None})
+	("repeat", {"metrics": ["cov"], "parser": read_rm_repeats})
 ])                                                                                      		
 
 			
@@ -162,12 +173,6 @@ def main():
 			row.extend(data)
 
 		print(*row, sep="\t")
-
-
-
-
-	pass
-
 
 
 
