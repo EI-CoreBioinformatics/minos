@@ -33,10 +33,10 @@ setup(
 		"Development Status :: 4 - Beta",
 		"Topic :: Scientific Engineering :: Bio/Informatics",
 		"License :: OSI Approved :: MIT License",
-        "Operating System :: POSIX :: Linux",
-        'Programming Language :: Python :: 3.4',
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6"
+		"Operating System :: POSIX :: Linux",
+		'Programming Language :: Python :: 3.4',
+		"Programming Language :: Python :: 3.5",
+		"Programming Language :: Python :: 3.6"
 	],
 	zip_safe=False,
 	keywords="gene annotation",
