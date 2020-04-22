@@ -247,6 +247,7 @@ def run_configure(args):
 		"annotation_version": args.annotation_version,
 		"genus_identifier": args.genus_identifier,
 		"busco_analyses": dict(zip(("proteins", "transcriptome", "genome"), parse_busco_levels(args.busco_level))),
+		"hpc_config": args.hpc_config
 	}
 
 	if any(run_config["busco_analyses"].values()) and (args.busco_lineage is None or not os.path.exists(args.busco_lineage)):
