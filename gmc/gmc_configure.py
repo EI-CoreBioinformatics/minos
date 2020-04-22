@@ -19,6 +19,13 @@ BUSCO_LEVELS = {"proteins", "proteome", "transcripts", "transcriptome", "genome"
 
 EXTERNAL_METRICS_HEADERS = ["metric_name_prefix", "metric_class", "multiplier", "not_fragmentary_min_value", "file_path"]
 
+NF_SUFFIXES = {
+	"seq_prot": ["qCov", "tCov"],
+	"blastdb_prot": ["qCov", "tCov"],
+	"repeat": ["cov"],
+	"expression": ["tpm"]
+}
+
 class ScoringMetricsManager(object):
 	def __importMetricsData(self, fn, use_tpm=False):
 		self.metrics = OrderedDict()
@@ -80,14 +87,12 @@ class ScoringMetricsManager(object):
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
-			blast_metrics = {"seq_prot", "blastdb_prot"}
 			for mclass, runs in self.metrics.items():
-				if mclass not in {"junction", "expression"}:
-					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
+				if mclass not in {"junction", "expression", "repeat"}:
+					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
 					for runid, run in runs.items():
 						for suffix in suffixes:						
 							ext_metrics.append("external.{}_{}".format(runid, suffix))				
-					#ext_metrics.extend("external.{}_aF1".format(run) for run in metrics[mclass])
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
 			expression += ", or, "
@@ -96,10 +101,9 @@ class ScoringMetricsManager(object):
 
 		def generate_nf_params(metrics):
 			params = list() 
-			blast_metrics = {"seq_prot", "blastdb_prot"}
 			for mclass, runs in metrics.items():
-				if mclass not in {"junction", "expression"}:
-					suffixes = ["qCov", "tCov"] if mclass in blast_metrics else ["aF1"]
+				if mclass not in {"junction", "expression", "repeat"}:
+					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
 					for runid, run in runs.items():
 						for suffix in suffixes:
 							params.append("    external.{}_{}: {{operator: gt, value: {}}}".format(runid, suffix, run[0]["min_value"]))
@@ -107,19 +111,12 @@ class ScoringMetricsManager(object):
 			return params
 			
 		def generate_external_scoring(metrics):
-			blast_metrics = {"seq_prot", "blastdb_prot"}
 			scoring = list()			
 
 			for mclass, runs in metrics.items():
-				if mclass == "expression":
-					suffixes = ["tpm"]
-				elif mclass in blast_metrics:
-					suffixes = ["qCov", "tCov"]
-				elif mclass == "junction":
+				if mclass in {"repeat", "junction"}:
 					continue
-				else:
-					suffixes = ["nF1", "jF1", "eF1", "aF1"]					
-
+				suffixes = NF_SUFFIXES.get(mclass, ["nF1", "jF1", "eF1", "aF1"])
 				for runid, run in runs.items():
 					for suffix in suffixes:
 						comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
