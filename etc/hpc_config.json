@@ -181,10 +181,5 @@
     "memory": "4096",
     "cores": "1",
     "J": "gmc_generate_full_table"
-  },
-  "split_proteins_prepare": {
-    "memory": "4096",
-    "cores": "1",
-    "J": "split_proteins_prepare"
   }
 }

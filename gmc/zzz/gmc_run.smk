@@ -110,7 +110,7 @@ localrules:
 	all,
 	gmc_extract_exons,
 	gmc_metrics_repeats_extract_exons,
-	gmc_metrics_parse_repeat_coverage
+	gmc_metrics_parse_repeat_coverage,
 	gmc_metrics_generate_metrics_info,
 	gmc_metrics_generate_metrics_matrix,
 	gmc_parse_mikado_pick,
