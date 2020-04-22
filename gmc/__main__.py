@@ -10,9 +10,9 @@ import glob
 
 from collections import OrderedDict
 
-from . import __version__
-from .gmc_configure import *
-from .snakemake_helper import *
+from gmc import __version__
+from gmc.gmc_configure import *
+from eicore.snakemake_helper import *
 
 
 def add_default_options(parser):

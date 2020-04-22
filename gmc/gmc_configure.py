@@ -9,7 +9,7 @@ import subprocess
 
 from collections import OrderedDict
 
-from . import __version__
+from gmc import __version__
 
 STRANDINFO = {"_xx": "unstranded", "_rf": "rf-stranded", "_fr": "fr-stranded"}
 
