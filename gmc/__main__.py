@@ -97,7 +97,7 @@ def main():
 		elif run_configuration_file is not None:
 			print("Configuration file {} already present. Please set --force-reconfiguration/-f to override this.".format(run_configuration_file))
 	elif args.runmode == "run":
-		snake = join(dirname(__file__), "zzz", "gmc_run.smk.py")
+		snake = join(dirname(__file__), "zzz", "gmc_run.smk")
 		if run_configuration_file is None:
 			raise ValueError("Missing run configuration in " + args.outdir)
 
