@@ -43,7 +43,7 @@ setup(
 	keywords="gene annotation",
 	packages=find_packages(exclude=["test"]),
 	scripts=[
-		script for script in glob.glob("gmc/bin/slurm/*_sub")
+		script for script in glob.glob("bin/slurm/*_sub")
 	],
 	install_requires=[
 		"snakemake>5.4.0",
@@ -67,7 +67,7 @@ setup(
 	},
 	include_package_data=True,
 	data_files=[
-		("gmc/etc", glob.glob("gmc/etc/*.*"))
+		("etc", glob.glob("etc/*.*"))
 	]
 )
 
