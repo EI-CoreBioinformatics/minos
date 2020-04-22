@@ -7,11 +7,13 @@ from snakemake import snakemake
 import datetime
 import os
 import time
+import sys
 
 
 NOW = datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')
 
-ETC_DIR = os.path.join(os.path.dirname(__file__), "..", "etc")
+#ETC_DIR = os.path.join(os.path.dirname(__file__), "..", "etc")
+ETC_DIR = os.path.join(sys.prefix, "etc")
 DEFAULT_HPC_CONFIG_FILE = os.path.join(ETC_DIR, "hpc_config.json")
 DEFAULT_CONFIG_FILE = os.path.join(ETC_DIR, "gmc_config.yaml")
 
