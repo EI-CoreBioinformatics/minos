@@ -68,7 +68,7 @@
     "J": "gmc_met_blastp"
   },
   "gmc_metrics_blastp_tophit": {
-	"c": "1",
+    "c": "1",
     "memory": "4000",
     "J": "gmc_met_blastp_tophit"
   },
@@ -143,27 +143,27 @@
     "J": "gmc_cleanup_final_proteins"
   },
   "busco_proteins_prepare": {
-	"memory": "8000",
+    "memory": "8000",
     "c": "8",
     "J": "gmc_busco_proteins_prepare"
   },
   "busco_proteins_final": {
-	"memory": "8000",
+    "memory": "8000",
     "c": "8",
     "J": "gmc_busco_proteins_final"
   },
   "busco_transcripts_prepare": {
-	"memory": "8000",
+    "memory": "8000",
     "c": "8",
     "J": "gmc_busco_transcripts_prepare"
   },
   "busco_transcripts_final": {
-	"memory": "8000",
+    "memory": "8000",
     "c": "8",
     "J": "gmc_busco_transcripts_final"
   },
   "busco_genome": {
-	"memory": "8000",
+    "memory": "8000",
     "c": "8",
     "J": "gmc_busco_genome"
   },
