@@ -516,7 +516,7 @@ rule gmc_metrics_blastp_combine:
 	run:
 		with open(output[0], "w") as blast_out:
 			for f in input:
-				print(f.read(), end="", flush=True, file=blast_out)
+				print(open(f).read(), end="", flush=True, file=blast_out)
 				os.remove(f)
 
 
