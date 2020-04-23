@@ -1,174 +1,174 @@
 {
   "__default__": {
     "partition": "ei-medium",
-    "memory": "8000",
+    "memory": "8192",
     "cores": "8",
     "J": "gmc",
     "time": "24:00:00",
     "exclude": "t128n84"
   },
   "gmc_mikado_prepare": {
-    "memory": "120000",
+    "memory": "122880",
     "cores": "30",
     "J": "gmc_mprep"
   },
   "gmc_metrics_cpc2": {
-    "memory": "20000",
+    "memory": "20480",
     "cores": "4",
     "J": "gmc_met_cpc2"
   },
   "gmc_metrics_kallisto_index": {
-    "memory": "12000",
+    "memory": "12288",
     "cores": "1",
     "J": "gmc_met_kallisto_index"
   },
   "gmc_metrics_kallisto_quant": {
-    "memory": "60000",
+    "memory": "61440",
     "cores": "32",
     "J": "gmc_met_kallisto_quant"
   },
   "gmc_metrics_mikado_compare_vs_all": {
-    "memory": "30000",
+    "memory": "30720",
     "cores": "1",
     "J": "gmc_met_mikado_compare_all"
   },
   "gmc_metrics_mikado_compare_vs_proteins": {
-    "memory": "30000",
+    "memory": "30720",
     "cores": "1",
     "J": "gmc_met_mikado_cmp_prot"
   },
   "gmc_metrics_mikado_compare_vs_transcripts": {
-    "memory": "30000",
+    "memory": "30720",
     "cores": "1",
     "J": "gmc_met_mikado_cmp_tran"
   },
   "gmc_mikado_compare_index_reference": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "1",
     "J": "gmc_mikado_cmp_index"
   },
   "gmc_metrics_blastp_mkdb": {
-    "memory": "10000",
+    "memory": "10240",
     "cores": "1",
     "J": "gmc_met_makeblastdb"
   },
   "gmc_chunk_proteins": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_chunk_cds"
   },
   "gmc_gffread_extract_sequences": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_generate_cds"
   },
   "gmc_metrics_blastp_chunked": {
-    "memory": "32000",
+    "memory": "32768",
     "cores": "8",
     "J": "gmc_met_blastp"
   },
   "gmc_metrics_blastp_tophit": {
     "cores": "1",
-    "memory": "4000",
+    "memory": "4096",
     "J": "gmc_met_blastp_tophit"
   },
   "gmc_mikado_serialise": {
     "cores": "32",
-    "memory": "123000",
+    "memory": "125952",
     "J": "gmc_mikado_serialise"
   },
   "gmc_mikado_pick": {
     "cores": "30",
-    "memory": "123000",
+    "memory": "125952",
     "J": "gmc_mikado_pick"
   },
   "gmc_kallisto_index_post_pick": {
-    "memory": "12000",
+    "memory": "12288",
     "cores": "1",
     "J": "gmc_met_kallisto_index_post_pick"
   },
   "gmc_kallisto_quant_post_pick": {
-    "memory": "60000",
+    "memory": "61440",
     "cores": "32",
     "J": "gmc_met_kallisto_quant_post_pick"
   },
   "gmc_gff_validate_post_gt": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_gff_validate_post_gt"
   },
   "gmc_collapse_metrics": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_collapse_metrics"
   },
   "gmc_create_release_gffs": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_create_release_gffs"
   },
   "gmc_sort_release_gffs": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_sort_release_gffs"
   },
   "gmc_final_sanity_check": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_final_sanity_check"
   },
   "gmc_generate_mikado_stats": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_generate_mikado_stats"
   },
   "gmc_extract_final_sequences": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_extract_final_sequences"
   },
   "gmc_extract_final_transcripts": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_extract_final_sequences"
   },
   "gmc_extract_final_proteins": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_extract_final_proteins"
   },
   "gmc_cleanup_final_proteins": {
-    "memory": "2000",
+    "memory": "2048",
     "cores": "1",
     "J": "gmc_cleanup_final_proteins"
   },
   "busco_proteins_prepare": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "8",
     "J": "gmc_busco_proteins_prepare"
   },
   "busco_proteins_final": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "8",
     "J": "gmc_busco_proteins_final"
   },
   "busco_transcripts_prepare": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "8",
     "J": "gmc_busco_transcripts_prepare"
   },
   "busco_transcripts_final": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "8",
     "J": "gmc_busco_transcripts_final"
   },
   "busco_genome": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "8",
     "J": "gmc_busco_genome"
   },
   "gmc_metrics_bedtools_repeat_coverage": {
-    "memory": "8000",
+    "memory": "8192",
     "cores": "1",
     "J": "gmc_metrics_bedtools_repeat_coverage"
   },
