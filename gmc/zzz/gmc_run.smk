@@ -8,6 +8,7 @@ HPC_CONFIG = HpcConfig(config["hpc_config"])
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
+AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
 @unique
 class ExternalMetrics(Enum):
@@ -21,7 +22,6 @@ def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
 
 def get_all_transcript_assemblies(wc):
-	print([config["data"]["transcript-runs"][asm][0] for asm in config["data"]["transcript-runs"]])
 	return [config["data"]["transcript-runs"][asm][0] for asm in config["data"]["transcript-runs"]]
 
 def get_protein_alignments(wc):
@@ -70,14 +70,15 @@ BUSCO_PRECOMPUTED = """
 	cp {input[0]} {output[0]} && cp {input[1]} {output[1]}
 """.strip().replace("\n\t", " ")
 
-
 BUSCO_CMD = """
 	mkdir -p {BUSCO_PATH}/logs
 	&& cfgdir={BUSCO_PATH}/config/{params.busco_stage}/{params.run} && mkdir -p $cfgdir
-	&& {params.copy} /usr/local/config $cfgdir/
+	&& {params.copy} {AUGUSTUS_CONFIG_DATA} $cfgdir/
 	&& export AUGUSTUS_CONFIG_PATH=$cfgdir/config
-	&& cd {BUSCO_PATH}/runs/{params.busco_stage}
+	&& mkdir -p {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
+	&& cd {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} &> {log}
+	&& mv {params.run}/* . && rm -rf {params.run}
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
 
