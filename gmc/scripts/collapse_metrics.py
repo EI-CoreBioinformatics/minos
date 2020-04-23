@@ -120,7 +120,8 @@ class TranscriptScores:
 		self.hom_qcov_score = max(float(metrics[m + "_qCov"]) for m in metrics_info.get("blast", set()))
 		self.hom_tcov_score = max(float(metrics[m + "_tCov"]) for m in metrics_info.get("blast", set()))
 		self.hom_acov_score = (self.hom_qcov_score + self.hom_tcov_score) / 2.0
-		self.te_score = 0.0  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
+		self.te_score = max(float(metrics[m + "_cov"]) for m in metrics_info.get("repeat", set()))
+		#0.0  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
 		self.cpc_score = float(metrics["cpc"])
 		self.expression_score = expression_score
 		self.classification = 0 ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
