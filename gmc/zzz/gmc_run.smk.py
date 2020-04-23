@@ -106,8 +106,9 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 localrules:
 	all,
 	gmc_extract_exons,
+	gmc_metrics_repeats_convert,
 	gmc_metrics_repeats_extract_exons,
-	gmc_metrics_parse_repeat_coverage
+	gmc_metrics_parse_repeat_coverage,
 	gmc_metrics_blastp_combine,
 	gmc_metrics_generate_metrics_info,
 	gmc_metrics_generate_metrics_matrix,
@@ -212,9 +213,51 @@ rule gmc_gffread_extract_sequences:
 	shell:
 		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} -W -w {output[1]} {params.output_params} {output[0]} &> {log}"
 
-rule gmc_metrics_repeats_extract_exons:
+rule gmc_metrics_repeats_convert:
 	input:
 		get_repeat_data
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.converted.gff")
+	run:
+		import csv
+		import re
+		source = tag = wildcards.run
+		name_tag, rep_counter = "RM", 0
+		with open(output[0], "w") as out_gff:
+			for row in csv.reader(open(input[0]), delimiter="\t"):
+				if not row or (row and row[0].startswith("#")):
+					continue
+				if row[1] == "RepeatMasker":
+					rep_counter += 1
+					try:
+						target = re.search('Target\s+"([^"]+)', row[8]).group(1)
+					except:
+						try:
+				 			target = re.search('Target\s*=\s*([^;]+)', row[8]).group(1)
+						except:
+							raise ValueError("Cannot parse Target from " + row[8])
+					target = re.sub("\s+", "_", target)
+					note = ";Note={}".format(target)
+					try:
+						name = re.sub("\s+", "_", re.search('Name\s*=\s*([^;]+)', row[8]).group(1))
+						#name = re.sub("\s+", "_", name)
+					except:
+						name, note = target, ""
+					row[1] = source
+					row[5] = "{:0.0f}".format(float(row[5]))
+					row[2] = "match"
+					attrib = "ID={tag}:{name_tag}{counter};Name={name}{note}".format(tag=tag, name_tag=name_tag, counter=rep_counter, name=name, note=note)
+					print(*row[:8], attrib, sep="\t", file=out_gff, flush=True)	
+					row[2] = "match_part"
+					attrib = "ID={tag}:{name_tag}{counter}-exon1;Parent={tag}:{name_tag}{counter}".format(tag=tag, name_tag=name_tag, counter=rep_counter)
+					print(*row[:8], attrib, sep="\t", file=out_gff, flush=True)	
+					print("###", file=out_gff, flush=True)
+			
+
+
+rule gmc_metrics_repeats_extract_exons:
+	input:
+		rules.gmc_metrics_repeats_convert.output[0]
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.no_strand.exon.gff")
 	shell:
