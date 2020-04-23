@@ -10,6 +10,9 @@ LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
+#TRANSCRIPT_MODELS = 
+
+
 @unique
 class ExternalMetrics(Enum):
 	MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
@@ -32,6 +35,8 @@ def get_protein_sequences(wc):
 	return config["data"]["protein-seqs"].get(wc.run, [""])[0]
 def get_repeat_data(wc):
 	return config["data"]["repeat-data"][wc.run][0]
+def get_transcript_models(wc):
+	return config["transcript_models"][wc.run]
 
 # output management
 POST_PICK_PREFIX = "mikado.annotation"
@@ -82,6 +87,11 @@ BUSCO_CMD = """
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
 
+TX2GENE_MAPS = [
+	os.path.join(config["outdir"], "tx2gene", tm + ".tx2gene")
+	for tm in config["transcript_models"]
+]
+
 
 BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
 BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"]) if config["busco_analyses"]["lineage"] is not None else None
@@ -106,6 +116,10 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "short_summary.txt").format(runid))
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "full_table.tsv").format(runid))
 	BUSCO_GENOME_OUTPUT_SUMMARY, BUSCO_GENOME_OUTPUT_FULL_TABLE = BUSCO_ANALYSES[-2:]
+
+if BUSCO_ANALYSES:
+	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
+
 
 localrules:
 	all,
@@ -175,6 +189,25 @@ rule gmc_mikado_prepare:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_mikado_prepare") * attempt
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
+
+rule gmc_generate_tx2gene_maps:
+	input:
+		get_transcript_models
+	output:
+		os.path.join(config["outdir"], "tx2gene", os.path.basename("{run}") + ".tx2gene")
+	threads:
+		HPC_CONFIG.get_cores("gmc_mikado_prepare")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_tx2gene_maps")
+	run:
+		import csv
+		with open(output[0], "w") as tx2gene_out:
+			for row in csv.reader(open(input[0]), delimiter="\t"):
+				if not row or (row and row[0].startswith("#")):
+					continue
+				if row[2] == "mRNA":
+					attr = dict(item.split("=") for item in row[8].split(";"))
+					print("{}_{}".format(row[1], attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
 
 rule gmc_extract_exons:
 	input:
@@ -246,7 +279,6 @@ rule gmc_metrics_repeats_convert:
 					note = ";Note={}".format(target)
 					try:
 						name = re.sub("\s+", "_", re.search('Name\s*=\s*([^;]+)', row[8]).group(1))
-						#name = re.sub("\s+", "_", name)
 					except:
 						name, note = target, ""
 					row[1] = source
