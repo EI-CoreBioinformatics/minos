@@ -10,9 +10,9 @@ import glob
 
 from collections import OrderedDict
 
-from . import __version__
-from .gmc_configure import *
-from .snakemake_helper import *
+from gmc import __version__
+from gmc.gmc_configure import *
+from eicore.snakemake_helper import *
 
 
 def add_default_options(parser):
@@ -24,7 +24,7 @@ def add_default_options(parser):
 	common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
 	#common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/mikado/20190325_c940de1/x86_64/mikado-20190325_c940de1.simg")
 	common_group.add_argument("--dryrun", action="store_true")
-	make_exeenv_arg_group(parser, default_hpc_config_file="", allow_mode_selection=False, silent=True)
+	make_exeenv_arg_group(parser, allow_mode_selection=False, silent=True)
 		
 def add_configure_parser(subparsers):
 	configure_parser = subparsers.add_parser(
@@ -97,7 +97,7 @@ def main():
 		elif run_configuration_file is not None:
 			print("Configuration file {} already present. Please set --force-reconfiguration/-f to override this.".format(run_configuration_file))
 	elif args.runmode == "run":
-		snake = join(dirname(__file__), "zzz", "gmc_run.smk.py")
+		snake = join(dirname(__file__), "zzz", "gmc_run.smk")
 		if run_configuration_file is None:
 			raise ValueError("Missing run configuration in " + args.outdir)
 

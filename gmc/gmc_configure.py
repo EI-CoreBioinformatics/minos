@@ -9,7 +9,7 @@ import subprocess
 
 from collections import OrderedDict
 
-from . import __version__
+from gmc import __version__
 
 STRANDINFO = {"_xx": "unstranded", "_rf": "rf-stranded", "_fr": "fr-stranded"}
 
@@ -65,10 +65,10 @@ class ScoringMetricsManager(object):
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
 			raise ValueError("More than one junction file supplied. " + self.metrics.get("junction", list()))
 
-		for k in self.metrics:
-			print(k)
-			for j in self.metrics[k]:
-				print(j, self.metrics[k][j], sep="\n")
+		#for k in self.metrics:
+		#	print(k)
+		#	for j in self.metrics[k]:
+		#		print(j, self.metrics[k][j], sep="\n")
 
 	def __init__(self, metrics_file, scoring_template_file, outdir, prefix, use_tpm=False):
 		self.__importMetricsData(metrics_file, use_tpm=use_tpm)
@@ -202,6 +202,7 @@ def run_configure(args):
 	# - warn if not present
 	# - add command line option 
 	
+	print(args)
 	mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
 	gmc_config = yaml.load(open(args.config_file), Loader=yaml.SafeLoader)
 
@@ -246,6 +247,7 @@ def run_configure(args):
 		"annotation_version": args.annotation_version,
 		"genus_identifier": args.genus_identifier,
 		"busco_analyses": dict(zip(("proteins", "transcriptome", "genome"), parse_busco_levels(args.busco_level))),
+		"hpc_config": args.hpc_config
 	}
 
 	if any(run_config["busco_analyses"].values()) and (args.busco_lineage is None or not os.path.exists(args.busco_lineage)):

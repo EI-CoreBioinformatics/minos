@@ -1,22 +1,34 @@
-from enum import Enum, unique
+import datetime
 import os
+import time
+import sys
+from enum import Enum, unique
 from textwrap import dedent
 
 from snakemake import snakemake
 
-import datetime
-import os
-import time
+from .capturing import Capturing
 
 
 NOW = datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')
 
-ETC_DIR = os.path.join(os.path.dirname(__file__), "etc")
+def get_etc_dir():
+	path, prefix = __file__, None
+	while path:
+		path, here = os.path.split(path)
+		if here == "lib":
+			prefix = path
+			break
+	
+	if prefix is None:
+		raise ValueError("Cannot deduce install location from " + __file__)
+
+	return os.path.join(prefix, "etc") 
+	
+
+ETC_DIR = get_etc_dir() 
 DEFAULT_HPC_CONFIG_FILE = os.path.join(ETC_DIR, "hpc_config.json")
 DEFAULT_CONFIG_FILE = os.path.join(ETC_DIR, "gmc_config.yaml")
-
-from .capturing import Capturing
-
 
 @unique
 class RunMode(Enum):
@@ -101,13 +113,22 @@ class ExecutionEnvironment:
 				self.use_scheduler = True
 			elif scheduler.upper() == "SLURM":
 				self.sub_cmd = "sbatch"
-				self.res_cmd =	 " -c {threads}" + \
-								" -p " + self.partition + \
-								" --exclude={cluster.exclude}" + \
-								" --mem={cluster.memory}" + \
-								" -J " + job_name + \
-								" -o " + log_prefix + ".slurm.log" + \
-								" --time={cluster.time}"
+				self.res_cmd = " -c {cores} -p {partition} --exclude={exclude_nodes} --mem={memory} -J {job_name} -o {logfile} --time={time_limit}".format(
+					cores="{threads}",
+					partition=self.partition,
+					exclude_nodes="{cluster.exclude}",
+					memory="{resources.mem_mb}",
+					job_name=job_name,
+					logfile=log_prefix + ".slurm.log",
+					time_limit="{cluster.time}"
+				)
+				#self.res_cmd =	 " -c {threads}" + \
+				#				" -p " + self.partition + \
+				#				" --exclude={cluster.exclude}" + \
+				#				" --mem={cluster.memory}" + \
+				#				" -J " + job_name + \
+				#				" -o " + log_prefix + ".slurm.log" + \
+				#				" --time={cluster.time}"
 				self.use_scheduler = True
 			elif scheduler == "" or scheduler.upper() == "NONE":
 				pass
@@ -197,7 +218,7 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
 						printshellcmds=True,
 						printreason=True,
 						stats=os.path.join(out_dir, os.path.basename(snakefile) + "-" + NOW + ".stats"),
-						jobname="eicore.{rulename}.{jobid}",
+						jobname="gmc.{rulename}.{jobid}",
 						force_incomplete=True,
 						# detailed_summary=args.detailed_summary,
 						# list_resources=True,
@@ -207,7 +228,10 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
 						forceall=dryrun,
 						verbose=True,
 						use_conda=True,
-						use_singularity=True
+						use_singularity=True,
+						restart_times=3,
+						max_status_checks_per_second=30,
+						keepgoing=True
 						# allowed_rules=args.allowed_rules
 						)
 	return res

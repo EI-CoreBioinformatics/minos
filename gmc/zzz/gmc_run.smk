@@ -2,9 +2,13 @@ import os
 import sys
 from enum import Enum, unique, auto
 
+from eicore.hpc_config import HpcConfig
+HPC_CONFIG = HpcConfig(config["hpc_config"])
+
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
+AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
 @unique
 class ExternalMetrics(Enum):
@@ -18,7 +22,6 @@ def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
 
 def get_all_transcript_assemblies(wc):
-	print([config["data"]["transcript-runs"][asm][0] for asm in config["data"]["transcript-runs"]])
 	return [config["data"]["transcript-runs"][asm][0] for asm in config["data"]["transcript-runs"]]
 
 def get_protein_alignments(wc):
@@ -67,14 +70,15 @@ BUSCO_PRECOMPUTED = """
 	cp {input[0]} {output[0]} && cp {input[1]} {output[1]}
 """.strip().replace("\n\t", " ")
 
-
 BUSCO_CMD = """
 	mkdir -p {BUSCO_PATH}/logs
 	&& cfgdir={BUSCO_PATH}/config/{params.busco_stage}/{params.run} && mkdir -p $cfgdir
-	&& {params.copy} /usr/local/config $cfgdir/
+	&& {params.copy} {AUGUSTUS_CONFIG_DATA} $cfgdir/
 	&& export AUGUSTUS_CONFIG_PATH=$cfgdir/config
-	&& cd {BUSCO_PATH}/runs/{params.busco_stage}
+	&& mkdir -p {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
+	&& cd {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} &> {log}
+	&& mv {params.run}/* . && rm -rf {params.run}
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
 
@@ -107,8 +111,7 @@ localrules:
 	all,
 	gmc_extract_exons,
 	gmc_metrics_repeats_extract_exons,
-	gmc_metrics_parse_repeat_coverage
-	gmc_metrics_blastp_combine,
+	gmc_metrics_parse_repeat_coverage,
 	gmc_metrics_generate_metrics_info,
 	gmc_metrics_generate_metrics_matrix,
 	gmc_parse_mikado_pick,
@@ -167,7 +170,9 @@ rule gmc_mikado_prepare:
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_prepare.log")
 	threads:
-		30
+		HPC_CONFIG.get_cores("gmc_mikado_prepare")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_mikado_prepare") * attempt
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
 
@@ -181,8 +186,6 @@ rule gmc_extract_exons:
 		awk '$3 == "exon"' {input[0]} | awk -v FS="\\t" -v OFS="\\t" '{{exon += 1; split($9,a,"\\""); $9="ID="a[4]".exon"exon";Parent="a[4]; print $0}}' > {output[0]}
 		""".strip().replace("\n\t", " ")
 
-
-
 rule gmc_mikado_compare_index_reference:
 	input:
 		rules.gmc_mikado_prepare.output[1]
@@ -193,6 +196,10 @@ rule gmc_mikado_compare_index_reference:
 		program_params = config["params"]["mikado"]["compare"]["index"]
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare_index_reference.log")
+	threads:
+		HPC_CONFIG.get_cores("gmc_mikado_compare_index_reference")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_mikado_compare_index_reference") * attempt
 	shell:
 		"{params.program_call} {params.program_params} -r {input} &> {log}"
 
@@ -230,6 +237,10 @@ rule gmc_metrics_bedtools_repeat_coverage:
 		rules.gmc_metrics_repeats_extract_exons.output[0] + ".cbed",
 	params:
 		program_call = config["program_calls"]["bedtools"]["coverageBed"]
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_bedtools_repeat_coverage")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_bedtools_repeat_coverage") * attempt
 	shell:
 		"""
 		{params.program_call} -a {input[1]} -b {input[0]} > {output[0]}.tmp
@@ -260,7 +271,9 @@ rule gmc_metrics_cpc2:
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".CPC2.log")
 	threads:
-		4
+		HPC_CONFIG.get_cores("gmc_metrics_cpc2")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_cpc2") * attempt	
 	shell:
 		"{params.program_call} {params.program_params} -i {input[0]} -o {output[0]} &> {log}"
 
@@ -277,6 +290,10 @@ if config["use-tpm-for-picking"]:
 		params:
 			program_call = config["program_calls"]["kallisto"].format(program="index"),
 			program_params = config["params"].get("kallisto", {}).get("index", "")
+		threads:
+			HPC_CONFIG.get_cores("gmc_metrics_kallisto_index")
+		resources:
+			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_kallisto_index") * attempt
 		shell:
 			"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
@@ -294,7 +311,9 @@ if config["use-tpm-for-picking"]:
 			stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
 			outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
 		threads:
-			32
+			HPC_CONFIG.get_cores("gmc_metrics_kallisto_quant")
+		resources:
+			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_kallisto_quant") * attempt
 		shell:
 			"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
@@ -312,6 +331,10 @@ rule gmc_metrics_mikado_compare_vs_transcripts:
 		program_params = config["params"]["mikado"]["compare"]["transcripts"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", wildcards.run),
 		transcripts = lambda wildcards: wildcards.run
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_mikado_compare_vs_transcripts")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_mikado_compare_vs_transcripts") * attempt
 	shell:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.transcripts} -o {params.outdir}/mikado_{params.transcripts} &> {log}" + \
@@ -331,6 +354,10 @@ rule gmc_metrics_mikado_compare_vs_proteins:
 		program_params = config["params"]["mikado"]["compare"]["proteins"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", wildcards.run),
 		proteins = lambda wildcards: wildcards.run
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_mikado_compare_vs_proteins")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_mikado_compare_vs_proteins") * attempt
 	shell:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log}" + \
@@ -348,6 +375,10 @@ rule gmc_metrics_blastp_mkdb:
 		program_params = config["params"]["blast"]["makeblastdb"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run, "blastdb"),
 		db_prefix = lambda wildcards: wildcards.run
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_blastp_mkdb")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_blastp_mkdb") * attempt
 	shell:
 		"{params.program_call} {params.program_params} -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log}" + \
 		" && touch {output[0]}"
@@ -362,6 +393,10 @@ checkpoint gmc_chunk_proteins:
 	params:
 		chunksize = 1000,
 		outdir = os.path.join(TEMP_DIR, "chunked_proteins")
+	threads:
+		HPC_CONFIG.get_cores("gmc_chunk_proteins")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_chunk_proteins") * attempt
 	shell:
 		"mkdir -p {params.outdir}" + \
 		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
@@ -375,11 +410,13 @@ rule gmc_metrics_blastp_chunked:
 		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv")
 	log:
 		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}." + config["blast-mode"] + ".log")
-	threads:
-		8
 	params:
 		program_call = config["program_calls"]["blast"].format(program=config["blast-mode"]),
 		program_params = config["params"]["blast"][config["blast-mode"]]
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_blastp_chunked")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_blastp_chunked") * attempt
 	shell:
 		"{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} " + \
 		"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
@@ -399,8 +436,15 @@ rule gmc_metrics_blastp_combine:
 		aggregate_blastp_input
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}." + config["blast-mode"] + ".tsv")		
-	shell:
-		"cat {input} > {output[0]} && rm {input}"
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_blastp_combine")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_blastp_combine") * attempt
+	run:
+		with open(output[0], "w") as blast_out:
+			for f in input:
+				print(f.read(), end="", flush=True, file=blast_out)
+				os.remove(f)
 
 
 rule gmc_metrics_blastp_tophit:
@@ -411,6 +455,10 @@ rule gmc_metrics_blastp_tophit:
 	params:
 		pident_threshold = config["params"]["blast"]["tophit"]["pident_threshold"],
 		qcov_threshold = config["params"]["blast"]["tophit"]["qcov_threshold"]
+	threads:
+		HPC_CONFIG.get_cores("gmc_metrics_blastp_tophit")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_blastp_tophit") * attempt
 	run:
 		import csv
 		def calc_coverage_perc(start, end, length):
@@ -526,7 +574,9 @@ rule gmc_mikado_serialise:
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_serialise.log")
 	threads:
-		32
+		HPC_CONFIG.get_cores("gmc_mikado_serialise")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_mikado_serialise") * attempt
 	shell:
 		"{params.program_call} {params.program_params} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log}" + \
 		" && touch {output[0]}"
@@ -540,12 +590,14 @@ rule gmc_mikado_pick:
 	output:
 		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
 		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3")
-	threads:
-		30
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="pick"),
 		program_params = config["params"]["mikado"]["pick"],
 		outdir = config["outdir"]
+	threads:
+		HPC_CONFIG.get_cores("gmc_mikado_pick")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_mikado_pick") * attempt
 	shell:
 		"{params.program_call} {params.program_params} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci-out $(basename {output.subloci}) -db {input.db} {input.gtf}"
 
@@ -619,6 +671,10 @@ rule gmc_gff_validate_post_gt:
 		rules.gmc_gff_genometools_check_post_pick.output[0]
 	output:
 		os.path.join(config["outdir"], POST_PICK_PREFIX + ".gt_checked.validation_report.txt")
+	threads:
+		HPC_CONFIG.get_cores("gmc_gff_validate_post_gt")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_gff_validate_post_gt") * attempt
 	shell:
 		"validate_gff3 {input} > {output}"
 
@@ -632,6 +688,10 @@ rule gmc_kallisto_index_post_pick:
 	params:
 		program_call = config["program_calls"]["kallisto"].format(program="index"),
 		program_params = config["params"].get("kallisto", {}).get("index", "")
+	threads:
+		HPC_CONFIG.get_cores("gmc_kallisto_index_post_pick")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_kallisto_index_post_pick") * attempt
 	shell:
 		"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
@@ -649,7 +709,9 @@ rule gmc_kallisto_quant_post_pick:
 		stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
 		outdir = os.path.join(config["outdir"], "kallisto", "{run}")
 	threads:
-		32
+		HPC_CONFIG.get_cores("gmc_kallisto_quant_post_pick")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_kallisto_quant_post_pick") * attempt
 	shell:
 		"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
@@ -664,6 +726,10 @@ rule gmc_collapse_metrics:
 		os.path.join(config["outdir"], POST_PICK_PREFIX + ".collapsed_metrics.tsv")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
+	threads:
+		HPC_CONFIG.get_cores("gmc_collapse_metrics")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_collapse_metrics") * attempt
 	run:
 		from gmc.scripts.collapse_metrics import MetricCollapser
 		mc = MetricCollapser(input.gff, input.metrics_info, input.ext_scores, input.cds_lengths, input.expression)
@@ -680,6 +746,10 @@ rule gmc_create_release_gffs:
 	params:
 		annotation_version = config.get("annotation_version", "EIv1"),
 		genus_identifier = config.get("genus_identifier", "XYZ")
+	threads:
+		HPC_CONFIG.get_cores("gmc_create_release_gffs")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_create_release_gffs") * attempt
 	shell:
 		"create_release_gff3 {input.gff} {input.metrics_info} --annotation-version {params.annotation_version} --genus-identifier {params.genus_identifier} 2> {LOG_DIR}/create_release_gff.log"
 
@@ -694,6 +764,10 @@ rule gmc_sort_release_gffs:
 	params:
 		program_call = config["program_calls"]["genometools"],
 		program_params = config["params"]["genometools"]["sort"]
+	threads:
+		HPC_CONFIG.get_cores("gmc_sort_release_gffs")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_sort_release_gffs") * attempt
 	shell:
 		"{params.program_call} {params.program_params} {input[0]} > {output[0]} 2> {log}" + \
 		" && {params.program_call} {params.program_params} {input[1]} > {output[1]} 2>> {log}"
@@ -705,6 +779,10 @@ rule gmc_final_sanity_check:
 		os.path.join(config["outdir"], RELEASE_PREFIX + ".sanity_checked.release.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".final_sanity_check.log")
+	threads:
+		HPC_CONFIG.get_cores("gmc_final_sanity_check")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_final_sanity_check") * attempt
 	shell:
 		"sanity_check {input[0]} > {output[0]} 2> {log}"
 
@@ -716,6 +794,10 @@ rule gmc_generate_mikado_stats:
 		rules.gmc_final_sanity_check.output[0] + ".mikado_stats.tsv"
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="util stats"),
+	threads:
+		HPC_CONFIG.get_cores("gmc_generate_mikado_stats")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_mikado_stats") * attempt
 	shell:
 		"{params.program_call} {input} --tab-stats {output[1]} > {output[0]}" + \
 		" && parse_mikado_stats {output[0]} > {output[0]}.summary"
@@ -746,6 +828,10 @@ rule gmc_cleanup_final_proteins:
 		prefix = rules.gmc_extract_final_sequences.output.pep.replace(".raw.fasta", ""),
 		program_call = config["program_calls"]["prinseq"],
 		program_params = config["params"]["prinseq"]
+	threads:
+		HPC_CONFIG.get_cores("gmc_cleanup_final_proteins")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_cleanup_final_proteins") * attempt
 	shell:
 		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
@@ -757,6 +843,10 @@ rule gmc_generate_full_table:
 	output:
 		final_table = rules.gmc_final_sanity_check.output[0] + ".final_table.tsv",
 		summary = rules.gmc_final_sanity_check.output[0] + ".biotype_conf.summary"
+	threads:
+		HPC_CONFIG.get_cores("gmc_generate_full_table")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_full_table") * attempt
 	run:
 		import csv
 		from collections import Counter
@@ -821,7 +911,9 @@ rule busco_proteins_prepare:
 		busco_stage = "proteins_prepare",
 		copy = config["program_calls"]["copy"]
 	threads:
-		8
+		HPC_CONFIG.get_cores("busco_proteins_prepare")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_proteins_prepare") * attempt
 	shell:
 		BUSCO_CMD
 
@@ -841,9 +933,10 @@ rule busco_proteins_final:
 		busco_mode = "proteins",
 		busco_stage = "proteins_final",
 		copy = config["program_calls"]["copy"]
-
 	threads:
-		8
+		HPC_CONFIG.get_cores("busco_proteins_final")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_proteins_final") * attempt
 	shell:
 		BUSCO_CMD
 
@@ -877,7 +970,9 @@ rule busco_transcripts_prepare:
 		busco_stage = "transcripts_prepare",
 		copy = config["program_calls"]["copy"]
 	threads:
-		8
+		HPC_CONFIG.get_cores("busco_transcripts_prepare")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_transcripts_prepare") * attempt
 	shell:
 		BUSCO_CMD
 
@@ -898,7 +993,9 @@ rule busco_transcripts_final:
 		busco_stage = "transcripts_final",
 		copy = config["program_calls"]["copy"]
 	threads:
-		8
+		HPC_CONFIG.get_cores("busco_transcripts_final")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_transcripts_final") * attempt
 	shell:
 		BUSCO_CMD
 
@@ -922,6 +1019,8 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 			busco_stage = "genome",
 			copy = config["program_calls"]["copy"]
 		threads:
-			8
+			HPC_CONFIG.get_cores("busco_genome")
+		resources:
+			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_genome") * attempt
 		shell:
 			BUSCO_PRECOMPUTED if config["busco_analyses"]["precomputed_genome"] else BUSCO_CMD

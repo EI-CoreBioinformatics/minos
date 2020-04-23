@@ -15,7 +15,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 	description = long_description = description.read()
 
 name="gmc"
-version = "0.8"
+version = "1.0"
 
 if sys.version_info.major != 3:
 	raise EnvironmentError("""gmc is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
@@ -37,17 +37,17 @@ setup(
 		'Programming Language :: Python :: 3.4',
 		"Programming Language :: Python :: 3.5",
 		"Programming Language :: Python :: 3.6"
+		"Programming Language :: Python :: 3.7"
 	],
 	zip_safe=False,
 	keywords="gene annotation",
 	packages=find_packages(exclude=["test"]),
 	scripts=[
-		script for script in glob.glob("gmc/bin/slurm/*_sub")
+		script for script in glob.glob("bin/slurm/*_sub")
 	],
 	install_requires=[
 		"snakemake>5.4.0",
 		"drmaa",
-		"biopython"
 	],
 	entry_points={
 		"console_scripts": [
@@ -63,11 +63,11 @@ setup(
 		]
 	},
 	package_data={
-		"gmc.zzz": ["*.smk.py"]
+		"gmc.zzz": ["*.smk"]
 	},
 	include_package_data=True,
 	data_files=[
-		("gmc/etc", glob.glob("gmc/etc/*.*"))
+		("etc", glob.glob("etc/*.*"))
 	]
 )
 
