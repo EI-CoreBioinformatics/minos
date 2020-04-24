@@ -271,7 +271,7 @@ def run_configure(args):
 			"junction-data": smm.getMetricsData("junction"),	
 			"repeat-data": smm.getMetricsData("repeat")
 		},
-		"transcript_models": [row[1] for row in csv.reader(open(args.list_file), delimiter="\t")]
+		"transcript_models": {row[1]:row[0] for row in csv.reader(open(args.list_file), delimiter="\t")}
 	}
 
 

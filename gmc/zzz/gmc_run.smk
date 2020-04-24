@@ -10,6 +10,9 @@ LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
+#TRANSCRIPT_MODELS = 
+
+
 @unique
 class ExternalMetrics(Enum):
 	MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
@@ -32,6 +35,8 @@ def get_protein_sequences(wc):
 	return config["data"]["protein-seqs"].get(wc.run, [""])[0]
 def get_repeat_data(wc):
 	return config["data"]["repeat-data"][wc.run][0]
+def get_transcript_models(wc):
+	return config["transcript_models"][wc.run]
 
 # output management
 POST_PICK_PREFIX = "mikado.annotation"
@@ -82,6 +87,11 @@ BUSCO_CMD = """
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
 
+TX2GENE_MAPS = [
+	os.path.join(config["outdir"], "tx2gene", tm + ".tx2gene")
+	for tm in config["transcript_models"]
+]
+
 
 BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
 BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"]) if config["busco_analyses"]["lineage"] is not None else None
@@ -107,6 +117,11 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "full_table.tsv").format(runid))
 	BUSCO_GENOME_OUTPUT_SUMMARY, BUSCO_GENOME_OUTPUT_FULL_TABLE = BUSCO_ANALYSES[-2:]
 
+BUSCO_TABLE = list()
+if BUSCO_ANALYSES:
+	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
+	BUSCO_TABLE.append(os.path.join(config["outdir"], "busco_final_table.tsv"))
+
 localrules:
 	all,
 	gmc_extract_exons,
@@ -123,7 +138,8 @@ localrules:
 	gmc_calculate_cds_lengths_post_pick,
 	gmc_extract_final_sequences,
 	split_proteins_prepare,
-	split_transcripts_prepare
+	split_transcripts_prepare,
+	busco_summary
 
 
 rule all:
@@ -155,7 +171,7 @@ rule all:
 			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
 			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
 		],
-		BUSCO_ANALYSES
+		BUSCO_ANALYSES + BUSCO_TABLE
 
 rule gmc_mikado_prepare:
 	input:
@@ -175,6 +191,25 @@ rule gmc_mikado_prepare:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_mikado_prepare") * attempt
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
+
+rule gmc_generate_tx2gene_maps:
+	input:
+		get_transcript_models
+	output:
+		os.path.join(config["outdir"], "tx2gene", os.path.basename("{run}") + ".tx2gene")
+	threads:
+		HPC_CONFIG.get_cores("gmc_mikado_prepare")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_tx2gene_maps")
+	run:
+		import csv
+		with open(output[0], "w") as tx2gene_out:
+			for row in csv.reader(open(input[0]), delimiter="\t"):
+				if not row or (row and row[0].startswith("#")):
+					continue
+				if row[2] == "mRNA":
+					attr = dict(item.split("=") for item in row[8].split(";"))
+					print("{}_{}".format(row[1], attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
 
 rule gmc_extract_exons:
 	input:
@@ -246,7 +281,6 @@ rule gmc_metrics_repeats_convert:
 					note = ";Note={}".format(target)
 					try:
 						name = re.sub("\s+", "_", re.search('Name\s*=\s*([^;]+)', row[8]).group(1))
-						#name = re.sub("\s+", "_", name)
 					except:
 						name, note = target, ""
 					row[1] = source
@@ -484,7 +518,7 @@ rule gmc_metrics_blastp_combine:
 	run:
 		with open(output[0], "w") as blast_out:
 			for f in input:
-				print(f.read(), end="", flush=True, file=blast_out)
+				print(open(f).read(), end="", flush=True, file=blast_out)
 				os.remove(f)
 
 
@@ -1065,3 +1099,56 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_genome") * attempt
 		shell:
 			BUSCO_PRECOMPUTED if config["busco_analyses"]["precomputed_genome"] else BUSCO_CMD
+
+
+rule busco_summary:
+	input:
+		BUSCO_ANALYSES
+	output:
+		os.path.join(config["outdir"], "busco_final_table.tsv")
+	run:
+		import os
+		import glob
+		import csv
+		from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, CATEGORIES
+		from collections import Counter
+
+		tx2gene = dict()
+		for f in os.listdir(os.path.join(config["outdir"], "tx2gene")):
+			f = os.path.join(config["outdir"], "tx2gene", f)
+			tx2gene.update(read_tx2gene(f))
+
+		run_tables = dict()
+		for d in os.listdir(os.path.join(BUSCO_PATH, "runs")):
+			if d.endswith("_final") or d == "genome":
+				f = glob.glob(os.path.join(BUSCO_PATH, "runs", d, d, "run_*", "full*"))[0]
+				run_tables[d] = read_full_table(f, is_pick=d.endswith("_final"))
+				#if d == "genome":
+				#	t = read_full_table(f)
+				#else:
+				#	t = read_full_table(f, is_pick=True)
+				#print(d, t, file=table_out, sep="\t")	
+			else:
+				for dd in glob.glob(os.path.join(BUSCO_PATH, "runs", d, "*")):
+					if os.path.basename(dd) != "input":
+						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
+						run_tables["{}/{}".format(d, os.path.basename(dd))] = read_full_table(f, tx2gene)
+						#t = read_full_table(f, tx2gene)
+						#print(d, os.path.basename(dd), t, file=table_out, sep="\t")	
+		with open(output[0] + ".raw", "w") as raw_out:
+			for k, v in run_tables.items():
+				print(k, v, file=raw_out, sep="\t", flush=True)
+
+		with open(output[0], "w") as table_out:
+			print("Busco Plots", *run_tables.keys(), sep="\t", flush=True, file=table_out)
+			for cat in CATEGORIES:
+				cat_lbl = cat
+				if cat.startswith("Complete_"):
+					copies = cat.split("_")[1]
+					cat_lbl = "Complete (single copy)" if copies == "1" else "Complete ({} copies)".format(copies)
+				
+				print(cat_lbl, *(v[cat] for v in run_tables.values()), sep="\t", flush=True, file=table_out)
+				
+			
+						
+
