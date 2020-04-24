@@ -117,9 +117,10 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "full_table.tsv").format(runid))
 	BUSCO_GENOME_OUTPUT_SUMMARY, BUSCO_GENOME_OUTPUT_FULL_TABLE = BUSCO_ANALYSES[-2:]
 
+BUSCO_TABLE = list()
 if BUSCO_ANALYSES:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
-
+	BUSCO_TABLE.append(os.path.join(config["outdir"], "busco_final_table.tsv"))
 
 localrules:
 	all,
@@ -137,7 +138,8 @@ localrules:
 	gmc_calculate_cds_lengths_post_pick,
 	gmc_extract_final_sequences,
 	split_proteins_prepare,
-	split_transcripts_prepare
+	split_transcripts_prepare,
+	busco_summary
 
 
 rule all:
@@ -169,7 +171,7 @@ rule all:
 			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
 			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
 		],
-		BUSCO_ANALYSES
+		BUSCO_ANALYSES + BUSCO_TABLE
 
 rule gmc_mikado_prepare:
 	input:
@@ -1097,3 +1099,56 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_genome") * attempt
 		shell:
 			BUSCO_PRECOMPUTED if config["busco_analyses"]["precomputed_genome"] else BUSCO_CMD
+
+
+rule busco_summary:
+	input:
+		BUSCO_ANALYSES
+	output:
+		os.path.join(config["outdir"], "busco_final_table.tsv")
+	run:
+		import os
+		import glob
+		import csv
+		from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, CATEGORIES
+		from collections import Counter
+
+		tx2gene = dict()
+		for f in os.listdir(os.path.join(config["outdir"], "tx2gene")):
+			f = os.path.join(config["outdir"], "tx2gene", f)
+			tx2gene.update(read_tx2gene(f))
+
+		run_tables = dict()
+		for d in os.listdir(os.path.join(BUSCO_PATH, "runs")):
+			if d.endswith("_final") or d == "genome":
+				f = glob.glob(os.path.join(BUSCO_PATH, "runs", d, d, "run_*", "full*"))[0]
+				run_tables[d] = read_full_table(f, is_pick=d.endswith("_final"))
+				#if d == "genome":
+				#	t = read_full_table(f)
+				#else:
+				#	t = read_full_table(f, is_pick=True)
+				#print(d, t, file=table_out, sep="\t")	
+			else:
+				for dd in glob.glob(os.path.join(BUSCO_PATH, "runs", d, "*")):
+					if os.path.basename(dd) != "input":
+						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
+						run_tables["{}/{}".format(d, os.path.basename(dd))] = read_full_table(f, tx2gene)
+						#t = read_full_table(f, tx2gene)
+						#print(d, os.path.basename(dd), t, file=table_out, sep="\t")	
+		with open(output[0] + ".raw", "w") as raw_out:
+			for k, v in run_tables.items():
+				print(k, v, file=raw_out, sep="\t", flush=True)
+
+		with open(output[0], "w") as table_out:
+			print("Busco Plots", *run_tables.keys(), sep="\t", flush=True, file=table_out)
+			for cat in CATEGORIES:
+				cat_lbl = cat
+				if cat.startswith("Complete_"):
+					copies = cat.split("_")[1]
+					cat_lbl = "Complete (single copy)" if copies == "1" else "Complete ({} copies)".format(copies)
+				
+				print(cat_lbl, *(v[cat] for v in run_tables.values()), sep="\t", flush=True, file=table_out)
+				
+			
+						
+

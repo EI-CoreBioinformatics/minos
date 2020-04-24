@@ -59,7 +59,8 @@ setup(
 			"validate_gff3=gmc.scripts.validate_gff3:main",
 			"create_release_gff3=gmc.scripts.create_release_gff:main",
 			"sanity_check=gmc.scripts.sanity_check:main",
-			"parse_mikado_stats=gmc.scripts.parse_mikado_stats:main"
+			"parse_mikado_stats=gmc.scripts.parse_mikado_stats:main",
+			"analyse_busco=gmc.scripts.analyse_busco:main"
 		]
 	},
 	package_data={
