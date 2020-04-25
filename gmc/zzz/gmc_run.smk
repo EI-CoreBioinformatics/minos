@@ -198,7 +198,7 @@ rule gmc_generate_tx2gene_maps:
 	output:
 		os.path.join(config["outdir"], "tx2gene", os.path.basename("{run}") + ".tx2gene")
 	threads:
-		HPC_CONFIG.get_cores("gmc_mikado_prepare")
+		HPC_CONFIG.get_cores("gmc_generate_tx2gene_maps")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_tx2gene_maps")
 	run:
@@ -207,7 +207,8 @@ rule gmc_generate_tx2gene_maps:
 			for row in csv.reader(open(input[0]), delimiter="\t"):
 				if not row or (row and row[0].startswith("#")):
 					continue
-				if row[2] == "mRNA":
+				if row[2] in {"mRNA", "ncRNA"}:
+					row[8] = row[8].replace("cclass==", "")
 					attr = dict(item.split("=") for item in row[8].split(";"))
 					print("{}_{}".format(row[1], attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
 
