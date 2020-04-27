@@ -3,9 +3,21 @@ import csv
 import argparse
 
 CATEGORIES = ["Complete_1", "Complete_2", "Complete_3", "Complete_4+", "Complete", "Duplicated", "Fragmented", "Missing", "Total"]
-MAX_COPY_NUMBER = 4
 
-def read_full_table(table_file, tx2gene=None, is_pick=False):
+def read_full_table(table_file, tx2gene=None, is_pick=False, max_copy_number=4):
+
+	def get_gene_id(seqid, tx2gene=None, is_pick=False):
+		if tx2gene is not None:
+			# if we have a transcript-gene map (for transcript sets that were processed with mikado prepare)
+			return tx2gene[seqid]
+		elif is_pick:
+			# if this is a final run (on mikado pick output), we assume that transcript_id = gene_id.transcript_number
+			return row[seqid][:seqid.rfind(".")]
+		else:
+			# for genome runs we just add the scaffold/contig
+			return row[seqid]
+
+
 	counts = {cat: 0 for cat in CATEGORIES}
 	complete = dict()
 	for row in csv.reader(open(table_file), delimiter="\t"):
@@ -15,17 +27,8 @@ def read_full_table(table_file, tx2gene=None, is_pick=False):
 			counts[row[1]] += 1
 		else:
 			# for duplicated/complete we build lists of (gene) ids to determine the copy number
-			if tx2gene is not None:
-				# if we have a transcript-gene map (for transcript sets that were processed with mikado prepare)
-				gene = tx2gene[row[2]]
-			elif is_pick:
-				# if this is a final run (on mikado pick output), we assume that transcript_id = gene_id.transcript_number
-				gene = row[2][:row[2].rfind(".")]
-			else:
-				# for genome runs we just add the scaffold/contig
-				gene = row[2]
-				
-			complete.setdefault(row[0], list()).append(tx2gene[row[2]] if tx2gene is not None else row[2])
+			complete.setdefault(row[0], list()).append(row[2], get_gene_id(tx2gene=tx2gene, is_pick=is_pick))
+
 	for cat, genes in complete.items():
 		if tx2gene is not None or is_pick:
 			# for non genome runs, check the unique gene ids
@@ -33,12 +36,14 @@ def read_full_table(table_file, tx2gene=None, is_pick=False):
 		else:
 			# for genome runs, just count
 			n = len(genes)
-		cat = "Complete_{}{}".format(min(n, MAX_COPY_NUMBER), "+" if n >= MAX_COPY_NUMBER else "") 
+		cat = "Complete_{}{}".format(min(n, max_copy_number), "+" if n >= max_copy_number else "") 
 		counts[cat] += 1
 		# complete buscos with exactly one unique gene id (or a count of 1) will count towards "Complete", 2+ copies count towards "Duplicated"
-		cat = "Complete" if n == 1 else "Duplicated"
-		counts[cat] += 1
+		#cat = "Complete" if n == 1 else "Duplicated"
+		if n > 1:
+			counts["Duplicated"] += 1
 	# the total in counts.values() contains 2x (duplicate + complete)
+	counts["Complete"] = sum(v for k, v in counts.items() if k.startswith("Complete_"))
 	counts["Total"] = sum(v for k, v in counts.items() if not k.startswith("Complete_"))
 	return counts
 
