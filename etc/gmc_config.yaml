@@ -30,11 +30,11 @@ params:
     sort: "gff3 -sort -tidy -retainids yes"
   prinseq: "-min_len 1 -line_width 70"
   busco:
-    proteins_prepare: "--offline"
-    proteins_final: "--offline"
-    transcripts_prepare: "--offline"
-    transcripts_final: "--offline"
-    genome: "--offline"
+    proteins_prepare: "--offline --limit 4"
+    proteins_final: "--offline --limit -4"
+    transcripts_prepare: "--offline --limit 4"
+    transcripts_final: "--offline --limit 4"
+    genome: "--offline --limit 4"
 
 misc:
   min_cds_length: 30
