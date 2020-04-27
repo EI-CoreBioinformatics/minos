@@ -203,14 +203,16 @@ rule gmc_generate_tx2gene_maps:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_tx2gene_maps")
 	run:
 		import csv
+		import re
 		with open(output[0], "w") as tx2gene_out:
 			for row in csv.reader(open(input[0]), delimiter="\t"):
 				if not row or (row and row[0].startswith("#")):
 					continue
 				if row[2] in {"mRNA", "ncRNA"}:
-					row[8] = row[8].replace("cclass==", "")
-					attr = dict(item.split("=") for item in row[8].split(";"))
-					print("{}_{}".format(row[1], attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
+					#row[8] = re.sub("ccode==;?", "", row[8])
+					#attr = dict(item.split("=") for item in row[8].split(";"))
+					attr = dict(item.group(1,2) for item in re.finditer("([^;]+)\s*=\s*([^;]+);", row[8]))
+					print("{}_{}".format(wildcards.run, attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
 
 rule gmc_extract_exons:
 	input:
