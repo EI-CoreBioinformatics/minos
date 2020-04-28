@@ -9,7 +9,7 @@ def parse_cbed(instream, print_header=False, outstream=sys.stdout):
 		return _min, _max
 	def write_record(scaffold, parent, trans_bps, covered_bps, scaffold_coords, out):
 		start, end = extract_minmax(scaffold_coords)
-		coverage = (covered_bps / trans_bps * 100) if trans_bps else None
+		coverage = (covered_bps / trans_bps) if trans_bps else None
 		print(cur_parent, trans_bps, covered_bps, "{:.2f}".format(coverage) if coverage is not None else "NA", "{}:{}..{}".format(scaffold, start, end), sep="\t", file=out)
 	if print_header:
 		print("#ID", "#Total_bps", "#bps_covered", "#%bps_covered", "#scaffold_BrowserView", sep="\t", file=outstream)
