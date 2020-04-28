@@ -103,13 +103,16 @@ def main():
 
 		print("Using run configuration file: " + run_configuration_file)
 
+		run_config = yaml.load(open(run_configuration_file), Loader=yaml.SafeLoader)
 		if args.mikado_container and os.path.exists(args.mikado_container):
-			rconf = yaml.load(open(run_configuration_file), Loader=yaml.SafeLoader)
-			rconf["mikado-container"] = args.mikado_container
-			
-			run_configuration_file = run_configuration_file.replace(".yaml", ".with_singularity.yaml")
-			with open(run_configuration_file, "wt") as run_config_out:
-				yaml.dump(rconf, run_config_out, default_flow_style=False)
+			run_config["mikado-container"] = args.mikado_container
+		if args.hpc_config and os.path.exists(args.hpc_config) and args.hpc_config != DEFAULT_HPC_CONFIG_FILE:
+			run_config["hpc_config"] = args.hpc_config
+		args.hpc_config = run_config["hpc_config"]
+
+		run_configuration_file = run_configuration_file.replace(".yaml", ".{}.yaml".format(NOW))
+		with open(run_configuration_file, "wt") as run_config_out:
+			yaml.dump(run_config, run_config_out, default_flow_style=False)
 
 
 		exe_env = ExecutionEnvironment(args, NOW, job_suffix="GMC_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
