@@ -211,7 +211,7 @@ rule gmc_generate_tx2gene_maps:
 				if row[2] in {"mRNA", "ncRNA"}:
 					#row[8] = re.sub("ccode==;?", "", row[8])
 					#attr = dict(item.split("=") for item in row[8].split(";"))
-					attr = dict(item.group(1,2) for item in re.finditer("([^;]+)\s*=\s*([^;]+);", row[8]))
+					attr = dict((item.group(1).strip(), item.group(2).strip()) for item in re.finditer("([^;]+)\s*=\s*([^;]+);?", row[8]))
 					print("{}_{}".format(wildcards.run, attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
 
 rule gmc_extract_exons:
