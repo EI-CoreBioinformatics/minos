@@ -31,7 +31,7 @@ params:
   prinseq: "-min_len 1 -line_width 70"
   busco:
     proteins_prepare: "--offline --limit 4"
-    proteins_final: "--offline --limit -4"
+    proteins_final: "--offline --limit 4"
     transcripts_prepare: "--offline --limit 4"
     transcripts_final: "--offline --limit 4"
     genome: "--offline --limit 4"
