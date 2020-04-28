@@ -38,6 +38,7 @@ params:
 
 misc:
   min_cds_length: 30
+  busco_max_copy_number: 4
 
 program_calls:
   mikado: "singularity exec {container} mikado {program}"

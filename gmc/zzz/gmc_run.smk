@@ -1113,7 +1113,7 @@ rule busco_summary:
 		import os
 		import glob
 		import csv
-		from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, CATEGORIES
+		from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, get_busco_categories
 		from collections import Counter
 
 		tx2gene = dict()
@@ -1126,25 +1126,18 @@ rule busco_summary:
 			if d.endswith("_final") or d == "genome":
 				f = glob.glob(os.path.join(BUSCO_PATH, "runs", d, d, "run_*", "full*"))[0]
 				run_tables[d] = read_full_table(f, is_pick=d.endswith("_final"))
-				#if d == "genome":
-				#	t = read_full_table(f)
-				#else:
-				#	t = read_full_table(f, is_pick=True)
-				#print(d, t, file=table_out, sep="\t")	
 			else:
 				for dd in glob.glob(os.path.join(BUSCO_PATH, "runs", d, "*")):
 					if os.path.basename(dd) != "input":
 						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
 						run_tables["{}/{}".format(d, os.path.basename(dd))] = read_full_table(f, tx2gene)
-						#t = read_full_table(f, tx2gene)
-						#print(d, os.path.basename(dd), t, file=table_out, sep="\t")	
 		with open(output[0] + ".raw", "w") as raw_out:
 			for k, v in run_tables.items():
 				print(k, v, file=raw_out, sep="\t", flush=True)
 
 		with open(output[0], "w") as table_out:
 			print("Busco Plots", *run_tables.keys(), sep="\t", flush=True, file=table_out)
-			for cat in CATEGORIES:
+			for cat in get_busco_categories(max_copy_number=config["misc"]["busco_max_copy_number"]):
 				cat_lbl = cat
 				if cat.startswith("Complete_"):
 					copies = cat.split("_")[1]
