@@ -23,7 +23,7 @@ def read_full_table(table_file, tx2gene=None, is_pick=False, max_copy_number=4):
 			# for genome runs we just add the scaffold/contig
 			return seqid
 
-	counts = Counter(get_busco_categories(max_copy_number=max_copy_number))
+	counts = Counter({cat: 0 for cat in get_busco_categories(max_copy_number=max_copy_number)})
 	complete = dict()
 	for row in csv.reader(open(table_file), delimiter="\t"):
 		if not row or row[0].startswith("#"):
