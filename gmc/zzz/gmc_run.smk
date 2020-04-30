@@ -130,7 +130,6 @@ localrules:
 	gmc_metrics_parse_repeat_coverage,
 	gmc_metrics_blastp_combine,
 	gmc_metrics_generate_metrics_info,
-	gmc_metrics_generate_metrics_matrix,
 	gmc_parse_mikado_pick,
 	gmc_gffread_extract_sequences_post_pick,
 	gmc_gffread_extract_sequences,
@@ -634,6 +633,8 @@ rule gmc_metrics_generate_metrics_matrix:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_matrix.txt")
 	log:
 		os.path.join(LOG_DIR, "generate_metrics_matrix.log")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_generate_metrics_matrix") * attempt
 	shell:
 		"generate_metrics {input[0]} > {output[0]} 2> {log}"
 

@@ -186,5 +186,10 @@
     "memory": "4096",
     "cores": "1",
     "J": "gmc_generate_tx2gene_maps"
+  },
+  "gmc_metrics_generate_metrics_matrix": {
+    "memory": "4096",
+    "cores": "1",
+    "J": "gmc_metrics_generate_metrics_matrix"
   }
 }
