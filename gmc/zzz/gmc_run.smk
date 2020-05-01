@@ -1139,7 +1139,7 @@ rule busco_copy_results:
 		import shutil
 		for src, tgt in zip(BUSCO_ANALYSES, BUSCO_COPY):
 			tgt_dir = os.path.dirname(tgt)
-			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parent=True)
+			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parents=True)
 			shutil.copyfile(src, tgt)
 
 rule busco_summary:
