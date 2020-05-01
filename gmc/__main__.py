@@ -58,7 +58,7 @@ def add_run_parser(subparsers):
 		description=""
 	)
 
-	run_parser.add_argument("--rerun-from", type=str, choices=("start", "pick"), default="start", help="Rerun from specific stage [start]")
+	run_parser.add_argument("--rerun-from", type=str, choices=("start", "pick", "collapse_metrics", "off"), default="off", help="Rerun from specific stage [off]")
 
 	add_default_options(run_parser)
 	run_parser.set_defaults(runmode="run")
@@ -120,7 +120,7 @@ def main():
 
 		gmc_complete_sentinel = os.path.join(args.outdir, "GMC_RUN_COMPLETE")
 		results_dir = os.path.join(args.outdir, "results")
-		if os.path.exists(gmc_complete_sentinel):
+		if os.path.exists(gmc_complete_sentinel) and args.rerun_from != "off":
 
 			if os.path.exists(results_dir):
 
@@ -133,8 +133,13 @@ def main():
 					raise ValueError("Rerunning on existing, completed run. {results_dir} present but could not archive it in {archive_dir}. Please (re)move results dir manually before proceeding".format(results_dir=results_dir, archive_dir=dest_dir))
 
 			serialise_sentinel = os.path.join(args.outdir, "MIKADO_SERIALISE_DONE")
-			if args.rerun_from == "pick" and os.path.exists(serialise_sentinel):
+			collapse_sentinel = os.path.join(args.outdir, "COLLAPSE_METRICS_DONE")
+			if args.rerun_from == "start" and os.path.exists(run_config["mikado-config-file"]):
+				open(run_config["mikado-config-file"], "a").close()
+			elif args.rerun_from == "pick" and os.path.exists(serialise_sentinel):
 				open(serialise_sentinel, "w").close()
+			elif args.rerun_from == "collapse_metrics" and os.path.exists(collapse_sentinel):
+				open(collapse_sentinel, "w").close()
 
 		result = run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun)
 		if result:

@@ -816,7 +816,8 @@ rule gmc_collapse_metrics:
 		expression = expand(rules.gmc_kallisto_quant_post_pick.output, run=config["data"]["expression-runs"].keys()),
 		cds_lengths = rules.gmc_calculate_cds_lengths_post_pick.output[0]
 	output:
-		os.path.join(config["outdir"], POST_PICK_PREFIX + ".collapsed_metrics.tsv")
+		os.path.join(config["outdir"], POST_PICK_PREFIX + ".collapsed_metrics.tsv"),
+		os.path.join(config["outdir"], "COLLAPSE_METRICS_DONE"),
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".collapse_metrics.log")
 	threads:
@@ -828,11 +829,13 @@ rule gmc_collapse_metrics:
 		mc = MetricCollapser(input.gff, input.metrics_info, input.ext_scores, input.cds_lengths, input.expression)
 		with open(output[0], "w") as out:
 			mc.write_scores(config["collapse_metrics_thresholds"], stream=out)
+		open(output[1], "w").close()
 
 rule gmc_create_release_gffs:
 	input:
 		gff = rules.gmc_gff_genometools_check_post_pick.output[0],
-		metrics_info = rules.gmc_collapse_metrics.output[0]
+		metrics_info = rules.gmc_collapse_metrics.output[0],
+		sentinel = rules.gmc_collapse_metrics.output[1]
 	output:
 		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release.unsorted.gff3"),
 		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release_browser.unsorted.gff3")
