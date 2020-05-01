@@ -231,6 +231,10 @@ def run_configure(args):
 			precomputed_busco_genome["full_table"] = glob.glob(os.path.join(args.busco_genome_run, "full_table.tsv"))[0]
 		except:
 			raise ValueError("No valid busco genome full table in {}".format(args.busco_genome_run))
+		try:
+			precomputed_busco_genome["missing_busco_list"] = glob.glob(os.path.join(args.busco_genome_run, "missing_busco_list.tsv"))[0]
+		except:
+			raise ValueError("No valid missing busco list in {}".format(args.busco_genome_run))
 		
 		
 
