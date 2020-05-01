@@ -10,9 +10,6 @@ LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
-#TRANSCRIPT_MODELS = 
-
-
 @unique
 class ExternalMetrics(Enum):
 	MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
@@ -41,6 +38,7 @@ def get_transcript_models(wc):
 # output management
 POST_PICK_PREFIX = "mikado.annotation"
 RELEASE_PREFIX = config.get("genus_identifier", "XYZ") + "_" + config.get("annotation_version", "EIv1")
+RESULTS_DIR = os.path.join(config["outdir"], "results")
 
 OUTPUTS = [
 	os.path.join(config["outdir"], "mikado_prepared.fasta"),
@@ -72,7 +70,7 @@ for run in config.get("data", dict()).get("repeat-data", dict()):
 
 
 BUSCO_PRECOMPUTED = """
-	cp {input[0]} {output[0]} && cp {input[1]} {output[1]}
+	cp {input[0]} {output[0]} && cp {input[1]} {output[1]} && cp {input[2]} {output[2]}
 """.strip().replace("\n\t", " ")
 
 BUSCO_CMD = """
@@ -80,10 +78,12 @@ BUSCO_CMD = """
 	&& cfgdir={BUSCO_PATH}/config/{params.busco_stage}/{params.run} && mkdir -p $cfgdir
 	&& {params.copy} {AUGUSTUS_CONFIG_DATA} $cfgdir/
 	&& export AUGUSTUS_CONFIG_PATH=$cfgdir/config
+	&& rm -rvf {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& mkdir -p {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& cd {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} &> {log}
 	&& mv {params.run}/* . && rm -rf {params.run}
+	&& touch {output[2]}
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
 
@@ -92,35 +92,47 @@ TX2GENE_MAPS = [
 	for tm in config["transcript_models"]
 ]
 
-
 BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
 BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"]) if config["busco_analyses"]["lineage"] is not None else None
 
 BUSCO_ANALYSES = list()
 if config["busco_analyses"]["proteins"]:
 	BUSCO_ANALYSES.extend(
-		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{tm}", "run_{lineage}", "short_summary.txt").format(tm=tm, lineage=BUSCO_LINEAGE)
-		for tm in config["transcript_models"]
+		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{tm}", "run_{lineage}", busco_file).format(tm=tm, lineage=BUSCO_LINEAGE)
+		for tm in config["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
 	)
-	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{lineage}", "short_summary.txt").format(lineage=BUSCO_LINEAGE))
+	BUSCO_ANALYSES.extend(
+		os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{lineage}", busco_file).format(lineage=BUSCO_LINEAGE)
+		for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
+	)
 
 if config["busco_analyses"]["transcriptome"]:
 	BUSCO_ANALYSES.extend(
-		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{tm}", "run_{lineage}", "short_summary.txt").format(tm=tm, lineage=BUSCO_LINEAGE)
-		for tm in config["transcript_models"]
+		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{tm}", "run_{lineage}", busco_file).format(tm=tm, lineage=BUSCO_LINEAGE)
+		for tm in config["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
 	)
-	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{lineage}", "short_summary.txt").format(lineage=BUSCO_LINEAGE))
+	BUSCO_ANALYSES.extend(
+		os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{lineage}", busco_file).format(lineage=BUSCO_LINEAGE)
+		for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
+	)
 
 if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_genome"]:
 	runid = "precomputed" if config["busco_analyses"]["precomputed_genome"] else BUSCO_LINEAGE
-	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "short_summary.txt").format(runid))
-	BUSCO_ANALYSES.append(os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}", "full_table.tsv").format(runid))
-	BUSCO_GENOME_OUTPUT_SUMMARY, BUSCO_GENOME_OUTPUT_FULL_TABLE = BUSCO_ANALYSES[-2:]
+	BUSCO_ANALYSES.extend(
+		os.path.join(BUSCO_PATH, "runs", "genome", "genome", "run_{}".format(runid), busco_file)
+		for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
+	)
+	BUSCO_GENOME_OUTPUT_SUMMARY, BUSCO_GENOME_OUTPUT_FULL_TABLE, BUSCO_GENOME_MISSING = BUSCO_ANALYSES[-3:]
 
-BUSCO_TABLE = list()
+
+BUSCO_COPY = [
+	os.path.join(RESULTS_DIR, "busco", path.replace(os.path.join(BUSCO_PATH, "runs", ""), ""))
+	for path in BUSCO_ANALYSES
+]
+
 if BUSCO_ANALYSES:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
-	BUSCO_TABLE.append(os.path.join(config["outdir"], "busco_final_table.tsv"))
+	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
 
 localrules:
 	all,
@@ -138,6 +150,7 @@ localrules:
 	gmc_extract_final_sequences,
 	split_proteins_prepare,
 	split_transcripts_prepare,
+	busco_copy_results,
 	busco_summary
 
 
@@ -159,18 +172,19 @@ rule all:
 			for suffix in {".gt_checked.gff", ".collapsed_metrics.tsv", ".gt_checked.validation_report.txt", ".release.unsorted.gff3", ".release_browser.unsorted.gff3"}
 		],
 		[
-			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
+			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
 			for suffix in {".release.gff3", ".release_browser.gff3",
 							".sanity_checked.release.gff3", ".sanity_checked.release.gff3.mikado_stats.txt", ".sanity_checked.release.gff3.mikado_stats.tsv"}
 		],
 		[
-			os.path.join(config["outdir"], RELEASE_PREFIX + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
+			os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
 		[
-			os.path.join(config["outdir"], RELEASE_PREFIX + suffix)
+			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
 			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
 		],
-		BUSCO_ANALYSES + BUSCO_TABLE
+		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
+		BUSCO_COPY
 
 rule gmc_mikado_prepare:
 	input:
@@ -836,8 +850,8 @@ rule gmc_sort_release_gffs:
 	input:
 		rules.gmc_create_release_gffs.output
 	output:
-		os.path.join(config["outdir"], RELEASE_PREFIX + ".release.gff3"),
-		os.path.join(config["outdir"], RELEASE_PREFIX + ".release_browser.gff3")
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.gff3"),
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release_browser.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".sort_release_gffs.log")
 	params:
@@ -855,7 +869,7 @@ rule gmc_final_sanity_check:
 	input:
 		rules.gmc_sort_release_gffs.output[0]
 	output:
-		os.path.join(config["outdir"], RELEASE_PREFIX + ".sanity_checked.release.gff3")
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".sanity_checked.release.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".final_sanity_check.log")
 	threads:
@@ -977,7 +991,9 @@ rule busco_proteins_prepare:
 	input:
 		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", "{run}.proteins.fasta")
 	output:
-		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt")
+		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt"),
+		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "full_table.tsv"),
+		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "missing_busco_list.tsv")
 	log:
 		os.path.join(BUSCO_PATH, "logs", "{run}.proteins_prepare.log")
 	params:
@@ -1000,7 +1016,9 @@ rule busco_proteins_final:
 	input:
 		rules.gmc_extract_final_sequences.output.pep
 	output:
-		os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt")
+		os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt"),
+		os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{}".format(BUSCO_LINEAGE), "full_table.tsv"),
+		os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{}".format(BUSCO_LINEAGE), "missing_busco_list.tsv")
 	log:
 		os.path.join(BUSCO_PATH, "logs", "proteins_final.log")
 	params:
@@ -1036,7 +1054,9 @@ rule busco_transcripts_prepare:
 	input:
 		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", "{run}.cdna.fasta")
 	output:
-		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt")
+		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt"),
+		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "full_table.tsv"),
+		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{run}", "run_{}".format(BUSCO_LINEAGE), "missing_busco_list.tsv")
 	log:
 		os.path.join(BUSCO_PATH, "logs", "{run}.transcripts_prepare.log")
 	params:
@@ -1059,7 +1079,9 @@ rule busco_transcripts_final:
 	input:
 		rules.gmc_extract_final_sequences.output.cdna
 	output:
-		os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt")
+		os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{}".format(BUSCO_LINEAGE), "short_summary.txt"),
+		os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{}".format(BUSCO_LINEAGE), "full_table.tsv"),
+		os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{}".format(BUSCO_LINEAGE), "missing_busco_list.tsv"),
 	log:
 		os.path.join(BUSCO_PATH, "logs", "transcripts_final.log")
 	params:
@@ -1082,10 +1104,12 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 	rule busco_genome:
 		input:
 			config["busco_analyses"]["precomputed_genome"]["summary"] if config["busco_analyses"]["precomputed_genome"] else config["reference-sequence"],
-			config["busco_analyses"]["precomputed_genome"]["full_table"] if config["busco_analyses"]["precomputed_genome"] else config["reference-sequence"]
+			config["busco_analyses"]["precomputed_genome"]["full_table"] if config["busco_analyses"]["precomputed_genome"] else config["reference-sequence"],
+			config["busco_analyses"]["precomputed_genome"]["missing_busco_list"] if config["busco_analyses"]["precomputed_genome"] else config["reference-sequence"]
 		output:
 			BUSCO_GENOME_OUTPUT_SUMMARY,
-			BUSCO_GENOME_OUTPUT_FULL_TABLE
+			BUSCO_GENOME_OUTPUT_FULL_TABLE,
+			BUSCO_GENOME_MISSING
 		log:
 			os.path.join(BUSCO_PATH, "logs", "genome.log")
 		params:
@@ -1104,12 +1128,25 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 		shell:
 			BUSCO_PRECOMPUTED if config["busco_analyses"]["precomputed_genome"] else BUSCO_CMD
 
+rule busco_copy_results:
+	input:
+		BUSCO_ANALYSES
+	output:
+		BUSCO_COPY
+	run:
+		import pathlib
+		import os
+		import shutil
+		for src, tgt in zip(BUSCO_ANALYSES, BUSCO_COPY):
+			tgt_dir = os.path.dirname(tgt)
+			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parent=True)
+			shutil.copyfile(src, tgt)
 
 rule busco_summary:
 	input:
 		BUSCO_ANALYSES
 	output:
-		os.path.join(config["outdir"], "busco_final_table.tsv")
+		BUSCO_TABLE
 	run:
 		import os
 		import glob
