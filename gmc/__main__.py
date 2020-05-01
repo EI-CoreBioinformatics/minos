@@ -7,6 +7,7 @@ from os.path import join, basename, dirname, abspath
 import pathlib
 import subprocess
 import glob
+import shutil
 
 from collections import OrderedDict
 
@@ -18,11 +19,9 @@ from eicore.snakemake_helper import *
 def add_default_options(parser):
 	common_group = parser.add_argument_group("gmc options")
 			
-	# common_group.add_argument("list_file", type=str)
 	common_group.add_argument("--outdir", "-o", type=str, default="gmc_run")
 	common_group.add_argument("--prefix", type=str, default="gmc_run")
 	common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/gmc/dev/x86_64/mikado.simg")
-	#common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/mikado/20190325_c940de1/x86_64/mikado-20190325_c940de1.simg")
 	common_group.add_argument("--dryrun", action="store_true")
 	make_exeenv_arg_group(parser, allow_mode_selection=False, silent=True)
 		
@@ -58,6 +57,8 @@ def add_run_parser(subparsers):
 		help="",
 		description=""
 	)
+
+	run_parser.add_argument("--rerun-from", type=str, choices=("start", "pick"), default="start", help="Rerun from specific stage [start]")
 
 	add_default_options(run_parser)
 	run_parser.set_defaults(runmode="run")
@@ -98,6 +99,7 @@ def main():
 			print("Configuration file {} already present. Please set --force-reconfiguration/-f to override this.".format(run_configuration_file))
 	elif args.runmode == "run":
 		snake = join(dirname(__file__), "zzz", "gmc_run.smk")
+
 		if run_configuration_file is None:
 			raise ValueError("Missing run configuration in " + args.outdir)
 
@@ -114,10 +116,29 @@ def main():
 		with open(run_configuration_file, "wt") as run_config_out:
 			yaml.dump(run_config, run_config_out, default_flow_style=False)
 
-
 		exe_env = ExecutionEnvironment(args, NOW, job_suffix="GMC_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
 
-		run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun)
+		gmc_complete_sentinel = os.path.join(args.outdir, "GMC_RUN_COMPLETE")
+		results_dir = os.path.join(args.outdir, "results")
+		if os.path.exists(gmc_complete_sentinel):
+
+			if os.path.exists(results_dir):
+
+				archive_dir = os.path.join(args.outdir, "archives")
+				pathlib.Path(archive_dir).mkdir(exist_ok=True, parents=True)
+				dest_dir = os.path.join(archive_dir, "{}_{}".format(os.path.basename(args.outdir), NOW))
+				try:
+					shutil.copytree(results_dir, dest_dir)
+				except:
+					raise ValueError("Rerunning on existing, completed run. {results_dir} present but could not archive it in {archive_dir}. Please (re)move results dir manually before proceeding".format(results_dir=results_dir, archive_dir=dest_dir))
+
+			serialise_sentinel = os.path.join(args.outdir, "MIKADO_SERIALISE_DONE")
+			if args.rerun_from == "pick" and os.path.exists(serialise_sentinel):
+				open(serialise_sentinel, "w").close()
+
+		result = run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun)
+		if result:
+			open(gmc_complete_sentinel, "w").close()
 	
 
 	pass
