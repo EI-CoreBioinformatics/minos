@@ -1163,15 +1163,23 @@ rule busco_summary:
 			tx2gene.update(read_tx2gene(f))
 
 		run_tables = dict()
+		complete_busco_proteins, complete_busco_transcripts = set(), set()
+		missing_busco_proteins, missing_busco_transcripts = set(), set()
 		for d in os.listdir(os.path.join(BUSCO_PATH, "runs")):
 			if d.endswith("_final") or d == "genome":
 				f = glob.glob(os.path.join(BUSCO_PATH, "runs", d, d, "run_*", "full*"))[0]
-				run_tables[d] = read_full_table(f, is_pick=d.endswith("_final"))
+				run_tables[d], _, _ = read_full_table(f, is_pick=d.endswith("_final"))
 			else:
 				for dd in glob.glob(os.path.join(BUSCO_PATH, "runs", d, "*")):
 					if os.path.basename(dd) != "input":
 						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
-						run_tables["{}/{}".format(d, os.path.basename(dd))] = read_full_table(f, tx2gene)
+						run_tables["{}/{}".format(d, os.path.basename(dd))], complete_buscos, missing_buscos = read_full_table(f, tx2gene)
+						if os.path.basename(d).startswith("proteins"):
+							complete_busco_proteins.update(complete_buscos)
+							missing_busco_proteins.intersection_update(missing_buscos)
+						else:
+							complete_busco_transcripts.update(complete_buscos)
+							missing_busco_transcripts.intersection_update(missing_buscos)
 		with open(output[0] + ".raw", "w") as raw_out:
 			for k, v in run_tables.items():
 				print(k, v, file=raw_out, sep="\t", flush=True)
@@ -1185,6 +1193,10 @@ rule busco_summary:
 					cat_lbl = "Complete (single copy)" if copies == "1" else "Complete ({} copies)".format(copies)
 				
 				print(cat_lbl, *(v[cat] for v in run_tables.values()), sep="\t", flush=True, file=table_out)
+			print("# best achievable protein BUSCO count: {}".format(len(complete_busco_proteins)), flush=True, file=table_out)
+			print("# best achievable transcript BUSCO count: {}".format(len(complete_busco_transcripts)), flush=True, file=table_out)
+			print("# lowest achievable missing protein BUSCO count: {}".format(len(missing_busco_proteins)), flush=True, file=table_out)
+			print("# lowest achievable missing transcript BUSCO count: {}".format(len(missing_busco_transcripts)), flush=True, file=table_out)
 				
 			
 						

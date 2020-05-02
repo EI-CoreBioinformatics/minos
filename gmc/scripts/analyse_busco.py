@@ -24,11 +24,13 @@ def read_full_table(table_file, tx2gene=None, is_pick=False, max_copy_number=4):
 			return seqid
 
 	counts = Counter({cat: 0 for cat in get_busco_categories(max_copy_number=max_copy_number)})
-	complete = dict()
+	complete, missing = dict(), set()
 	for row in csv.reader(open(table_file), delimiter="\t"):
 		if not row or row[0].startswith("#"):
 			continue
 		if row[1] in {"Missing", "Fragmented"}:
+			if row[1] == "Missing":
+				missing.add(row[0])
 			counts[row[1]] += 1
 		else:
 			# for duplicated/complete we build lists of (gene) ids to determine the copy number
@@ -48,7 +50,7 @@ def read_full_table(table_file, tx2gene=None, is_pick=False, max_copy_number=4):
 			counts["Duplicated"] += 1
 	counts["Complete"] = sum(v for k, v in counts.items() if k.startswith("Complete_"))
 	counts["Total"] = counts["Complete"] + counts["Fragmented"] + counts["Missing"]
-	return counts
+	return counts, set(complete), missing
 
 def read_tx2gene(f):
 	return dict(row[:2] for row in csv.reader(open(f), delimiter="\t"))
