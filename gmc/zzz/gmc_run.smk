@@ -1,22 +1,18 @@
 import os
 import sys
-from enum import Enum, unique, auto
+import pathlib
 
+from gmc.gmc_configure import ExternalMetrics
 from eicore.hpc_config import HpcConfig
 HPC_CONFIG = HpcConfig(config["hpc_config"])
 
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
+pathlib.Path(EXTERNAL_METRICS_DIR).mkdir(exist_ok=True, parents=True)
+
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
-@unique
-class ExternalMetrics(Enum):
-	MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
-	PROTEIN_BLAST_TOPHITS = auto()
-	CPC_CODING_POTENTIAL = auto()
-	KALLISTO_TPM_EXPRESSION	= auto()
-	REPEAT_ANNOTATION = auto()
 
 def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
@@ -96,8 +92,9 @@ BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
 BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"]) if config["busco_analyses"]["lineage"] is not None else None
 
 BUSCO_ANALYSES = list()
+BUSCO_PROTEIN_PREPARE_RUNS = list()
 if config["busco_analyses"]["proteins"]:
-	BUSCO_ANALYSES.extend(
+	BUSCO_PROTEIN_PREPARE_RUNS.extend(
 		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{tm}", "run_{lineage}", busco_file).format(tm=tm, lineage=BUSCO_LINEAGE)
 		for tm in config["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
 	)
@@ -127,12 +124,13 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 
 BUSCO_COPY = [
 	os.path.join(RESULTS_DIR, "busco", path.replace(os.path.join(BUSCO_PATH, "runs", ""), ""))
-	for path in BUSCO_ANALYSES
+	for path in BUSCO_PROTEIN_PREPARE_RUNS + BUSCO_ANALYSES
 ]
 
-if BUSCO_ANALYSES:
+if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
 	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
+	OUTPUTS.extend(BUSCO_PROTEIN_PREPARE_RUNS)
 
 localrules:
 	all,
@@ -153,6 +151,7 @@ localrules:
 	split_proteins_prepare,
 	split_transcripts_prepare,
 	busco_copy_results,
+	busco_concat_protein_metrics,
 	busco_summary
 
 
@@ -239,8 +238,6 @@ rule gmc_generate_tx2gene_maps:
 				if not row or (row and row[0].startswith("#")):
 					continue
 				if row[2] in {"mRNA", "ncRNA"}:
-					#row[8] = re.sub("ccode==;?", "", row[8])
-					#attr = dict(item.split("=") for item in row[8].split(";"))
 					attr = dict((item.group(1).strip(), item.group(2).strip()) for item in re.finditer("([^;]+)\s*=\s*([^;]+);?", row[8]))
 					print("{}_{}".format(wildcards.run, attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
 
@@ -591,10 +588,23 @@ rule gmc_metrics_blastp_tophit:
 					print(*row, "{:.2f}".format(qcov), "{:.2f}".format(scov), sep="\t", file=blast_out)
 					seen.add(row[0])
 
+rule busco_concat_protein_metrics:
+	input:
+		BUSCO_PROTEIN_PREPARE_RUNS
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "busco_proteins", "busco_proteins.tsv")
+	run:
+		with open(output[0], "w") as concat_out:
+			for f in input:
+				if os.path.basename(f) == "full_table.tsv":
+					print("#" + f, flush=True, file=concat_out)
+					print(open(f).read(), end="", flush=True, file=concat_out)
+
 
 rule gmc_metrics_generate_metrics_info:
 	input:
-		prev_outputs = OUTPUTS
+		prev_outputs = OUTPUTS,
+		bproteins = os.path.join(EXTERNAL_METRICS_DIR, "busco_proteins", "busco_proteins.tsv")
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt")
 	run:
@@ -605,7 +615,7 @@ rule gmc_metrics_generate_metrics_info:
 		# this block is unstable against tempering with the structure of the generate_metrics dir
 		# might work better as state-machine
 		with open(output[0], "wt") as metrics_info:
-			walk = os.walk(EXTERNAL_METRICS_DIR)
+			walk = os.walk(EXTERNAL_METRICS_DIR, followlinks=True)
 			next(walk)
 			rows = list()
 
@@ -646,6 +656,11 @@ rule gmc_metrics_generate_metrics_info:
 					for path in glob.glob(os.path.join(cwd, "*.no_strand.exon.gff.cbed.parsed.txt")):
 						mid = os.path.basename(path).split(".")[0]
 						rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
+				elif cwd_base == "busco_proteins":
+					mclass = "busco"
+					mid = config["data"].get("busco-data", list())[0]
+					path = os.path.join(EXTERNAL_METRICS_DIR, "busco_proteins", "busco_proteins.tsv")
+					rows.append((ExternalMetrics.BUSCO_PROTEINS, mclass, mid, path))
 			"""
 			for mid in config["data"].get("repeat-data", dict()):
 				mclass = "repeat"
@@ -1164,14 +1179,14 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 
 rule busco_copy_results:
 	input:
-		BUSCO_ANALYSES
+		BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS
 	output:
 		BUSCO_COPY
 	run:
 		import pathlib
 		import os
 		import shutil
-		for src, tgt in zip(BUSCO_ANALYSES, BUSCO_COPY):
+		for src, tgt in zip(BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS, BUSCO_COPY):
 			tgt_dir = os.path.dirname(tgt)
 			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parents=True)
 			shutil.copyfile(src, tgt)
@@ -1180,7 +1195,7 @@ rule busco_summary:
 	input:
 		rules.gmc_mikado_prepare_extract_coords.output[0],
 		rules.gmc_mikado_pick_extract_coords.output[0],
-		BUSCO_ANALYSES
+		BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS
 	output:
 		BUSCO_TABLE
 	run:
@@ -1221,11 +1236,17 @@ rule busco_summary:
 						run_tables["{}/{}".format(d, os.path.basename(dd))], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, tx2gene)
 						if os.path.basename(d).startswith("proteins"):
 							complete_busco_proteins[dd] = complete_buscos
-							missing_busco_proteins.intersection_update(missing_buscos)
+							if not missing_busco_proteins:
+								missing_busco_proteins.update(missing_buscos)
+							else:
+								missing_busco_proteins.intersection_update(missing_buscos)
 							fragmented_busco_proteins[dd] = fragmented_buscos
 						else:
 							complete_busco_transcripts[dd] = complete_buscos
-							missing_busco_transcripts.intersection_update(missing_buscos)
+							if not missing_busco_transcripts:
+								missing_busco_transcripts.update(missing_buscos)
+							else:
+								missing_busco_transcripts.intersection_update(missing_buscos)
 
 		review_proteins = set()
 		for protein_set in complete_busco_proteins.values():
@@ -1242,7 +1263,7 @@ rule busco_summary:
 					prepare_tids.extend(item[0] for item in protein_set.get(bid, list()))
 				prepare_coords = [txcoords_prepare.get(ptid, None) for ptid in prepare_tids]
 				row = [bid, tid, busco_status, tid_coords, ",".join(prepare_tids), ",".join(prepare_coords)]
-			print(*row, sep="\t", flush=True, file=review_out)
+				print(*row, sep="\t", flush=True, file=review_out)
 
 
 		with open(output[0] + ".raw", "w") as raw_out:
@@ -1268,7 +1289,3 @@ rule busco_summary:
 			print("# best achievable transcript BUSCO count: {}".format(len(complete_busco_transcripts_)), flush=True, file=table_out)
 			print("# lowest achievable missing protein BUSCO count: {}".format(len(missing_busco_proteins)), flush=True, file=table_out)
 			print("# lowest achievable missing transcript BUSCO count: {}".format(len(missing_busco_transcripts)), flush=True, file=table_out)
-				
-			
-						
-
