@@ -123,9 +123,12 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 
 
 BUSCO_COPY = [
-	os.path.join(RESULTS_DIR, "busco", path.replace(os.path.join(BUSCO_PATH, "runs", ""), ""))
+	(path, os.path.join(RESULTS_DIR, "busco", path.replace(os.path.join(BUSCO_PATH, "runs", ""), "")))
 	for path in BUSCO_PROTEIN_PREPARE_RUNS + BUSCO_ANALYSES
 ]
+
+BUSCO_COPY_SOURCES = [src for src, dest in BUSCO_COPY]
+BUSCO_COPY_TARGETS = [dest for src, dest in BUSCO_COPY]
 
 if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
@@ -185,7 +188,7 @@ rule all:
 			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
 		],
 		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
-		BUSCO_COPY
+		BUSCO_COPY_TARGETS
 
 rule gmc_mikado_prepare:
 	input:
@@ -1179,14 +1182,14 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 
 rule busco_copy_results:
 	input:
-		BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS
+		BUSCO_COPY_SOURCES
 	output:
-		BUSCO_COPY
+		BUSCO_COPY_TARGETS
 	run:
 		import pathlib
 		import os
 		import shutil
-		for src, tgt in zip(BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS, BUSCO_COPY):
+		for src, tgt in BUSCO_COPY:
 			tgt_dir = os.path.dirname(tgt)
 			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parents=True)
 			shutil.copyfile(src, tgt)
@@ -1251,7 +1254,7 @@ rule busco_summary:
 		review_proteins = set()
 		for protein_set in complete_busco_proteins.values():
 			review_proteins.update(protein_set)
-		review_proteins.difference_update(complete_busco_transcripts_final)
+		review_proteins.difference_update(complete_busco_proteins_final)
 		with open(output[0] + ".review_table", "w") as review_out:
 			print("Busco ID", "Transcript ID", "Busco Status", "Coordinates", "prepare TID (C or D)", "prepare TID coordinates", sep="\t", flush=True, file=review_out)
 			for bid in sorted(review_proteins):
