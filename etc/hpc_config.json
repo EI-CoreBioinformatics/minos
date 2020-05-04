@@ -177,10 +177,10 @@
     "cores": "1",
     "J": "gmc_metrics_blastp_combine"
   },
-  "gmc_generate_full_table": {
+  "gmc_generate_final_table": {
     "memory": "4096",
     "cores": "1",
-    "J": "gmc_generate_full_table"
+    "J": "gmc_generate_final_table"
   },
   "gmc_generate_tx2gene_maps": {
     "memory": "4096",

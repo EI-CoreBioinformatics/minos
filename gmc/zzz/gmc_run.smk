@@ -980,7 +980,7 @@ rule gmc_cleanup_final_proteins:
 	shell:
 		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
-rule gmc_generate_full_table:
+rule gmc_generate_final_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
 		seq_table = rules.gmc_extract_final_sequences.output.tbl,
@@ -989,43 +989,14 @@ rule gmc_generate_full_table:
 		final_table = rules.gmc_final_sanity_check.output[0] + ".final_table.tsv",
 		summary = rules.gmc_final_sanity_check.output[0] + ".biotype_conf.summary"
 	threads:
-		HPC_CONFIG.get_cores("gmc_generate_full_table")
+		HPC_CONFIG.get_cores("gmc_generate_final_table")
 	resources:
-		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_full_table") * attempt
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_final_table") * attempt
 	run:
-		import csv
-		from collections import Counter
-		colheaders = ["Confidence", "Biotype", "InFrameStop", "Partialness"]
-		pt_cats = {".": "complete", "5_3": "fragment", "3": "3prime_partial", "5": "5prime_partial"}
-		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
-		genes, transcripts = dict(), dict()
-		for row in csv.reader(open(input.bt_conf_table), delimiter="\t"):
-			if not row[0].startswith("#"):
-				if row[2].lower() in {"gene", "mrna", "ncrna"}:
-					attrib = dict(item.split("=") for item in row[8].strip().split(";"))
-					if row[2].lower() == "gene":
-						genes[attrib["ID"]] = (attrib["biotype"], attrib["confidence"])
-					else:
-						transcripts[attrib["ID"]] = (genes.get(attrib["Parent"], (None, None))[0], attrib["confidence"])
-
-		r = csv.reader(open(input.stats_table), delimiter="\t")
-		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
-		head.extend("#{}.{}".format(c, col) for c, col in enumerate(colheaders, start=len(head)+1))
-		with open(output.final_table, "w") as tbl_out:
-			print(*head, sep="\t", flush=True, file=tbl_out)
-			for row in r:
-				row.extend(transcripts.get(row[0], [".", "."])[::-1])
-				row.extend(if_pt.get(row[0], [".", "."]))
-				row[-1] = pt_cats.get(row[-1], "NA")
-				print(*row, sep="\t", flush=True, file=tbl_out)
-
-		tcounts, gcounts = Counter(transcripts.values()), Counter(genes.values())
-		with open(output.summary, "w") as summary_out:
-			print("Biotype", "Confidence", "Gene", "Transcript", sep="\t", file=summary_out)
-			categories = set(tcounts).union(set(gcounts))
-			for cat in sorted(categories, key=lambda x:gcounts[x], reverse=True):
-				print(*cat, gcounts[cat], tcounts[cat], sep="\t", file=summary_out)
-			print("Total", "", sum(gcounts.values()), sum(tcounts.values()), sep="\t", file=summary_out)
+		#open(output[0], "w").close()
+		#open(output[1], "w").close()
+		from gmc.scripts.generate_final_table import generate_final_table
+		generate_final_table(input.seq_table, input.bt_conf_table, input.stats_table, output.final_table, output.summary)
 
 rule split_proteins_prepare:
 	input:
