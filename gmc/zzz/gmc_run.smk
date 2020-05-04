@@ -1202,93 +1202,14 @@ rule busco_summary:
 	output:
 		BUSCO_TABLE
 	run:
-		import os
-		import glob
-		import csv
-		from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, get_busco_categories
-		from collections import Counter
+		from gmc.scripts.generate_busco_tables import BuscoTableGenerator
 
-		tx2gene = dict()
-		for f in os.listdir(os.path.join(config["outdir"], "tx2gene")):
-			f = os.path.join(config["outdir"], "tx2gene", f)
-			tx2gene.update(read_tx2gene(f))
-
-		txcoords_prepare = dict(line.strip().split("\t") for line in open(input[0]))
-		txcoords_pick = dict(line.strip().split("\t") for line in open(input[1]))
-
-
-		run_tables = dict()
-		complete_busco_proteins, complete_busco_transcripts = dict(), dict()
-		complete_busco_proteins_final, complete_busco_transcripts_final = dict(), dict()
-		missing_busco_proteins, missing_busco_transcripts = set(), set()
-		fragmented_busco_proteins = dict()
-
-		for d in os.listdir(os.path.join(BUSCO_PATH, "runs")):
-			if d.endswith("_final") or d == "genome":
-				f = glob.glob(os.path.join(BUSCO_PATH, "runs", d, d, "run_*", "full*"))[0]
-				run_tables[d], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, is_pick=d.endswith("_final"))
-				if d == "proteins_final":
-					complete_busco_proteins_final = complete_buscos
-					fragmented_busco_proteins[d] = fragmented_buscos
-				elif d == "transcripts_final":
-					complete_busco_transcripts_final = complete_buscos
-			else:
-				for dd in glob.glob(os.path.join(BUSCO_PATH, "runs", d, "*")):
-					if os.path.basename(dd) != "input":
-						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
-						run_tables["{}/{}".format(d, os.path.basename(dd))], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, tx2gene)
-						if os.path.basename(d).startswith("proteins"):
-							complete_busco_proteins[dd] = complete_buscos
-							if not missing_busco_proteins:
-								missing_busco_proteins.update(missing_buscos)
-							else:
-								missing_busco_proteins.intersection_update(missing_buscos)
-							fragmented_busco_proteins[dd] = fragmented_buscos
-						else:
-							complete_busco_transcripts[dd] = complete_buscos
-							if not missing_busco_transcripts:
-								missing_busco_transcripts.update(missing_buscos)
-							else:
-								missing_busco_transcripts.intersection_update(missing_buscos)
-
-		review_proteins = set()
-		for protein_set in complete_busco_proteins.values():
-			review_proteins.update(protein_set)
-		review_proteins.difference_update(complete_busco_proteins_final)
-		with open(output[0] + ".review_table", "w") as review_out:
-			print("Busco ID", "Transcript ID", "Busco Status", "Coordinates", "prepare TID (C or D)", "prepare TID coordinates", sep="\t", flush=True, file=review_out)
-			for bid in sorted(review_proteins):
-				tid = ",".join(fragmented_busco_proteins["proteins_final"].get(bid, list()))
-				busco_status = "fragmented" if tid else "missing"
-				tid_coords = txcoords_pick.get(tid, None)
-				prepare_tids, prepare_coords = list(), list()
-				for protein_set in complete_busco_proteins.values():
-					prepare_tids.extend(item[0] for item in protein_set.get(bid, list()))
-				prepare_coords = [txcoords_prepare.get(ptid, None) for ptid in prepare_tids]
-				row = [bid, tid, busco_status, tid_coords, ",".join(prepare_tids), ",".join(prepare_coords)]
-				print(*row, sep="\t", flush=True, file=review_out)
-
-
-		with open(output[0] + ".raw", "w") as raw_out:
-			for k, v in run_tables.items():
-				print(k, v, file=raw_out, sep="\t", flush=True)
-
-		with open(output[0], "w") as table_out:
-			print("Busco Plots", *run_tables.keys(), sep="\t", flush=True, file=table_out)
-			for cat in get_busco_categories(max_copy_number=config["misc"]["busco_max_copy_number"]):
-				cat_lbl = cat
-				if cat.startswith("Complete_"):
-					copies = cat.split("_")[1]
-					cat_lbl = "Complete (single copy)" if copies == "1" else "Complete ({} copies)".format(copies)
-				
-				print(cat_lbl, *(v[cat] for v in run_tables.values()), sep="\t", flush=True, file=table_out)
-
-			complete_busco_proteins_, complete_busco_transcripts_ = set(), set()
-			for set_ in complete_busco_proteins.values():
-				complete_busco_proteins_.update(set_)
-			for set_ in complete_busco_transcripts.values():
-				complete_busco_transcripts_.update(set_)
-			print("# best achievable protein BUSCO count: {}".format(len(complete_busco_proteins_)), flush=True, file=table_out)
-			print("# best achievable transcript BUSCO count: {}".format(len(complete_busco_transcripts_)), flush=True, file=table_out)
-			print("# lowest achievable missing protein BUSCO count: {}".format(len(missing_busco_proteins)), flush=True, file=table_out)
-			print("# lowest achievable missing transcript BUSCO count: {}".format(len(missing_busco_transcripts)), flush=True, file=table_out)
+		btg = BuscoTableGenerator(
+			os.path.join(config["outdir"], "tx2gene"),
+			input[0],
+			input[1],
+			os.path.join(BUSCO_PATH, "runs")	
+		)
+		btg.write_review_table(output[0])
+		btg.write_raw_data(output[0])
+		btg.write_busco_table(output[0], config["misc"]["busco_max_copy_number"])	
