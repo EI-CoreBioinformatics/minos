@@ -658,7 +658,7 @@ rule gmc_metrics_generate_metrics_info:
 						rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
 				elif cwd_base == "busco_proteins":
 					mclass = "busco"
-					mid = config["data"].get("busco-data", list())[0]
+					mid = list(config["data"].get("busco-data", dict()).keys())[0]
 					path = os.path.join(EXTERNAL_METRICS_DIR, "busco_proteins", "busco_proteins.tsv")
 					rows.append((ExternalMetrics.BUSCO_PROTEINS, mclass, mid, path))
 			"""
