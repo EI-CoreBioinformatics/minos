@@ -21,7 +21,7 @@ class BuscoTableGenerator:
 		for d in os.listdir(busco_run_path):
 			if d.endswith("_final") or d == "genome":
 				f = glob.glob(os.path.join(busco_run_path, d, d, "run_*", "full*"))[0]
-				self.run_tables[d], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, is_pick=d.endswith("_final"))
+				self.run_tables[d], complete_buscos, _, fragmented_buscos = read_full_table(f, is_pick=d.endswith("_final"))
 				if d == "proteins_final":
 					self.complete_busco_proteins_final = complete_buscos
 					self.fragmented_busco_proteins[d] = fragmented_buscos
@@ -29,7 +29,8 @@ class BuscoTableGenerator:
 				for dd in glob.glob(os.path.join(busco_run_path, d, "*")):
 					if os.path.basename(dd) != "input":
 						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
-						self.run_tables["{}/{}".format(d, os.path.basename(dd))], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, self.tx2gene)
+						runid = "{}/{}".format(d, os.path.basename(dd))
+						self.run_tables[runid], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, self.tx2gene)
 						if os.path.basename(d).startswith("proteins"):
 							self.complete_busco_proteins[dd] = complete_buscos
 							if not self.missing_busco_proteins:
@@ -61,8 +62,10 @@ class BuscoTableGenerator:
 		for protein_set in self.complete_busco_proteins.values():
 			review_proteins.update(protein_set)
 		review_proteins.difference_update(self.complete_busco_proteins_final)
+
 		with open(prefix + ".review_table", "w") as review_out:
 			print(*BuscoTableGenerator.REVIEW_TABLE_HEADER, sep="\t", flush=True, file=review_out)
+
 			for bid in sorted(review_proteins):
 				tid = ",".join(self.fragmented_busco_proteins["proteins_final"].get(bid, list()))
 				busco_status = "fragmented" if tid else "missing"
@@ -95,6 +98,7 @@ class BuscoTableGenerator:
 				complete_busco_proteins_.update(set_)
 			for set_ in self.complete_busco_transcripts.values():
 				complete_busco_transcripts_.update(set_)
+
 			print("# best achievable protein BUSCO count: {}".format(len(complete_busco_proteins_)), flush=True, file=table_out)
 			print("# best achievable transcript BUSCO count: {}".format(len(complete_busco_transcripts_)), flush=True, file=table_out)
 			print("# lowest achievable missing protein BUSCO count: {}".format(len(self.missing_busco_proteins)), flush=True, file=table_out)
