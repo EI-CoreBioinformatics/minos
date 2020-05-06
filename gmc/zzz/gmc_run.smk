@@ -1,22 +1,18 @@
 import os
 import sys
-from enum import Enum, unique, auto
+import pathlib
 
+from gmc.gmc_configure import ExternalMetrics
 from eicore.hpc_config import HpcConfig
 HPC_CONFIG = HpcConfig(config["hpc_config"])
 
 EXTERNAL_METRICS_DIR = os.path.join(config["outdir"], "generate_metrics")
+pathlib.Path(EXTERNAL_METRICS_DIR).mkdir(exist_ok=True, parents=True)
+
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
-@unique
-class ExternalMetrics(Enum):
-	MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
-	PROTEIN_BLAST_TOPHITS = auto()
-	CPC_CODING_POTENTIAL = auto()
-	KALLISTO_TPM_EXPRESSION	= auto()
-	REPEAT_ANNOTATION = auto()
 
 def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
@@ -96,8 +92,9 @@ BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
 BUSCO_LINEAGE = os.path.basename(config["busco_analyses"]["lineage"]) if config["busco_analyses"]["lineage"] is not None else None
 
 BUSCO_ANALYSES = list()
+BUSCO_PROTEIN_PREPARE_RUNS = list()
 if config["busco_analyses"]["proteins"]:
-	BUSCO_ANALYSES.extend(
+	BUSCO_PROTEIN_PREPARE_RUNS.extend(
 		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{tm}", "run_{lineage}", busco_file).format(tm=tm, lineage=BUSCO_LINEAGE)
 		for tm in config["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
 	)
@@ -126,19 +123,24 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 
 
 BUSCO_COPY = [
-	os.path.join(RESULTS_DIR, "busco", path.replace(os.path.join(BUSCO_PATH, "runs", ""), ""))
-	for path in BUSCO_ANALYSES
+	(path, os.path.join(RESULTS_DIR, "busco", path.replace(os.path.join(BUSCO_PATH, "runs", ""), "")))
+	for path in BUSCO_PROTEIN_PREPARE_RUNS + BUSCO_ANALYSES
 ]
 
-if BUSCO_ANALYSES:
+BUSCO_COPY_SOURCES = [src for src, dest in BUSCO_COPY]
+BUSCO_COPY_TARGETS = [dest for src, dest in BUSCO_COPY]
+
+if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
 	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
+	OUTPUTS.extend(BUSCO_PROTEIN_PREPARE_RUNS)
 
 localrules:
 	all,
 	gmc_extract_exons,
 	gmc_metrics_repeats_convert,
-	gmc_metrics_repeats_extract_exons,
+	gmc_mikado_prepare_extract_coords,
+	gmc_mikado_pick_extract_coords,
 	gmc_metrics_parse_repeat_coverage,
 	gmc_metrics_blastp_combine,
 	gmc_metrics_generate_metrics_info,
@@ -151,6 +153,7 @@ localrules:
 	split_proteins_prepare,
 	split_transcripts_prepare,
 	busco_copy_results,
+	busco_concat_protein_metrics,
 	busco_summary
 
 
@@ -184,14 +187,14 @@ rule all:
 			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
 		],
 		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
-		BUSCO_COPY
+		BUSCO_COPY_TARGETS
 
 rule gmc_mikado_prepare:
 	input:
 		config["mikado-config-file"]
 	output:
 		os.path.join(config["outdir"], "mikado_prepared.fasta"),
-		os.path.join(config["outdir"], "mikado_prepared.gtf")
+		os.path.join(config["outdir"], "mikado_prepared.gtf"),
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="prepare"),
 		program_params = config["params"]["mikado"]["prepare"],
@@ -205,6 +208,15 @@ rule gmc_mikado_prepare:
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
 
+rule gmc_mikado_prepare_extract_coords:
+	input:
+		rules.gmc_mikado_prepare.output[1]
+	output:
+		rules.gmc_mikado_prepare.output[1] + ".coords"
+	run:
+		from gmc.scripts.extract_coords import extract_coords
+		extract_coords(input[0], output[0], filetype="gtf")
+
 rule gmc_generate_tx2gene_maps:
 	input:
 		get_transcript_models
@@ -215,27 +227,17 @@ rule gmc_generate_tx2gene_maps:
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_tx2gene_maps")
 	run:
-		import csv
-		import re
-		with open(output[0], "w") as tx2gene_out:
-			for row in csv.reader(open(input[0]), delimiter="\t"):
-				if not row or (row and row[0].startswith("#")):
-					continue
-				if row[2] in {"mRNA", "ncRNA"}:
-					#row[8] = re.sub("ccode==;?", "", row[8])
-					#attr = dict(item.split("=") for item in row[8].split(";"))
-					attr = dict((item.group(1).strip(), item.group(2).strip()) for item in re.finditer("([^;]+)\s*=\s*([^;]+);?", row[8]))
-					print("{}_{}".format(wildcards.run, attr["ID"]), attr["Parent"], file=tx2gene_out, flush=True, sep="\t")
+		from gmc.scripts.generate_tx2gene_maps import generate_tx2gene_maps
+		generate_tx2gene_maps(input[0], output[0], wildcards.run)
 
 rule gmc_extract_exons:
 	input:
 		rules.gmc_mikado_prepare.output[1]
 	output:
 		rules.gmc_mikado_prepare.output[1].replace(".gtf", ".exon.gff")
-	shell:
-		"""
-		awk '$3 == "exon"' {input[0]} | awk -v FS="\\t" -v OFS="\\t" '{{exon += 1; split($9,a,"\\""); $9="ID="a[4]".exon"exon";Parent="a[4]; print $0}}' > {output[0]}
-		""".strip().replace("\n\t", " ")
+	run:
+		from gmc.scripts.extract_exons import extract_exons
+		extract_exons(input[0], output[0])
 
 rule gmc_mikado_compare_index_reference:
 	input:
@@ -274,58 +276,18 @@ rule gmc_metrics_repeats_convert:
 	input:
 		get_repeat_data
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.converted.gff")
-	run:
-		import csv
-		import re
-		source = tag = wildcards.run
-		name_tag, rep_counter = "RM", 0
-		with open(output[0], "w") as out_gff:
-			for row in csv.reader(open(input[0]), delimiter="\t"):
-				if not row or (row and row[0].startswith("#")):
-					continue
-				if row[1] == "RepeatMasker":
-					rep_counter += 1
-					try:
-						target = re.search('Target\s+"([^"]+)', row[8]).group(1)
-					except:
-						try:
-				 			target = re.search('Target\s*=\s*([^;]+)', row[8]).group(1)
-						except:
-							raise ValueError("Cannot parse Target from " + row[8])
-					target = re.sub("\s+", "_", target)
-					note = ";Note={}".format(target)
-					try:
-						name = re.sub("\s+", "_", re.search('Name\s*=\s*([^;]+)', row[8]).group(1))
-					except:
-						name, note = target, ""
-					row[1] = source
-					row[5] = "{:0.0f}".format(float(row[5]))
-					row[2] = "match"
-					attrib = "ID={tag}:{name_tag}{counter};Name={name}{note}".format(tag=tag, name_tag=name_tag, counter=rep_counter, name=name, note=note)
-					print(*row[:8], attrib, sep="\t", file=out_gff, flush=True)	
-					row[2] = "match_part"
-					attrib = "ID={tag}:{name_tag}{counter}-exon1;Parent={tag}:{name_tag}{counter}".format(tag=tag, name_tag=name_tag, counter=rep_counter)
-					print(*row[:8], attrib, sep="\t", file=out_gff, flush=True)	
-					print("###", file=out_gff, flush=True)
-			
-
-rule gmc_metrics_repeats_extract_exons:
-	input:
-		rules.gmc_metrics_repeats_convert.output[0]
-	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.converted.gff"),
 		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.no_strand.exon.gff")
-	shell:
-		"""
-		awk '$3 == "match_part"' {input[0]} | sed -e 's/\\tmatch_part\\t/\\texon\\t/' -e 's/\\t[+-]\\t/\\t.\\t/' > {output[0]}
-		""".strip().replace("\n\t", " ")
-
+	run:
+		from gmc.scripts.parse_repeatmasker import parse_repeatmasker
+		parse_repeatmasker(input[0], output[0], output[1], wildcards.run)
+			
 rule gmc_metrics_bedtools_repeat_coverage:
 	input:
-		rules.gmc_metrics_repeats_extract_exons.output[0],
+		rules.gmc_metrics_repeats_convert.output[1],
 		rules.gmc_extract_exons.output[0]
 	output:
-		rules.gmc_metrics_repeats_extract_exons.output[0] + ".cbed",
+		rules.gmc_metrics_repeats_convert.output[1] + ".cbed",
 	params:
 		program_call = config["program_calls"]["bedtools"]["coverageBed"]
 	threads:
@@ -551,94 +513,33 @@ rule gmc_metrics_blastp_tophit:
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_metrics_blastp_tophit") * attempt
 	run:
-		import csv
-		def calc_coverage_perc(start, end, length):
-			alen = (end - start + 1) if start < end else (start - end + 1)
-			return round(alen/length * 100, 2)
-		with open(output[0], "w") as blast_out:
-			seen = set()
-			for row in csv.reader(open(input[0]), delimiter="\t"):
-				if not row or row[0].startswith("#") or row[0] in seen:
-					continue
-				if len(row) < 17:
-					raise ValueError("Misformatted blastp line (ncols={ncols}) in {blastp_input}. Expected is outfmt 6 (17 cols).".format(
-						ncols=len(row),
-						blastp_input=input[0])
-					)
-				try:
-					qstart, qend, sstart, send, qlen, slen = map(int, row[3:9])
-				except:
-					raise ValueError("Misformatted blastp line: could not parse integer values from columns 2-7 ({})".format(",".join(row[3:9])))
-				qcov, scov = calc_coverage_perc(qstart, qend, qlen), calc_coverage_perc(sstart, send, slen)
-				if float(row[2]) >= params.pident_threshold and qcov >= params.qcov_threshold:
-					print(*row, "{:.2f}".format(qcov), "{:.2f}".format(scov), sep="\t", file=blast_out)
-					seen.add(row[0])
+		from gmc.scripts.get_blast_tophit import get_blast_tophit
+		get_blast_tophit(input[0], output[0], params.pident_threshold, params.qcov_threshold)
+
+rule busco_concat_protein_metrics:
+	input:
+		BUSCO_PROTEIN_PREPARE_RUNS
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "busco_proteins", "busco_proteins.tsv")
+	run:
+		with open(output[0], "w") as concat_out:
+			for f in input:
+				if os.path.basename(f) == "full_table.tsv":
+					print("#" + f, flush=True, file=concat_out)
+					print(open(f).read(), end="", flush=True, file=concat_out)
 
 
 rule gmc_metrics_generate_metrics_info:
 	input:
-		prev_outputs = OUTPUTS
+		prev_outputs = OUTPUTS,
+		bproteins = os.path.join(EXTERNAL_METRICS_DIR, "busco_proteins", "busco_proteins.tsv")
 	output:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt")
 	run:
-		import os
-		import glob
-		import csv
+		from gmc.scripts.generate_metrics_info import generate_metrics_info
+		busco_data = list(config["data"].get("busco-data", {"busco_proteins": ""}).keys())[0]
+		generate_metrics_info(EXTERNAL_METRICS_DIR, output[0], busco_data)
 
-		# this block is unstable against tempering with the structure of the generate_metrics dir
-		# might work better as state-machine
-		with open(output[0], "wt") as metrics_info:
-			walk = os.walk(EXTERNAL_METRICS_DIR)
-			next(walk)
-			rows = list()
-
-			while walk:
-				try:
-					cwd, dirs, files = next(walk)
-				except StopIteration:
-					break
-				cwd_base = os.path.basename(cwd)
-				if cwd_base == "CPC-2.0_beta":
-					mclass, mid, path = "cpc", "cpc", os.path.join(cwd, files[0])
-					rows.append((ExternalMetrics.CPC_CODING_POTENTIAL, mclass, mid, path))
-				elif cwd_base in {"proteins", "transcripts"}:
-					mclass = "mikado.{}".format(cwd_base[:-1])
-					for mid in dirs:
-						cwd, _, files = next(walk)
-						path = glob.glob(os.path.join(cwd, "*.refmap"))[0]
-						rows.append((ExternalMetrics.MIKADO_TRANSCRIPTS_OR_PROTEINS, mclass, mid, path))
-				elif cwd_base in {"blastp", "blastx"}:
-					mclass = "blast"
-					for mid in dirs:
-						cwd, _, files = next(walk)
-						path = glob.glob(os.path.join(cwd, "*.tophit"))[0]
-						rows.append((ExternalMetrics.PROTEIN_BLAST_TOPHITS, mclass, mid, path))
-						# last block is not necessary if we clean up the blast databases before
-						try:
-							_ = next(walk)
-						except StopIteration:
-							pass
-				elif cwd_base == "kallisto":
-					mclass = "expression"
-					for mid in dirs:
-						cwd, _, _ = next(walk)
-						path = os.path.join(cwd, "abundance.tsv")
-						rows.append((ExternalMetrics.KALLISTO_TPM_EXPRESSION, mclass, mid, path))
-				elif cwd_base == "repeats":
-					mclass = "repeat"
-					for path in glob.glob(os.path.join(cwd, "*.no_strand.exon.gff.cbed.parsed.txt")):
-						mid = os.path.basename(path).split(".")[0]
-						rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
-			"""
-			for mid in config["data"].get("repeat-data", dict()):
-				mclass = "repeat"
-				path = config["data"]["repeat-data"][mid][0][0]
-				rows.append((ExternalMetrics.REPEAT_ANNOTATION, mclass, mid, path))
-			"""
-
-			for _, mclass, mid, path in sorted(rows, key=lambda x:x[0].value):
-				print(mclass, mid, path, sep="\t", file=sys.stderr)
-				print(mclass, mid, os.path.abspath(path), sep="\t", file=metrics_info)
 
 rule gmc_metrics_generate_metrics_matrix:
 	input:
@@ -726,24 +627,8 @@ rule gmc_calculate_cds_lengths_post_pick:
 	params:
 		min_cds_length = config["misc"]["min_cds_length"]
 	run:
-		def read_fasta(f):
-			sid, seq = None, list()
-			for line in open(f):
-				line = line.strip()
-				if line.startswith(">"):
-					if seq:
-						yield sid, "".join(seq)
-						seq = list()
-					sid = line[1:].split()[0]
-				else:
-					seq.append(line)
-			if seq:
-				yield sid, "".join(seq).upper().replace("U", "T")
-		with open(output[0], "w") as fout:
-			for sid, seq in read_fasta(input[0]):
-				has_stop = any(seq.endswith(stop_codon) for stop_codon in ("TAA", "TGA", "TAG"))
-				discard = (has_stop and len(seq) < params.min_cds_length) or (not has_stop and len(seq) < params.min_cds_length - 3)
-				print(sid, int(discard), sep="\t", file=fout)
+		from gmc.scripts.calculate_cdslen import calculate_cdslen 
+		calculate_cdslen(input[0], output[0], params.min_cds_length)
 
 
 rule gmc_gff_genometools_check_post_pick:
@@ -882,6 +767,15 @@ rule gmc_final_sanity_check:
 	shell:
 		"sanity_check {input[0]} > {output[0]} 2> {log}"
 
+rule gmc_mikado_pick_extract_coords:
+	input:
+		rules.gmc_sort_release_gffs.output[0]
+	output:
+		rules.gmc_sort_release_gffs.output[0] + ".coords"
+	run:
+		from gmc.scripts.extract_coords import extract_coords
+		extract_coords(input[0], output[0], filetype="gff")
+
 rule gmc_generate_mikado_stats:
 	input:
 		rules.gmc_final_sanity_check.output[0]
@@ -931,7 +825,7 @@ rule gmc_cleanup_final_proteins:
 	shell:
 		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
-rule gmc_generate_full_table:
+rule gmc_generate_final_table:
 	input:
 		stats_table = rules.gmc_generate_mikado_stats.output[1],
 		seq_table = rules.gmc_extract_final_sequences.output.tbl,
@@ -940,43 +834,12 @@ rule gmc_generate_full_table:
 		final_table = rules.gmc_final_sanity_check.output[0] + ".final_table.tsv",
 		summary = rules.gmc_final_sanity_check.output[0] + ".biotype_conf.summary"
 	threads:
-		HPC_CONFIG.get_cores("gmc_generate_full_table")
+		HPC_CONFIG.get_cores("gmc_generate_final_table")
 	resources:
-		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_full_table") * attempt
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("gmc_generate_final_table") * attempt
 	run:
-		import csv
-		from collections import Counter
-		colheaders = ["Confidence", "Biotype", "InFrameStop", "Partialness"]
-		pt_cats = {".": "complete", "5_3": "fragment", "3": "3prime_partial", "5": "5prime_partial"}
-		if_pt = dict((row[7], row[12:14]) for row in csv.reader(open(input.seq_table), delimiter="\t"))
-		genes, transcripts = dict(), dict()
-		for row in csv.reader(open(input.bt_conf_table), delimiter="\t"):
-			if not row[0].startswith("#"):
-				if row[2].lower() in {"gene", "mrna", "ncrna"}:
-					attrib = dict(item.split("=") for item in row[8].strip().split(";"))
-					if row[2].lower() == "gene":
-						genes[attrib["ID"]] = (attrib["biotype"], attrib["confidence"])
-					else:
-						transcripts[attrib["ID"]] = (genes.get(attrib["Parent"], (None, None))[0], attrib["confidence"])
-
-		r = csv.reader(open(input.stats_table), delimiter="\t")
-		head = ["#{}.{}".format(c, col) for c, col in enumerate(next(r), start=1)]
-		head.extend("#{}.{}".format(c, col) for c, col in enumerate(colheaders, start=len(head)+1))
-		with open(output.final_table, "w") as tbl_out:
-			print(*head, sep="\t", flush=True, file=tbl_out)
-			for row in r:
-				row.extend(transcripts.get(row[0], [".", "."])[::-1])
-				row.extend(if_pt.get(row[0], [".", "."]))
-				row[-1] = pt_cats.get(row[-1], "NA")
-				print(*row, sep="\t", flush=True, file=tbl_out)
-
-		tcounts, gcounts = Counter(transcripts.values()), Counter(genes.values())
-		with open(output.summary, "w") as summary_out:
-			print("Biotype", "Confidence", "Gene", "Transcript", sep="\t", file=summary_out)
-			categories = set(tcounts).union(set(gcounts))
-			for cat in sorted(categories, key=lambda x:gcounts[x], reverse=True):
-				print(*cat, gcounts[cat], tcounts[cat], sep="\t", file=summary_out)
-			print("Total", "", sum(gcounts.values()), sum(tcounts.values()), sep="\t", file=summary_out)
+		from gmc.scripts.generate_final_table import generate_final_table
+		generate_final_table(input.seq_table, input.bt_conf_table, input.stats_table, output.final_table, output.summary)
 
 rule split_proteins_prepare:
 	input:
@@ -1133,59 +996,34 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 
 rule busco_copy_results:
 	input:
-		BUSCO_ANALYSES
+		BUSCO_COPY_SOURCES
 	output:
-		BUSCO_COPY
+		BUSCO_COPY_TARGETS
 	run:
 		import pathlib
 		import os
 		import shutil
-		for src, tgt in zip(BUSCO_ANALYSES, BUSCO_COPY):
+		for src, tgt in BUSCO_COPY:
 			tgt_dir = os.path.dirname(tgt)
 			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parents=True)
 			shutil.copyfile(src, tgt)
 
 rule busco_summary:
 	input:
-		BUSCO_ANALYSES
+		rules.gmc_mikado_prepare_extract_coords.output[0],
+		rules.gmc_mikado_pick_extract_coords.output[0],
+		BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS
 	output:
 		BUSCO_TABLE
 	run:
-		import os
-		import glob
-		import csv
-		from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, get_busco_categories
-		from collections import Counter
+		from gmc.scripts.generate_busco_tables import BuscoTableGenerator
 
-		tx2gene = dict()
-		for f in os.listdir(os.path.join(config["outdir"], "tx2gene")):
-			f = os.path.join(config["outdir"], "tx2gene", f)
-			tx2gene.update(read_tx2gene(f))
-
-		run_tables = dict()
-		for d in os.listdir(os.path.join(BUSCO_PATH, "runs")):
-			if d.endswith("_final") or d == "genome":
-				f = glob.glob(os.path.join(BUSCO_PATH, "runs", d, d, "run_*", "full*"))[0]
-				run_tables[d] = read_full_table(f, is_pick=d.endswith("_final"))
-			else:
-				for dd in glob.glob(os.path.join(BUSCO_PATH, "runs", d, "*")):
-					if os.path.basename(dd) != "input":
-						f = glob.glob(os.path.join(dd, "run_*", "full*"))[0]
-						run_tables["{}/{}".format(d, os.path.basename(dd))] = read_full_table(f, tx2gene)
-		with open(output[0] + ".raw", "w") as raw_out:
-			for k, v in run_tables.items():
-				print(k, v, file=raw_out, sep="\t", flush=True)
-
-		with open(output[0], "w") as table_out:
-			print("Busco Plots", *run_tables.keys(), sep="\t", flush=True, file=table_out)
-			for cat in get_busco_categories(max_copy_number=config["misc"]["busco_max_copy_number"]):
-				cat_lbl = cat
-				if cat.startswith("Complete_"):
-					copies = cat.split("_")[1]
-					cat_lbl = "Complete (single copy)" if copies == "1" else "Complete ({} copies)".format(copies)
-				
-				print(cat_lbl, *(v[cat] for v in run_tables.values()), sep="\t", flush=True, file=table_out)
-				
-			
-						
-
+		btg = BuscoTableGenerator(
+			os.path.join(config["outdir"], "tx2gene"),
+			input[0],
+			input[1],
+			os.path.join(BUSCO_PATH, "runs")	
+		)
+		btg.write_review_table(output[0])
+		btg.write_raw_data(output[0])
+		btg.write_busco_table(output[0], config["misc"]["busco_max_copy_number"])	

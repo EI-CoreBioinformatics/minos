@@ -7,6 +7,7 @@ import glob
 import pathlib
 import subprocess
 
+from enum import Enum, unique, auto
 from collections import OrderedDict
 
 from gmc import __version__
@@ -23,8 +24,22 @@ NF_SUFFIXES = {
 	"seq_prot": ["qCov", "tCov"],
 	"blastdb_prot": ["qCov", "tCov"],
 	"repeat": ["cov"],
-	"expression": ["tpm"]
+	"expression": ["tpm"],
+	"busco": ["busco"]
 }
+
+NON_NF = {"junction", "expression", "repeat", "busco"}
+
+
+@unique
+class ExternalMetrics(Enum):
+    MIKADO_TRANSCRIPTS_OR_PROTEINS = auto()
+    PROTEIN_BLAST_TOPHITS = auto()
+    CPC_CODING_POTENTIAL = auto()
+    KALLISTO_TPM_EXPRESSION = auto()
+    REPEAT_ANNOTATION = auto()
+    BUSCO_PROTEINS = auto()
+
 
 class ScoringMetricsManager(object):
 	def __importMetricsData(self, fn, use_tpm=False):
@@ -65,10 +80,6 @@ class ScoringMetricsManager(object):
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
 			raise ValueError("More than one junction file supplied. " + self.metrics.get("junction", list()))
 
-		#for k in self.metrics:
-		#	print(k)
-		#	for j in self.metrics[k]:
-		#		print(j, self.metrics[k][j], sep="\n")
 
 	def __init__(self, metrics_file, scoring_template_file, outdir, prefix, use_tpm=False):
 		self.__importMetricsData(metrics_file, use_tpm=use_tpm)
@@ -81,14 +92,11 @@ class ScoringMetricsManager(object):
 		return mdata
 	
 	def generateScoringFile(self, scoring_template, outfile):
-		ext_metrics = list()
-		for mclass, runs in self.metrics.items():
-			ext_metrics.extend("external.{}_aF1".format(runid) for runid, run in runs.items())
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
 			for mclass, runs in self.metrics.items():
-				if mclass not in {"junction", "expression", "repeat"}:
+				if mclass not in NON_NF:
 					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
 					for runid, run in runs.items():
 						for suffix in suffixes:						
@@ -102,7 +110,7 @@ class ScoringMetricsManager(object):
 		def generate_nf_params(metrics):
 			params = list() 
 			for mclass, runs in metrics.items():
-				if mclass not in {"junction", "expression", "repeat"}:
+				if mclass not in NON_NF:
 					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
 					for runid, run in runs.items():
 						for suffix in suffixes:
@@ -236,7 +244,6 @@ def run_configure(args):
 		except:
 			raise ValueError("No valid missing busco list in {}".format(args.busco_genome_run))
 		
-		
 
 	run_config = {
 		"prefix": args.prefix,
@@ -273,17 +280,13 @@ def run_configure(args):
 			"protein-runs": smm.getMetricsData("aln_prot"), 
 			"protein-seqs": smm.getMetricsData("seq_prot"),
 			"junction-data": smm.getMetricsData("junction"),	
-			"repeat-data": smm.getMetricsData("repeat")
+			"repeat-data": smm.getMetricsData("repeat"),
+			"busco-data": smm.getMetricsData("busco")
 		},
-		"transcript_models": {row[1]:row[0] for row in csv.reader(open(args.list_file), delimiter="\t")}
+		"transcript_models": {row[1]: row[0] for row in csv.reader(open(args.list_file), delimiter="\t")}
 	}
 
-
-	
 	with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
 		yaml.dump(run_config, run_config_out, default_flow_style=False)
 		yaml.dump(run_data, run_config_out, default_flow_style=False)
 		yaml.dump(gmc_config, run_config_out, default_flow_style=False)
-
-	pass
-

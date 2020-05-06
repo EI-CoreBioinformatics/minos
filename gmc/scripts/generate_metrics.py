@@ -97,15 +97,25 @@ def read_rm_repeats(f, seen=set()):
 		if row and not row[0].startswith("#"):
 			tid = row[0]
 			if seen and tid not in seen:
-				raise ValueError("Error: This is repeat modeler run ({}) but transcript {} occurs for the first time. Please check your mikado/rm inputs.".format(f, tid))
+				raise ValueError("Error: This is a repeat modeler run ({}) but transcript {} occurs for the first time. Please check your mikado/rm inputs.".format(f, tid))
 
 			model_info[tid] = collections.OrderedDict({"cov": _round_frac(clean_na(row[3]))})
 
 	return model_info
-			
 
+def read_busco(f, seen=set(), score_complete=1, score_fragmented=0.25):
+	model_info = {"nmetrics": 1}
+	for i, row in enumerate(csv.reader(open(f), delimiter="\t")):
+		if row and not row[0].startswith("#"):
+			if row[1] != "Missing":
+				tid = row[2]
+				if seen and tid not in seen:
+					raise ValueError("Error: This is a busco run ({}) but transcript {} occurs for the first time. Please check your mikado/rm inputs.".format(f, tid))
 
+				score = score_complete if row[1] in {"Duplicated", "Complete"} else score_fragmented if row[1] == "Fragmented" else 0
+				model_info[tid] = collections.OrderedDict({"busco": _round_frac(clean_na(score))})
 
+	return model_info
 
 
 MCLASS_INFO = collections.OrderedDict([
@@ -113,67 +123,51 @@ MCLASS_INFO = collections.OrderedDict([
 	("blast", {"metrics": ["qCov", "tCov"], "parser": read_blast}),
 	("cpc", {"metrics": [""], "parser": read_cpc}),
 	("expression", {"metrics": [""], "parser": read_kallisto}),
-	("repeat", {"metrics": ["cov"], "parser": read_rm_repeats})
+	("repeat", {"metrics": ["cov"], "parser": read_rm_repeats}),
+	("busco", {"metrics": ["busco"], "parser": read_busco})	
 ])                                                                                      		
 
-			
-		
 
 def main():
 
 	ap = argparse.ArgumentParser()
 	ap.add_argument("metrics_info", type=str)
-	#ap.add_argument("metrics_header", type=str)
-
 	args = ap.parse_args()
 
 	if not os.path.exists(args.metrics_info):
 		raise ValueError("Error: Could not find metrics info at " + args.metric_info)
-	#if not os.path.exists(args.metrics_header):
-	#	raise ValueError("Error: Could not find metrics header at " + args.metric_header)	
 
 	metrics_info = read_metrics_info(args.metrics_info)
 	metrics_header = generate_metrics_header(metrics_info)
 
 	print(*metrics_header, sep="\t")
 
-	# print(*metrics_info.keys(), sep="\n", file=sys.stderr)
-	# print(*metrics_info.get("expression", dict()).keys(), sep="\n", file=sys.stderr)
-
-	
 	model_info = collections.OrderedDict()
 	first_run = None
 	seen = set()
 	for mclass in MCLASS_INFO:
-		#print("Processing {} runs ...".format(mclass), file=sys.stderr)
 		for run in metrics_info.get(mclass, collections.OrderedDict()):
-			#print(" " + run + " ...", file=sys.stderr)
-			if MCLASS_INFO[mclass]["parser"] is None:
-				#print("NO PARSER", file=sys.stderr)
-				continue
-			if first_run is None:
-				first_run = run
-			model_info[run] = MCLASS_INFO[mclass]["parser"](metrics_info[mclass][run], seen=seen)
-			if not seen:
-				seen = set(model_info[run])
+			parser = MCLASS_INFO[mclass]["parser"]
+			if parser is not None:
+				if first_run is None:
+					first_run = run
+				model_info[run] = parser(metrics_info[mclass][run], seen=seen)
+				if not seen:
+					seen = set(model_info[run])
 
 	for tid in model_info[first_run]:
-		if tid == "nmetrics":
-			continue
-		row = [tid]
-		for run in model_info:			
-			try:
-				data = model_info[run][tid].values()
-			except KeyError:
-				try:	
-					data = ["0.0000" for i in range(model_info[run]["nmetrics"])]
-				except ValueError:
-					raise ValueError("Error: Missing {} values for transcript {}".format(run, tid))
-				
-			row.extend(data)
-
-		print(*row, sep="\t")
-
+		if tid != "nmetrics":
+			row = [tid]
+			for run in model_info:
+				try:
+					data = model_info[run][tid].values()
+				except KeyError:
+					try:
+						data = ["0.0000" for i in range(model_info[run]["nmetrics"])]
+					except ValueError:
+						raise ValueError("Error: Missing {} values for transcript {}".format(run, tid))
+				row.extend(data)
+			print(*row, sep="\t")
 
 
 if __name__ == "__main__":

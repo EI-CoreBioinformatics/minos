@@ -11,33 +11,12 @@ SCORES = [
 	"te_score",
 	"cpc_score",
 	"expression_score",
-	"classification"
+	"classification",
+	"busco_score"
 ]
 
 # 3 + 9 * 2 + 5 = 26
 HEADER = ["#transcript", "gene", "alias"] + SCORES + [s + "_gene" for s in SCORES] + ["confidence", "repeat_associated", "biotype", "discard", "region"]
-
-REPEAT_ASSOCIATED_CHECKS = ("te_score", 0.4, "ge")
-PREDICTED_GENE_CHECKS = (
-	all,
-	("hom_acov_score", 0.3, "lt"),
-	("cpc_score", 0.25, "lt"),
-	# and gene_info[gid]["classification"] == 0: ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
-)
-HICONF_CHECKS = (
-	any,
-	("classification", 1, "eq"),
-	("hom_acov_score", 0.8, "ge"),
-	(all, ("hom_acov_score", 0.6, "ge"), ("transcript_score", 0.4, "ge"))
-)
-DISCARD_CHECKS = (
-	all,
-	("protein_score", 0, "eq"),
-	("transcript_score", 0, "eq"),
-	("hom_acov_score", 0, "eq"),
-	("expression_score", 0.3, "lt"),
-	# ("classification", "eq", 0) ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
-)
 
 def check_expression(expression, values):
 	def cmp_score(a, b, op):
@@ -68,7 +47,7 @@ class TranscriptData(dict):
 				if not row[0].startswith("#"):
 					ftype = row[2].strip().lower()
 					if ftype in {"mrna", "ncrna"}:
-						attrib = dict(item.split("=") for item in row[8].strip(";").split(";"))
+						attrib = dict(item.split("=") for item in row[8].strip("; ").split(";"))
 
 						if any(map(lambda x: x is None, (attrib.get("ID"), attrib.get("Parent"), attrib.get("Name")))):
 							raise ValueError("Error: Cannot parse all variables (ID, Parent, Name). Please check entry:\n{}\n".format("\t".join(row)))
@@ -115,17 +94,20 @@ class ExpressionData(dict):
 class TranscriptScores:
 	def __init__(self, metrics_info, expression_score, short_cds, **metrics):
 		self.tid = metrics["tid"]
-		self.protein_score = max(float(metrics[m + "_aF1"]) for m in metrics_info.get("mikado.protein", set()))
-		self.transcript_score = max(float(metrics[m + "_aF1"]) for m in metrics_info.get("mikado.transcript", set()))
-		self.hom_qcov_score = max(float(metrics[m + "_qCov"]) for m in metrics_info.get("blast", set()))
-		self.hom_tcov_score = max(float(metrics[m + "_tCov"]) for m in metrics_info.get("blast", set()))
-		self.hom_acov_score = (self.hom_qcov_score + self.hom_tcov_score) / 2.0
-		self.te_score = max(float(metrics[m + "_cov"]) for m in metrics_info.get("repeat", set()))
-		#0.0  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
-		self.cpc_score = float(metrics["cpc"])
-		self.expression_score = expression_score
 		self.classification = 0 ## cschu 20200203: issue9: disabled until full-lengther replacement implemented
 		self.short_cds = short_cds
+		self.expression_score = expression_score
+
+		self.protein_score = 0
+		self.protein_score = max([0] + [float(metrics[m + "_aF1"]) for m in metrics_info.get("mikado.protein", set())])
+		self.transcript_score = max([0] + [float(metrics[m + "_aF1"]) for m in metrics_info.get("mikado.transcript", set())])
+		self.hom_qcov_score = max([0] + [float(metrics[m + "_qCov"]) for m in metrics_info.get("blast", set())])
+		self.hom_tcov_score = max([0] + [float(metrics[m + "_tCov"]) for m in metrics_info.get("blast", set())])
+		self.hom_acov_score = (self.hom_qcov_score + self.hom_tcov_score) / 2.0
+		self.te_score = max([0] + [float(metrics[m + "_cov"]) for m in metrics_info.get("repeat", set())])
+		#0.0  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
+		self.cpc_score = float(metrics["cpc"])
+		self.busco_score = max(float(metrics[m + "_busco"]) for m in metrics_info.get("busco", set()))
 
 
 class MetricCollapser:
