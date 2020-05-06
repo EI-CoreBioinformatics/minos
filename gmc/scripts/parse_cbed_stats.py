@@ -18,23 +18,22 @@ def parse_cbed(instream, print_header=False, outstream=sys.stdout):
 	covered_bps, trans_bps = 0, 0
 	scaffold = str()
 	for row in csv.reader(instream, delimiter="\t"):
-		if not row or row[0].startswith("#"):
-			continue
-		attr = dict(item.split("=") for item in row[8].split(";"))
-		if attr["Parent"] != cur_parent:
-			if cur_parent is not None:
-				write_record(scaffold, cur_parent, trans_bps, covered_bps, scaffold_coords, outstream)
-				scaffold_coords.clear()
-				pass
-			cur_parent = attr["Parent"]
-			covered_bps, trans_bps = 0, 0
-			scaffold = row[0]
+		if row and not row[0].startswith("#"):
+			attr = dict(item.split("=") for item in row[8].strip(" ;").split(";"))
+			if attr["Parent"] != cur_parent:
+				if cur_parent is not None:
+					write_record(scaffold, cur_parent, trans_bps, covered_bps, scaffold_coords, outstream)
+					scaffold_coords.clear()
+					pass
+				cur_parent = attr["Parent"]
+				covered_bps, trans_bps = 0, 0
+				scaffold = row[0]
 
-		covered_bps += int(row[10])
-		trans_bps += int(row[11])
-		start, end = int(row[3]), int(row[4])			
-		if end < start:
-			start, end = end, start          			
-		scaffold_coords.append((start, end))  		
+			covered_bps += int(row[10])
+			trans_bps += int(row[11])
+			start, end = int(row[3]), int(row[4])
+			if end < start:
+				start, end = end, start
+			scaffold_coords.append((start, end))
 
 	write_record(scaffold, cur_parent, trans_bps, covered_bps, scaffold_coords, outstream)
