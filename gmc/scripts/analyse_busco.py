@@ -41,13 +41,13 @@ def read_full_table(table_file, tx2gene=None, is_pick=False, max_copy_number=4):
 	for cat, genes in complete.items():
 		if tx2gene is not None or is_pick:
 			# for non genome runs, check the unique gene ids
-			n = len(set(genes))
+			n = len(set(gid for tid, gid in genes))
 		else:
 			# for genome runs, just count
 			n = len(genes)
 		cat = "Complete_{}{}".format(min(n, max_copy_number), "+" if n >= max_copy_number else "") 
 		counts[cat] += 1
-		# complete buscos with exactly one unique gene id (or a count of 1) will count towards "Complete", 2+ copies count towards "Duplicated"
+		# all complete buscos will count towards "Complete", 2+ copies count towards "Duplicated"
 		if n > 1:
 			counts["Duplicated"] += 1
 
