@@ -107,7 +107,7 @@ class TranscriptScores:
 		self.te_score = max([0] + [float(metrics[m + "_cov"]) for m in metrics_info.get("repeat", set())])
 		#0.0  # !TODO, # we get the highest for the te and when we compute for the gene we take the lowest downstream
 		self.cpc_score = float(metrics["cpc"])
-		self.busco_score = max(float(metrics[m + "_busco"]) for m in metrics_info.get("busco", set()))
+		self.busco_score = float(metrics["busco_proteins"])
 
 
 class MetricCollapser:

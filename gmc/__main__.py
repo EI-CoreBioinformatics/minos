@@ -44,6 +44,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("--force-reconfiguration", "-f", action="store_true")
 	configure_parser.add_argument("--config-file", type=str, default=DEFAULT_CONFIG_FILE)
 	configure_parser.add_argument("--busco-level", type=str, default="all") # proteins in release 
+	configure_parser.add_argument("--busco-scoring", type=int, help="Force busco protein runs and use results in transcript scoring with the specified multiplier.")
 	configure_parser.add_argument("--busco-lineage", type=str, help="Required if --busco-level is not in {none,off}.")
 	configure_parser.add_argument("--busco-genome-run",type=str, help="Directory with short_summary.txt and full_table.tsv from processing the reference with busco genome.")
 	
@@ -62,8 +63,17 @@ def add_run_parser(subparsers):
 
 	add_default_options(run_parser)
 	run_parser.set_defaults(runmode="run")
-		
 
+def parse_args():
+	ap = argparse.ArgumentParser(prog="gmc", description="The Earlham Institute Gene Model Consolidation Pipeline (gmc).")
+	subparsers = ap.add_subparsers(
+		help=""
+	)
+
+	add_configure_parser(subparsers)
+	add_run_parser(subparsers)
+
+	return ap.parse_args()
 
 
 def main():	
@@ -73,16 +83,7 @@ def main():
 	if len(sys.argv) == 1:
 		sys.argv.append("-h")
 	
-	ap = argparse.ArgumentParser(prog="gmc", description="The Earlham Institute Gene Model Consolidation Pipeline (gmc).")
-	
-	subparsers = ap.add_subparsers(
-		help=""
-	)
-
-	add_configure_parser(subparsers)
-	add_run_parser(subparsers)
-
-	args = ap.parse_args()
+	args = parse_args()
 
 	run_configuration_file = None
 	try:
@@ -90,8 +91,7 @@ def main():
 	except:
 		pass 
 
-
-	print(args.runmode)
+	print("Runmode is", args.runmode)
 	if args.runmode == "configure":
 		if run_configuration_file is None or args.force_reconfiguration:
 			GmcRunConfiguration(args).run()
@@ -114,7 +114,7 @@ def main():
 
 		run_configuration_file = run_configuration_file.replace(".yaml", ".{}.yaml".format(NOW))
 		with open(run_configuration_file, "wt") as run_config_out:
-			yaml.dump(run_config, run_config_out, default_flow_style=False)
+			yaml.dump(run_config, run_config_out, default_flow_style=False, sort_keys=False)
 
 		exe_env = ExecutionEnvironment(args, NOW, job_suffix="GMC_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
 
@@ -130,7 +130,7 @@ def main():
 				try:
 					shutil.copytree(results_dir, dest_dir)
 				except:
-					raise ValueError("Rerunning on existing, completed run. {results_dir} present but could not archive it in {archive_dir}. Please (re)move results dir manually before proceeding".format(results_dir=results_dir, archive_dir=dest_dir))
+					raise ValueError("Rerunning targeting a previously completed run. {results_dir} present but could not archive it in {archive_dir}. Please (re)move results dir manually before proceeding".format(results_dir=results_dir, archive_dir=dest_dir))
 
 			serialise_sentinel = os.path.join(args.outdir, "MIKADO_SERIALISE_DONE")
 			collapse_sentinel = os.path.join(args.outdir, "COLLAPSE_METRICS_DONE")

@@ -48,9 +48,9 @@ class GmcRunConfiguration(dict):
 	
 	def _generate_scoring_file(self, args):
 		self.scoring_file = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
-		self.smm = ScoringMetricsManager(args.external_metrics, args.scoring_template, args.outdir, args.prefix, use_tpm=args.use_tpm_for_picking)
+		self.smm = ScoringMetricsManager(args)
 		print("Generating scoring file " + self.scoring_file + " ...", end="", flush=True)
-		self.smm.generateScoringFile(args.scoring_template, self.scoring_file)
+		self.smm.generateScoringFile(args.scoring_template, self.scoring_file, busco_scoring=args.busco_scoring)
 		print(" done.")                                                                                                                      	
 	def __init__(self, args):
 		print("Configuring run...")
@@ -59,8 +59,8 @@ class GmcRunConfiguration(dict):
 		pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
 		pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 		self.mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
-		self.update(yaml.load(open(args.config_file), Loader=yaml.SafeLoader))
-		self["busco_analyses"] = dict(BuscoConfiguration(args).items())
+
+
 
 	def _generate_run_configuration(self, args):
 		print("Generating run configuration file ...", flush=True, end="")
@@ -78,9 +78,11 @@ class GmcRunConfiguration(dict):
 			"genus_identifier": args.genus_identifier,
 			"hpc_config": args.hpc_config
 		})
+		self["busco_analyses"] = dict(BuscoConfiguration(args).items())
 
 		self["data"] = {"transcript_models": {row[1]: row[0] for row in csv.reader(open(args.list_file), delimiter="\t")}}
 		self["data"].update(self.smm.get_scoring_data())
+		self.update(yaml.load(open(args.config_file), Loader=yaml.SafeLoader))
 
 		with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
 			yaml.dump(dict(self.items()), run_config_out, default_flow_style=False, sort_keys=False)
@@ -88,5 +90,5 @@ class GmcRunConfiguration(dict):
 
 	def run(self):
 		self._generate_scoring_file(self.args)
-		self._run_mikado_configure(self.args)
 		self._generate_run_configuration(self.args)
+		self._run_mikado_configure(self.args)

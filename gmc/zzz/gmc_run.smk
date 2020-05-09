@@ -29,7 +29,7 @@ def get_protein_sequences(wc):
 def get_repeat_data(wc):
 	return config["data"]["repeat-data"][wc.run][0]
 def get_transcript_models(wc):
-	return config["transcript_models"][wc.run]
+	return config["data"]["transcript_models"][wc.run]
 
 # output management
 POST_PICK_PREFIX = "mikado.annotation"
@@ -85,7 +85,7 @@ BUSCO_CMD = """
 
 TX2GENE_MAPS = [
 	os.path.join(config["outdir"], "tx2gene", tm + ".tx2gene")
-	for tm in config["transcript_models"]
+	for tm in config["data"]["transcript_models"]
 ]
 
 BUSCO_PATH = os.path.abspath(os.path.join(config["outdir"], "busco"))
@@ -96,7 +96,7 @@ BUSCO_PROTEIN_PREPARE_RUNS = list()
 if config["busco_analyses"]["proteins"]:
 	BUSCO_PROTEIN_PREPARE_RUNS.extend(
 		os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "{tm}", "run_{lineage}", busco_file).format(tm=tm, lineage=BUSCO_LINEAGE)
-		for tm in config["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
+		for tm in config["data"]["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
 	)
 	BUSCO_ANALYSES.extend(
 		os.path.join(BUSCO_PATH, "runs", "proteins_final", "proteins_final", "run_{lineage}", busco_file).format(lineage=BUSCO_LINEAGE)
@@ -106,7 +106,7 @@ if config["busco_analyses"]["proteins"]:
 if config["busco_analyses"]["transcriptome"]:
 	BUSCO_ANALYSES.extend(
 		os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "{tm}", "run_{lineage}", busco_file).format(tm=tm, lineage=BUSCO_LINEAGE)
-		for tm in config["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
+		for tm in config["data"]["transcript_models"] for busco_file in ("short_summary.txt", "full_table.tsv", "missing_busco_list.tsv")
 	)
 	BUSCO_ANALYSES.extend(
 		os.path.join(BUSCO_PATH, "runs", "transcripts_final", "transcripts_final", "run_{lineage}", busco_file).format(lineage=BUSCO_LINEAGE)
@@ -845,12 +845,12 @@ rule split_proteins_prepare:
 	input:
 		rules.gmc_gffread_extract_sequences.output[0]
 	output:
-		expand(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", "{run}.proteins.fasta"), run=config["transcript_models"])
+		expand(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", "{run}.proteins.fasta"), run=config["data"]["transcript_models"])
 	log:
 		os.path.join(BUSCO_PATH, "logs", "split_proteins_prepare.log")
 	run:
 		from gmc.scripts.busco_splitter import split_fasta
-		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", tm + ".proteins.fasta"), "w") for tm in config["transcript_models"]}
+		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", tm + ".proteins.fasta"), "w") for tm in config["data"]["transcript_models"]}
 		split_fasta(input[0], fasta_files)
 
 rule busco_proteins_prepare:
@@ -908,12 +908,12 @@ rule split_transcripts_prepare:
 	input:
 		rules.gmc_gffread_extract_sequences.output[1]
 	output:
-		expand(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", "{run}.cdna.fasta"), run=config["transcript_models"])
+		expand(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", "{run}.cdna.fasta"), run=config["data"]["transcript_models"])
 	log:
 		os.path.join(BUSCO_PATH, "logs", "split_transcripts_prepare.log")
 	run:
 		from gmc.scripts.busco_splitter import split_fasta
-		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", tm + ".cdna.fasta"), "w") for tm in config["transcript_models"]}
+		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", tm + ".cdna.fasta"), "w") for tm in config["data"]["transcript_models"]}
 		split_fasta(input[0], fasta_files)
 
 rule busco_transcripts_prepare:

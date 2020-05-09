@@ -11,10 +11,9 @@ NF_SUFFIXES = {
 	"blastdb_prot": ["qCov", "tCov"],
 	"repeat": ["cov"],
 	"expression": ["tpm"],
-	"busco": ["busco"]
 }
 
-NON_NF = {"junction", "expression", "repeat", "busco"}
+NON_NF = {"junction", "expression", "repeat"}
 
 METRIC_KEY_LABELS = {
 	"expression": "expression-runs",
@@ -24,9 +23,6 @@ METRIC_KEY_LABELS = {
 	"junction": "junction-data",
 	"repeat": "repeat-data"
 }
-
-
-
 
 class ScoringMetricsManager(object):
 	STRANDINFO = {"_xx": "unstranded", "_rf": "rf-stranded", "_fr": "fr-stranded"}
@@ -69,8 +65,8 @@ class ScoringMetricsManager(object):
 			raise ValueError("More than one junction file supplied. " + self.metrics.get("junction", list()))
 
 
-	def __init__(self, metrics_file, scoring_template_file, outdir, prefix, use_tpm=False):
-		self.__importMetricsData(metrics_file, use_tpm=use_tpm)
+	def __init__(self, args):
+		self.__importMetricsData(args.external_metrics, use_tpm=args.use_tpm_for_picking)
 
 	def getMetricsData(self, metric):
 		mdata = dict()
@@ -79,7 +75,7 @@ class ScoringMetricsManager(object):
 			pass
 		return mdata
 	
-	def generateScoringFile(self, scoring_template, outfile):
+	def generateScoringFile(self, scoring_template, outfile, busco_scoring=None):
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
@@ -128,7 +124,13 @@ class ScoringMetricsManager(object):
 						)
 			
 			return scoring		
-				
+
+		if busco_scoring is None:
+			bs_comment, bs_multiplier = "#", 3
+		else:
+			bs_comment, bs_multiplier = "", busco_scoring
+			if bs_multiplier < 0:
+				raise ValueError("Invalid value for busco scoring multiplier: {}".format(bs_multiplier))
 
 		with open(scoring_template) as _in, open(outfile, "wt") as _out:
 			for line in _in:				
@@ -152,7 +154,9 @@ class ScoringMetricsManager(object):
 					# external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
 					"""
 					print("  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
-					print("  external.busco: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
+					print("  {comment}external.busco: {{rescaling: max, use_raw: true, multiplier: {multiplier}}}".format(
+						comment=bs_comment, multiplier=bs_multiplier
+					), file=_out)
 					# print("  # all boolean metrics values from here below", file=_out)
 					# print("  # external.EI_tpm_05: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
 					# print("  # external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)

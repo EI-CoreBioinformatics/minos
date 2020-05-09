@@ -124,7 +124,7 @@ MCLASS_INFO = collections.OrderedDict([
 	("cpc", {"metrics": [""], "parser": read_cpc}),
 	("expression", {"metrics": [""], "parser": read_kallisto}),
 	("repeat", {"metrics": ["cov"], "parser": read_rm_repeats}),
-	("busco", {"metrics": ["busco"], "parser": read_busco})	
+	("busco", {"metrics": [""], "parser": read_busco})
 ])                                                                                      		
 
 

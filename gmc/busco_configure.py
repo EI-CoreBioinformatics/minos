@@ -49,6 +49,7 @@ class BuscoConfiguration(dict):
 
 	def __init__(self, args):
 		self["proteins"], self["transcriptome"], self["genome"] = BuscoConfiguration.parse_busco_levels(args.busco_level)
+		self["proteins"] = self["proteins"] or args.busco_scoring is not None
 		if self["genome"] and args.busco_genome_run:
 			raise ValueError("BUSCO genome was selected ({}) together with --busco_genome_run ({}).".format(args.busco_level, args.busco_genome_run))
 		if any(self.values()) and (args.busco_lineage is None or not os.path.exists(args.busco_lineage)):
