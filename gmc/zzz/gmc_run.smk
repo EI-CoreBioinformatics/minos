@@ -154,7 +154,8 @@ localrules:
 	split_transcripts_prepare,
 	busco_copy_results,
 	busco_concat_protein_metrics,
-	busco_summary
+	busco_summary,
+	gmc_create_release_metrics
 
 
 rule all:
@@ -184,10 +185,12 @@ rule all:
 		],
 		[
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
-			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary"}
+			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary", ".metrics.tsv"}
 		],
 		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
 		BUSCO_COPY_TARGETS
+
+
 
 rule gmc_mikado_prepare:
 	input:
@@ -723,7 +726,8 @@ rule gmc_create_release_gffs:
 		sentinel = rules.gmc_collapse_metrics.output[1]
 	output:
 		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release.unsorted.gff3"),
-		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release_browser.unsorted.gff3")
+		os.path.join(config["outdir"], POST_PICK_PREFIX + ".release_browser.unsorted.gff3"),
+		rules.gmc_gff_genometools_check_post_pick.output[0] + ".old_new_id_relation.txt"
 	params:
 		annotation_version = config.get("annotation_version", "EIv1"),
 		genus_identifier = config.get("genus_identifier", "XYZ")
@@ -734,6 +738,28 @@ rule gmc_create_release_gffs:
 	shell:
 		"create_release_gff3 {input.gff} {input.metrics_info} --annotation-version {params.annotation_version} --genus-identifier {params.genus_identifier} 2> {LOG_DIR}/create_release_gff.log"
 
+rule gmc_create_release_metrics:
+	input:
+		rules.gmc_create_release_gffs.output[2],
+		rules.gmc_collapse_metrics.output[0]
+	output:
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".metrics.tsv")
+	run:
+		import csv
+		genes, transcripts = dict(), dict()
+		for new_gene, new_transcript, old_gene, old_transcript in csv.reader(open(input[0]), delimiter="\t"):
+			if not new_gene.startswith("#"):
+				genes[old_gene] = new_gene
+				transcripts[old_transcript] = new_transcript
+		with open(output[0], "w") as metrics_out:
+			for row in csv.reader(open(input[1]), delimiter="\t"):
+				if not row[0].startswith("#"):
+					row[1] = genes.get(row[1])
+					row[0] = transcripts.get(row[0])
+					if row[0] is None:
+						continue
+				print(*row, sep="\t", flush=True, file=metrics_out)
+				
 rule gmc_sort_release_gffs:
 	input:
 		rules.gmc_create_release_gffs.output
