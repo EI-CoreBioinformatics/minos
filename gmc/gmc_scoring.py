@@ -154,7 +154,7 @@ class ScoringMetricsManager(object):
 					# external.EI_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}
 					"""
 					print("  external.cpc: {rescaling: max, use_raw: true, multiplier: 1}", file=_out)
-					print("  {comment}external.busco: {{rescaling: max, use_raw: true, multiplier: {multiplier}}}".format(
+					print("  {comment}external.busco_proteins: {{rescaling: max, use_raw: true, multiplier: {multiplier}}}".format(
 						comment=bs_comment, multiplier=bs_multiplier
 					), file=_out)
 					# print("  # all boolean metrics values from here below", file=_out)
