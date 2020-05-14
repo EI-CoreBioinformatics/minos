@@ -46,7 +46,7 @@ setup(
 		script for script in glob.glob("bin/slurm/*_sub")
 	],
 	install_requires=[
-		"snakemake>5.4.0",
+		"snakemake>=5.14.0",
 		"drmaa",
 		"pyyaml>=5"
 	],
