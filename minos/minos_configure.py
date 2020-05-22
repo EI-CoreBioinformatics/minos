@@ -8,9 +8,9 @@ import subprocess
 
 from enum import Enum, unique, auto
 
-from gmc import __version__
-from gmc.gmc_scoring import ScoringMetricsManager
-from gmc.busco_configure import BuscoConfiguration
+from minos import __version__
+from minos.minos_scoring import ScoringMetricsManager
+from minos.busco_configure import BuscoConfiguration
 
 #!TODO: 
 # - scan config template for reference
@@ -30,7 +30,7 @@ class ExternalMetrics(Enum):
 MIKADO_CONFIGURE_CMD = "{cmd} --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
 
 
-class GmcRunConfiguration(dict):
+class MinosRunConfiguration(dict):
 	def _run_mikado_configure(self, args):
 		cmd = MIKADO_CONFIGURE_CMD.format(
 			cmd=self["program_calls"]["mikado"].format(container=args.mikado_container, program="configure"),

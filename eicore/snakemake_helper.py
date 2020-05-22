@@ -28,7 +28,7 @@ def get_etc_dir():
 
 ETC_DIR = get_etc_dir() 
 DEFAULT_HPC_CONFIG_FILE = os.path.join(ETC_DIR, "hpc_config.json")
-DEFAULT_CONFIG_FILE = os.path.join(ETC_DIR, "gmc_config.yaml")
+DEFAULT_CONFIG_FILE = os.path.join(ETC_DIR, "minos_config.yaml")
 
 @unique
 class RunMode(Enum):
@@ -218,7 +218,7 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
 						printshellcmds=True,
 						printreason=True,
 						stats=os.path.join(out_dir, os.path.basename(snakefile) + "-" + NOW + ".stats"),
-						jobname="gmc.{rulename}.{jobid}",
+						jobname="minos.{rulename}.{jobid}",
 						force_incomplete=True,
 						# detailed_summary=args.detailed_summary,
 						# list_resources=True,

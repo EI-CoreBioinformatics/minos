@@ -3,7 +3,7 @@ import glob
 import sys
 import csv
 
-from gmc.gmc_configure import ExternalMetrics
+from minos.minos_configure import ExternalMetrics
 
 def generate_metrics_info(metrics_path, _out, busco_data):
 

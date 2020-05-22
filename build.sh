@@ -1,6 +1,6 @@
 #!/bin/bash
 
-install_prefix=/ei/software/cb/gmc
+install_prefix=/ei/software/cb/minos
 expected_version=$(grep -o "version *= *[\".0-9]\+" setup.py | sed "s/[\" ]//g" | cut -f 2 -d =)
 
 
@@ -27,5 +27,5 @@ echo "Installing to $install_prefix/$version"
 
 #rm dist/*whl
 python setup.py bdist_wheel
-pip install --prefix=${install_prefix}/${version}/x86_64 -U dist/gmc-${version}-*.whl
-#pip install --install-option="--prefix=/ei/software/testing/gmc/${version}/x86_64" -U dist/gmc-${version}-*.whl
+pip install --prefix=${install_prefix}/${version}/x86_64 -U dist/minos-${version}-*.whl
+#pip install --install-option="--prefix=/ei/software/testing/minos/${version}/x86_64" -U dist/minos-${version}-*.whl

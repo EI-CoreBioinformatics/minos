@@ -134,14 +134,14 @@ class ScoringMetricsManager(object):
 
 		with open(scoring_template) as _in, open(outfile, "wt") as _out:
 			for line in _in:				
-				if line.strip().startswith("### GMC:GENERATE_NF_EXPRESSION"):
+				if line.strip().startswith("### MINOS:GENERATE_NF_EXPRESSION"):
 					line = next(_in)
 					print("  expression:", generate_nf_expression(self.metrics), file=_out)
-				elif line.strip().startswith("### GMC:GENERATE_NF_PARAMS"):
+				elif line.strip().startswith("### MINOS:GENERATE_NF_PARAMS"):
 					line = next(_in)
 					# print("    external.all_aF1: {operator: gt, value: 0.5}", file=_out)
 					print(*generate_nf_params(self.metrics), sep="\n", file=_out)
-				elif line.strip().startswith("### GMC:GENERATE_EXTERNAL_SCORING"):
+				elif line.strip().startswith("### MINOS:GENERATE_EXTERNAL_SCORING"):
 					line = next(_in)
 					print(*generate_external_scoring(self.metrics), sep="\n", file=_out)
 					# print("  # external.tpsi_cov: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
