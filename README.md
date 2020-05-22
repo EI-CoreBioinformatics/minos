@@ -79,5 +79,18 @@ Before running minos, the user has to register all dependencies in the `program_
     chmod 775 *.py
 
 
+## Citing minos
+
+TBD
+
+Since minos uses Mikado, please consider to cite:
+
+> Venturini L., Caim S., Kaithakottil G., Mapleson D.L., Swarbreck D. Leveraging multiple transcriptome assembly methods for improved gene structure annotation. GigaScience, Volume 7, Issue 8, 1 August 2018, giy093, [doi:10.1093/gigascience/giy093](https://doi.org/10.1093/gigascience/giy093)
+
+
+If you also use Portcullis junctions as input metric, please consider to cite:
+
+
+> Mapleson D.L., Venturini L., Kaithakottil G., Swarbreck D. Efficient and accurate detection of splice junctions from RNAseq with Portcullis. GigaScience, Volume 7, Issue 12, 12 December 2018, giy131, [doi:10.1093/gigascience/giy131](https://doi.org/10.1093/gigascience/giy131)
 
 
