@@ -1,7 +1,7 @@
 import os
 import glob
 import csv
-from gmc.scripts.analyse_busco import read_full_table, read_tx2gene, get_busco_categories
+from minos.scripts.analyse_busco import read_full_table, read_tx2gene, get_busco_categories
 from collections import Counter
 
 class BuscoTableGenerator:

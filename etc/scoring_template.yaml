@@ -25,7 +25,7 @@ as_requirements:
     max_exon_length: {operator: le, value: 10000}
 not_fragmentary:
   # expression: [combined_cds_length]
-  ### GMC:GENERATE_NF_EXPRESSION
+  ### MINOS:GENERATE_NF_EXPRESSION
   ### DO NOT MODIFY THIS OR PRECEDING LINE
   parameters:
     # is_complete: {operator: eq, value: true}
@@ -35,11 +35,11 @@ not_fragmentary:
     exon_num.mono: {operator: eq, value: 1}
     combined_cds_length.mono: {operator: gt, value: 300}
     # combined_cds_length: {operator: gt, value: 300}
-    ### GMC:GENERATE_NF_PARAMS
+    ### MINOS:GENERATE_NF_PARAMS
     ### DO NOT MODIFY THIS OR PRECEDING LINE
 scoring:
   # external metrics START
-  ### GMC:GENERATE_EXTERNAL_SCORING
+  ### MINOS:GENERATE_EXTERNAL_SCORING
   ### DO NOT MODIFY THIS OR PRECEDING LINE
   # external metrics END
   # internal metrics START

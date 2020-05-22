@@ -14,11 +14,11 @@ here = path.abspath(path.dirname("__file__"))
 with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 	description = long_description = description.read()
 
-name="gmc"
-version = "1.4.2"
+name="minos"
+version = "1.5"
 
 if sys.version_info.major != 3:
-	raise EnvironmentError("""gmc is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
+	raise EnvironmentError("""minos is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
 
 
 setup(
@@ -52,20 +52,20 @@ setup(
 	],
 	entry_points={
 		"console_scripts": [
-			"gmc=gmc.__main__:main",
-			"generate_metrics=gmc.scripts.generate_metrics:main",
-			"parse_mikado_gff=gmc.scripts.parse_mikado_gff:main",
-			"protein_completeness=gmc.scripts.protein_completeness:main",
-			"collapse_metrics=gmc.scripts.collapse_metrics:main",
-			"validate_gff3=gmc.scripts.validate_gff3:main",
-			"create_release_gff3=gmc.scripts.create_release_gff:main",
-			"sanity_check=gmc.scripts.sanity_check:main",
-			"parse_mikado_stats=gmc.scripts.parse_mikado_stats:main",
-			"analyse_busco=gmc.scripts.analyse_busco:main"
+			"minos=minos.__main__:main",
+			"generate_metrics=minos.scripts.generate_metrics:main",
+			"parse_mikado_gff=minos.scripts.parse_mikado_gff:main",
+			"protein_completeness=minos.scripts.protein_completeness:main",
+			"collapse_metrics=minos.scripts.collapse_metrics:main",
+			"validate_gff3=minos.scripts.validate_gff3:main",
+			"create_release_gff3=minos.scripts.create_release_gff:main",
+			"sanity_check=minos.scripts.sanity_check:main",
+			"parse_mikado_stats=minos.scripts.parse_mikado_stats:main",
+			"analyse_busco=minos.scripts.analyse_busco:main"
 		]
 	},
 	package_data={
-		"gmc.zzz": ["*.smk"]
+		"minos.zzz": ["*.smk"]
 	},
 	include_package_data=True,
 	data_files=[
