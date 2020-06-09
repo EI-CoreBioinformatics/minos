@@ -156,7 +156,8 @@ localrules:
 	busco_concat_protein_metrics,
 	busco_summary,
 	minos_create_release_metrics,
-	minos_collate_metric_oddities
+	minos_collate_metric_oddities,
+	minos_summarise_collapsed_metrics
 
 
 rule all:
@@ -180,6 +181,7 @@ rule all:
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
 			for suffix in {".gt_checked.gff", ".collapsed_metrics.tsv", ".gt_checked.validation_report.txt", ".release.unsorted.gff3", ".release_browser.unsorted.gff3"}
 		],
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".collapsed_metrics.summary.tsv"),
 		[
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
 			for suffix in {".release.gff3", ".release_browser.gff3",
@@ -728,6 +730,17 @@ rule minos_collapse_metrics:
 		with open(output[0], "w") as out:
 			mc.write_scores(config["collapse_metrics_thresholds"], stream=out)
 		open(output[1], "w").close()
+
+rule minos_summarise_collapsed_metrics:
+	input:
+		rules.minos_collapse_metrics.output[0]
+	output:
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".collapsed_metrics.summary.tsv")
+	run:
+		from minos.scripts.summarise_collapsed_metrics import CollapsedMetricsSummariser
+		with open(output[0], "w") as out:
+			CollapsedMetricsSummariser(input[0]).write_summary(stream=out)
+
 
 rule minos_create_release_gffs:
 	input:
