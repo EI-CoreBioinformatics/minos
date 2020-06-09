@@ -167,6 +167,9 @@ rule all:
 		os.path.join(config["outdir"], "mikado.subloci.gff3"),
 		os.path.join(config["outdir"], "mikado.monoloci.gff3"),
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
+		os.path.join(RESULTS_DIR, "mikado.subloci.metrics_oddities.tsv"),
+		os.path.join(RESULTS_DIR, "mikado.monoloci.metrics_oddities.tsv"),
+		os.path.join(RESULTS_DIR, "mikado.loci.metrics_oddities.tsv"),
 		[
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
 			for suffix in {".gff", ".proteins.fasta", ".table.txt", ".cds.fasta", ".cds.fasta.lengths", ".cdna.fasta"}
@@ -876,21 +879,28 @@ rule minos_generate_final_table:
 
 rule minos_collate_metric_oddities:
 	input:
-		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
-		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3"),
-		monoloci = os.path.join(config["outdir"], "mikado.monoloci.gff3"),	
+		loci = os.path.join(config["outdir"], "mikado.loci.metrics.tsv"),
+		subloci = os.path.join(config["outdir"], "mikado.subloci.metrics.tsv"),
+		monoloci = os.path.join(config["outdir"], "mikado.monoloci.metrics.tsv"),
+		old_new_rel = rules.minos_create_release_gffs.output[2],
 		final_table = rules.minos_generate_final_table.output.final_table
 	output:
-		rules.minos_final_sanity_check.output[0] + ".metric_oddities.tsv"
+		os.path.join(config["outdir"], "results", "mikado.loci.metrics_oddities.tsv"),
+		os.path.join(config["outdir"], "results", "mikado.subloci.metrics_oddities.tsv"),
+		os.path.join(config["outdir"], "results", "mikado.monoloci.metrics_oddities.tsv")
 	run:
+		import csv
 		from minos.scripts.metric_oddities import MetricOddityParser
-		tx2gene = {row[1]: row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
-		release_genes = set(tx2gene.values())
+		#tx2gene = {row[1]: row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
+		#release_genes = set(tx2gene.values())
+		release_transcripts = {row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
+		transcript_filter = {row[3] for row in csv.reader(open(input.old_new_rel), delimiter="\t") if not row[0].startswith("#") and row[1] in release_transcripts}
 		with open(output[0], "w") as loci_oddities_out:
-			MetricOddityParser(input.loci, config["report_metric_oddities"], release_genes).run(stream=loci_oddities_out)
-		
-	
-
+			MetricOddityParser(input[0], config["report_metric_oddities"], transcript_filter=transcript_filter).write_table(collapse=True, stream=loci_oddities_out)
+		with open(output[1], "w") as subloci_oddities_out:
+			MetricOddityParser(input[1], config["report_metric_oddities"]).write_table(collapse=False, stream=subloci_oddities_out)
+		with open(output[2], "w") as monoloci_oddities_out:
+			MetricOddityParser(input[2], config["report_metric_oddities"]).write_table(collapse=False, stream=monoloci_oddities_out)
 
 rule split_proteins_prepare:
 	input:
