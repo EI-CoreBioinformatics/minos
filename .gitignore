@@ -3,3 +3,4 @@ dist/
 gmc.egg-info/
 x86_64/
 scoring.test.yaml
+minos.egg-info/
