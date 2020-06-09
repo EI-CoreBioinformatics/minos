@@ -155,7 +155,8 @@ localrules:
 	busco_copy_results,
 	busco_concat_protein_metrics,
 	busco_summary,
-	minos_create_release_metrics
+	minos_create_release_metrics,
+	minos_collate_metric_oddities
 
 
 rule all:
@@ -164,7 +165,11 @@ rule all:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt"),
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
 		os.path.join(config["outdir"], "mikado.subloci.gff3"),
+		os.path.join(config["outdir"], "mikado.monoloci.gff3"),
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".metrics_oddities.tsv"),
+		#os.path.join(RESULTS_DIR, "mikado.monoloci.metrics_oddities.tsv"),
+		#os.path.join(RESULTS_DIR, "mikado.loci.metrics_oddities.tsv"),
 		[
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
 			for suffix in {".gff", ".proteins.fasta", ".table.txt", ".cds.fasta", ".cds.fasta.lengths", ".cdna.fasta"}
@@ -586,7 +591,8 @@ rule minos_mikado_pick:
 		db = rules.minos_mikado_serialise.output[1]
 	output:
 		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
-		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3")
+		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3"),
+		monoloci = os.path.join(config["outdir"], "mikado.monoloci.gff3")
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="pick"),
 		program_params = config["params"]["mikado"]["pick"],
@@ -596,7 +602,11 @@ rule minos_mikado_pick:
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_pick") * attempt
 	shell:
-		"{params.program_call} {params.program_params} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci-out $(basename {output.subloci}) -db {input.db} {input.gtf}"
+		"{params.program_call} {params.program_params}" + \
+		" -od {params.outdir} --procs {threads} --json-conf {input.config}" + \
+		" --subloci-out $(basename {output.subloci})" + \
+		" --monoloci-out $(basename {output.monoloci})" + \
+		" -db {input.db} {input.gtf}"
 
 rule minos_parse_mikado_pick:
 	input:
@@ -866,6 +876,33 @@ rule minos_generate_final_table:
 	run:
 		from minos.scripts.generate_final_table import generate_final_table
 		generate_final_table(input.seq_table, input.bt_conf_table, input.stats_table, output.final_table, output.summary)
+
+rule minos_collate_metric_oddities:
+	input:
+		loci = os.path.join(config["outdir"], "mikado.loci.metrics.tsv"),
+		subloci = os.path.join(config["outdir"], "mikado.subloci.metrics.tsv"),
+		monoloci = os.path.join(config["outdir"], "mikado.monoloci.metrics.tsv"),
+		old_new_rel = rules.minos_create_release_gffs.output[2],
+		final_table = rules.minos_generate_final_table.output.final_table
+	output:
+		os.path.join(config["outdir"], "results", RELEASE_PREFIX + ".metrics_oddities.tsv"),
+		#os.path.join(config["outdir"], "results", "mikado.subloci.metrics_oddities.tsv"),
+		#os.path.join(config["outdir"], "results", "mikado.monoloci.metrics_oddities.tsv")
+	run:
+		import csv
+		from minos.scripts.metric_oddities import MetricOddityParser
+		#tx2gene = {row[1]: row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
+		#release_genes = set(tx2gene.values())
+		release_transcripts = {row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
+		transcript_filter = {row[3] for row in csv.reader(open(input.old_new_rel), delimiter="\t") if not row[0].startswith("#") and row[1] in release_transcripts}
+		with open(output[0], "w") as loci_oddities_out:
+			MetricOddityParser(input[0], input[1], input[2], config["report_metric_oddities"], transcript_filter=transcript_filter).write_table(stream=loci_oddities_out)
+		#def __init__(self, final_metric_file, subloci_metric_file, monoloci_metric_file, oddities, transcript_filter=None):
+		#	MetricOddityParser(input[0], config["report_metric_oddities"], transcript_filter=transcript_filter).write_table(collapse=True, stream=loci_oddities_out)
+		#with open(output[1], "w") as subloci_oddities_out:
+		#	MetricOddityParser(input[1], config["report_metric_oddities"]).write_table(collapse=False, stream=subloci_oddities_out)
+		#with open(output[2], "w") as monoloci_oddities_out:
+		#	MetricOddityParser(input[2], config["report_metric_oddities"]).write_table(collapse=False, stream=monoloci_oddities_out)
 
 rule split_proteins_prepare:
 	input:
