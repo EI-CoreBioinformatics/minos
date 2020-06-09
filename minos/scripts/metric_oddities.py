@@ -9,31 +9,45 @@ METRIC_ODDITIES = ['{five_utr_length} >= 10000', '{five_utr_num} >= 5', '{three_
 class MetricOddityParser:
 
 	def parse_metrics(self, metric_file, transcript_filter=None):
+		data = dict()
 		for row in csv.DictReader(open(metric_file), delimiter="\t"):
 			if transcript_filter is None or row["tid"] in transcript_filter:
 				counts = [oddity for oddity in self.oddities if eval(oddity.format(**row))]
 				source = row["original_source"]
-				self.data.setdefault(
+				data.setdefault(
 					source,
 					Counter({oddity: 0 for oddity in self.oddities})
 				).update(counts)
-				
-	def __init__(self, metric_file, oddities, transcript_filter=None):
-		self.data = dict()
-		self.oddities = oddities
-		self.parse_metrics(metric_file, transcript_filter=transcript_filter)
+		return data
 
-	def write_table(self, collapse=True, stream=sys.stdout):
-		# collapse: True for loci, False for subloci and monoloci
-		header = list(self.data.keys()) if not collapse else ["counts"]
-		print("metric", *header, sep="\t", file=stream, flush=True)
+	def calc_stats(self, data, collapse=True):
+		stats = dict()
 		for oddity in self.oddities:
 			total = 0
 			row = list()
-			for source, counts in self.data.items():
+			for source, counts in data.items():
 				total += counts[oddity]
 				if not collapse:
 					row.append(counts[oddity])
 			if collapse:
 				row.append(total)
-			print(oddity.replace("{", "").replace("}", ""), *row, sep="\t", file=stream, flush=True)
+			stats[oddity.replace("{", "").replace("}", "")] = row
+		return stats
+
+	def __init__(self, final_metric_file, subloci_metric_file, monoloci_metric_file, oddities, transcript_filter=None):
+		self.oddities = oddities
+		self.data = self.calc_stats(self.parse_metrics(final_metric_file, transcript_filter=transcript_filter))
+		sub_data = self.parse_metrics(subloci_metric_file)
+		mono_data = self.parse_metrics(monoloci_metric_file)
+		combined = dict()
+		for tset in [sub_data, mono_data]:
+			for source, counts in tset.items():
+				combined.setdefault(source, Counter()).update(counts)
+		for metric, values in self.calc_stats(combined, collapse=False).items():
+			self.data[metric].extend(values)
+		self.header = ["metric", "final_set"] + list(combined.keys())
+
+	def write_table(self, stream=sys.stdout):
+		print(*self.header, sep="\t", file=stream, flush=True)
+		for metric, values in self.data.items():
+			print(metric, *values, sep="\t", file=stream, flush=True)
