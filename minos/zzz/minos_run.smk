@@ -155,7 +155,8 @@ localrules:
 	busco_copy_results,
 	busco_concat_protein_metrics,
 	busco_summary,
-	minos_create_release_metrics
+	minos_create_release_metrics,
+	minos_collate_metric_oddities
 
 
 rule all:
@@ -164,6 +165,7 @@ rule all:
 		os.path.join(EXTERNAL_METRICS_DIR, "metrics_info.txt"),
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
 		os.path.join(config["outdir"], "mikado.subloci.gff3"),
+		os.path.join(config["outdir"], "mikado.monoloci.gff3"),
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
 		[
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
@@ -586,7 +588,8 @@ rule minos_mikado_pick:
 		db = rules.minos_mikado_serialise.output[1]
 	output:
 		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
-		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3")
+		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3"),
+		monoloci = os.path.join(config["outdir"], "mikado.monoloci.gff3")
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="pick"),
 		program_params = config["params"]["mikado"]["pick"],
@@ -596,7 +599,11 @@ rule minos_mikado_pick:
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_pick") * attempt
 	shell:
-		"{params.program_call} {params.program_params} -od {params.outdir} --procs {threads} --json-conf {input.config} --subloci-out $(basename {output.subloci}) -db {input.db} {input.gtf}"
+		"{params.program_call} {params.program_params}" + \
+		" -od {params.outdir} --procs {threads} --json-conf {input.config}" + \
+		" --subloci-out $(basename {output.subloci})" + \
+		" --monoloci-out $(basename {output.monoloci})" + \
+		" -db {input.db} {input.gtf}"
 
 rule minos_parse_mikado_pick:
 	input:
@@ -866,6 +873,24 @@ rule minos_generate_final_table:
 	run:
 		from minos.scripts.generate_final_table import generate_final_table
 		generate_final_table(input.seq_table, input.bt_conf_table, input.stats_table, output.final_table, output.summary)
+
+rule minos_collate_metric_oddities:
+	input:
+		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
+		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3"),
+		monoloci = os.path.join(config["outdir"], "mikado.monoloci.gff3"),	
+		final_table = rules.minos_generate_final_table.output.final_table
+	output:
+		rules.minos_final_sanity_check.output[0] + ".metric_oddities.tsv"
+	run:
+		from minos.scripts.metric_oddities import MetricOddityParser
+		tx2gene = {row[1]: row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
+		release_genes = set(tx2gene.values())
+		with open(output[0], "w") as loci_oddities_out:
+			MetricOddityParser(input.loci, config["report_metric_oddities"], release_genes).run(stream=loci_oddities_out)
+		
+	
+
 
 rule split_proteins_prepare:
 	input:
