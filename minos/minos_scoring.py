@@ -7,6 +7,13 @@ from collections import OrderedDict
 EXTERNAL_METRICS_HEADERS = ["metric_name_prefix", "metric_class", "multiplier", "not_fragmentary_min_value", "file_path"]
 
 NF_SUFFIXES = {
+	"seq_prot": ["tCov"],
+	"blastdb_prot": ["tCov"],
+	"repeat": ["cov"],
+	"expression": ["tpm"],
+}
+
+SCORING_SUFFIXES = {
 	"seq_prot": ["qCov", "tCov"],
 	"blastdb_prot": ["qCov", "tCov"],
 	"repeat": ["cov"],
@@ -84,7 +91,7 @@ class ScoringMetricsManager(object):
 					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
 					for runid, run in runs.items():
 						for suffix in suffixes:						
-							ext_metrics.append("external.{}_{}".format(runid, suffix))				
+							ext_metrics.append("external.{}_{}".format(runid, suffix))
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
 			expression += ", or, "
@@ -101,18 +108,31 @@ class ScoringMetricsManager(object):
 							params.append("    external.{}_{}: {{operator: gt, value: {}}}".format(runid, suffix, run[0]["min_value"]))
 
 			return params
+
+		def parse_multiplier(m, k=4):
+			if "," in m:
+				m_split = m.split(",")
+				if len(m_split) != k:
+					raise ValueError("multi-multiplier string ({}) does not contain expected multipliers (k={})".format(m, k))
+				return dict(item.split(":") for item in m_split)
+			return {"default": m}
+				
 			
 		def generate_external_scoring(metrics):
-			scoring = list()			
+			scoring = list()
 
 			for mclass, runs in metrics.items():
 				if mclass in {"repeat", "junction"}:
 					continue
-				suffixes = NF_SUFFIXES.get(mclass, ["nF1", "jF1", "eF1", "aF1"])
+				suffixes = SCORING_SUFFIXES.get(mclass, ["nF1", "jF1", "eF1", "aF1"])
 				for runid, run in runs.items():
+					multipliers = parse_multiplier(run[0]["multiplier"], k=len(suffixes))
 					for suffix in suffixes:
 						comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
-						multiplier = run[0]["multiplier"]
+						# in case of multiple datasets per metric (e.g. kallisto), we always take the first item's multiplier
+						multiplier = multipliers.get(suffix, multipliers.get("default"))
+						if multiplier is None:
+							raise ValueError("Wasn't able to parse multiplier from {}".format(run[0]["multiplier"]))
 						if suffix == "tpm":
 							expression = "{{rescaling: max, multiplier: {}}}".format(multiplier)
 							suffix = ""
@@ -123,7 +143,7 @@ class ScoringMetricsManager(object):
 							"  {}external.{}{}: {}".format(comment, runid, suffix, expression)
 						)
 			
-			return scoring		
+			return scoring
 
 		if busco_scoring is None:
 			bs_comment, bs_multiplier = "#", 3
@@ -133,7 +153,7 @@ class ScoringMetricsManager(object):
 				raise ValueError("Invalid value for busco scoring multiplier: {}".format(bs_multiplier))
 
 		with open(scoring_template) as _in, open(outfile, "wt") as _out:
-			for line in _in:				
+			for line in _in:
 				if line.strip().startswith("### MINOS:GENERATE_NF_EXPRESSION"):
 					line = next(_in)
 					print("  expression:", generate_nf_expression(self.metrics), file=_out)
@@ -164,7 +184,7 @@ class ScoringMetricsManager(object):
 					# print("  # external.SRA_tpm_1: {rescaling: max, use_raw: true, multiplier: 10}", file=_out)
 					# print("  external.fln: {rescaling: max, use_raw: true, multiplier: 5}", file=_out)
 				else:
-					print(line, end="", file=_out)				
+					print(line, end="", file=_out)
 
 	def get_scoring_data(self):
 		return {label: self.getMetricsData(key) for key, label in METRIC_KEY_LABELS.items()}

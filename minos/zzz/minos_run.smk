@@ -594,7 +594,10 @@ rule minos_mikado_pick:
 	output:
 		loci = os.path.join(config["outdir"], "mikado.loci.gff3"),
 		subloci = os.path.join(config["outdir"], "mikado.subloci.gff3"),
-		monoloci = os.path.join(config["outdir"], "mikado.monoloci.gff3")
+		monoloci = os.path.join(config["outdir"], "mikado.monoloci.gff3"),
+		loci_metrics = os.path.join(config["outdir"], "mikado.loci.metrics.tsv"),
+		subloci_metrics = os.path.join(config["outdir"], "mikado.subloci.metrics.tsv"),
+		monoloci_metrics = os.path.join(config["outdir"], "mikado.monoloci.metrics.tsv")
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="pick"),
 		program_params = config["params"]["mikado"]["pick"],
@@ -892,11 +895,11 @@ rule minos_generate_final_table:
 
 rule minos_collate_metric_oddities:
 	input:
-		loci = os.path.join(config["outdir"], "mikado.loci.metrics.tsv"),
-		subloci = os.path.join(config["outdir"], "mikado.subloci.metrics.tsv"),
-		monoloci = os.path.join(config["outdir"], "mikado.monoloci.metrics.tsv"),
+		loci = rules.minos_mikado_pick.output.loci_metrics, 
+		subloci = rules.minos_mikado_pick.output.subloci_metrics,
+		monoloci = rules.minos_mikado_pick.output.monoloci_metrics,
 		old_new_rel = rules.minos_create_release_gffs.output[2],
-		final_table = rules.minos_generate_final_table.output.final_table
+		final_table = rules.minos_generate_final_table.output.final_table,
 	output:
 		os.path.join(config["outdir"], "results", RELEASE_PREFIX + ".metrics_oddities.tsv"),
 		#os.path.join(config["outdir"], "results", "mikado.subloci.metrics_oddities.tsv"),
