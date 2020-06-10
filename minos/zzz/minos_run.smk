@@ -237,8 +237,10 @@ rule minos_generate_tx2gene_maps:
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_generate_tx2gene_maps")
 	run:
-		from minos.scripts.generate_tx2gene_maps import generate_tx2gene_maps
-		generate_tx2gene_maps(input[0], output[0], wildcards.run)
+		from minos.scripts.generate_tx2gene_maps import Gxf8Parser
+		with open(output[0], "w") as _out:
+			for tid, gid in Gxf8Parser(input[0]).parse_file(input[0], wildcards.run):
+				print(tid, gid, sep="\t", flush=True, file=_out)
 
 rule minos_extract_exons:
 	input:
@@ -902,23 +904,13 @@ rule minos_collate_metric_oddities:
 		final_table = rules.minos_generate_final_table.output.final_table,
 	output:
 		os.path.join(config["outdir"], "results", RELEASE_PREFIX + ".metrics_oddities.tsv"),
-		#os.path.join(config["outdir"], "results", "mikado.subloci.metrics_oddities.tsv"),
-		#os.path.join(config["outdir"], "results", "mikado.monoloci.metrics_oddities.tsv")
 	run:
 		import csv
 		from minos.scripts.metric_oddities import MetricOddityParser
-		#tx2gene = {row[1]: row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
-		#release_genes = set(tx2gene.values())
 		release_transcripts = {row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
 		transcript_filter = {row[3] for row in csv.reader(open(input.old_new_rel), delimiter="\t") if not row[0].startswith("#") and row[1] in release_transcripts}
 		with open(output[0], "w") as loci_oddities_out:
 			MetricOddityParser(input[0], input[1], input[2], config["report_metric_oddities"], transcript_filter=transcript_filter).write_table(stream=loci_oddities_out)
-		#def __init__(self, final_metric_file, subloci_metric_file, monoloci_metric_file, oddities, transcript_filter=None):
-		#	MetricOddityParser(input[0], config["report_metric_oddities"], transcript_filter=transcript_filter).write_table(collapse=True, stream=loci_oddities_out)
-		#with open(output[1], "w") as subloci_oddities_out:
-		#	MetricOddityParser(input[1], config["report_metric_oddities"]).write_table(collapse=False, stream=subloci_oddities_out)
-		#with open(output[2], "w") as monoloci_oddities_out:
-		#	MetricOddityParser(input[2], config["report_metric_oddities"]).write_table(collapse=False, stream=monoloci_oddities_out)
 
 rule split_proteins_prepare:
 	input:
