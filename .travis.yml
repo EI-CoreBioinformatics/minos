@@ -17,4 +17,6 @@ install:
 script:
   - python --version
   - which minos;
+  - echo "BLAHBLAHBLAH";
+  - python -c "from minos import __version__; print(__version__);"
   - minos -h;
