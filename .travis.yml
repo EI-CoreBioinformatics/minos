@@ -17,4 +17,4 @@ install:
 script:
   - python --version
   - which minos;
-  - "$(which minos) -h;"
+  - minos -h;
