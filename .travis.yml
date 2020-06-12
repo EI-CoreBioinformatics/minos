@@ -13,4 +13,4 @@ before_install:
 install:
   - python setup.py develop;
 script:
-  - minos -h
+  - python --version
