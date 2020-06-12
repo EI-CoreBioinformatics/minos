@@ -13,7 +13,7 @@ install:
   - sed -i "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
   - conda env create -n env_name --file environment.yml
   - source activate env_name
-  - python setup.py develop;
+  - python setup.py install;
 script:
   - set -x
   - python --version
