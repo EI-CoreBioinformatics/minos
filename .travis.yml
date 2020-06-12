@@ -11,4 +11,6 @@ before_install:
   - export PATH=/home/travis/miniconda3/bin:$PATH
   - conda update --yes conda
 install:
-  - python setup.py develop
+  - python setup.py develop;
+script:
+  - minos -h
