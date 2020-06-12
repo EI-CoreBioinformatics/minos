@@ -15,8 +15,9 @@ install:
   - source activate env_name
   - python setup.py develop;
 script:
+  - set -x
   - python --version
-  - which minos;
-  - echo "BLAHBLAHBLAH";
+  - which minos
+  - echo "BLAHBLAHBLAH"
   - python -c "from minos import __version__; print(__version__);"
-  - minos -h;
+  - minos -h
