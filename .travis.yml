@@ -17,4 +17,5 @@ install:
   - python setup.py develop;
 script:
   - python --version
-  - minos -h;
+  - minos configure -h;
+  - minos run -h; 
