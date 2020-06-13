@@ -1,0 +1,9 @@
+name: minos
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - snakemake>=5.14.0
+  - drmaa
+  - pyyaml>=5
+  - defaults::python>=3.6

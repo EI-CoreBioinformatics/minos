@@ -1,7 +1,6 @@
 language: python
 os: linux
 python:
-  - "3.6"
   - "3.7"
 # Setup anaconda, see https://gist.github.com/dan-blanchard/7045057
 before_install:
@@ -11,4 +10,14 @@ before_install:
   - export PATH=/home/travis/miniconda3/bin:$PATH
   - conda update --yes conda
 install:
-  - python setup.py develop
+  - sed -i "s/defaults::python.*/defaults::python=$TRAVIS_PYTHON_VERSION/" environment.yml
+  - conda env create -n env_name --file environment.yml
+  - source activate env_name
+  - python setup.py install;
+script:
+  - set -x
+  - python --version
+  - which minos
+  - echo "BLAHBLAHBLAH"
+  - python -c "from minos import __version__; print(__version__);"
+  - minos -h
