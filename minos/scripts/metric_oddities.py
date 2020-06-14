@@ -8,10 +8,10 @@ METRIC_ODDITIES = ['{five_utr_length} >= 10000', '{five_utr_num} >= 5', '{three_
 
 class MetricOddityParser:
 
-	def parse_metrics(self, metric_file, transcript_filter=None):
+	def parse_metrics(self, metric_file, transcript_data=None):
 		data = dict()
 		for row in csv.DictReader(open(metric_file), delimiter="\t"):
-			if transcript_filter is None or row["tid"] in transcript_filter:
+			if transcript_data is None or row["tid"] in transcript_data:
 				counts = [oddity for oddity in self.oddities if eval(oddity.format(**row))]
 				source = row["original_source"]
 				data.setdefault(
@@ -34,9 +34,16 @@ class MetricOddityParser:
 			stats[oddity.replace("{", "").replace("}", "")] = row
 		return stats
 
-	def __init__(self, final_metric_file, subloci_metric_file, monoloci_metric_file, oddities, transcript_filter=None):
+	def __init__(self, final_metric_file, subloci_metric_file, monoloci_metric_file, oddities, transcript_data=None):
 		self.oddities = oddities
-		self.data = self.calc_stats(self.parse_metrics(final_metric_file, transcript_filter=transcript_filter))
+		self.data = self.calc_stats(self.parse_metrics(final_metric_file, transcript_data=transcript_data))
+		self.header = ["metric", "final_set"]
+		if transcript_data is not None:
+			hi_conf_pc = {k: v for k, v in transcript_data.items() if v[0] == "High" and v[1] == "protein_coding_gene"}
+			self.header.append("final_set_hiconf_protein_coding")
+			for metric, values in self.calc_stats(self.parse_metrics(final_metric_file, transcript_data=hi_conf_pc)).items():
+				self.data[metric].extend(values)
+
 		sub_data = self.parse_metrics(subloci_metric_file)
 		mono_data = self.parse_metrics(monoloci_metric_file)
 		combined = dict()
@@ -45,7 +52,7 @@ class MetricOddityParser:
 				combined.setdefault(source, Counter()).update(counts)
 		for metric, values in self.calc_stats(combined, collapse=False).items():
 			self.data[metric].extend(values)
-		self.header = ["metric", "final_set"] + list(combined.keys())
+		self.header.extend(combined.keys())
 
 	def write_table(self, stream=sys.stdout):
 		print(*self.header, sep="\t", file=stream, flush=True)
