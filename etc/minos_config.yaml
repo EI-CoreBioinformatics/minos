@@ -81,6 +81,6 @@ report_metric_oddities:
  - "{selected_cds_fraction} <= 0.3"
  - "{canonical_intron_proportion} != 1"
  - "{non_verified_introns_num} >= 1"
- - "not {only_non_canonical_splicing}"
+ - "{only_non_canonical_splicing}"
  - "{proportion_verified_introns} <= 0.5"
  - "{suspicious_splicing}"
