@@ -954,10 +954,13 @@ rule minos_collate_metric_oddities:
 	run:
 		import csv
 		from minos.scripts.metric_oddities import MetricOddityParser
-		release_transcripts = {row[0] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
-		transcript_filter = {row[3] for row in csv.reader(open(input.old_new_rel), delimiter="\t") if not row[0].startswith("#") and row[1] in release_transcripts}
+		release_transcripts = {row[0]: row[14:16] for row in csv.reader(open(input.final_table), delimiter="\t") if not row[0].startswith("#")}
+		transcript_data = {
+			row[3]: release_transcripts.get(row[1])
+			for row in csv.reader(open(input.old_new_rel), delimiter="\t") if not row[0].startswith("#") and row[1] in release_transcripts
+		}
 		with open(output[0], "w") as loci_oddities_out:
-			MetricOddityParser(input[0], input[1], input[2], config["report_metric_oddities"], transcript_filter=transcript_filter).write_table(stream=loci_oddities_out)
+			MetricOddityParser(input[0], input[1], input[2], config["report_metric_oddities"], transcript_data=transcript_data).write_table(stream=loci_oddities_out)
 
 rule split_proteins_prepare:
 	input:

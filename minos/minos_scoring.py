@@ -126,13 +126,18 @@ class ScoringMetricsManager(object):
 					continue
 				suffixes = SCORING_SUFFIXES.get(mclass, ["nF1", "jF1", "eF1", "aF1"])
 				for runid, run in runs.items():
+					# in case of multiple datasets per metric (e.g. kallisto), we always take the first item's multiplier
 					multipliers = parse_multiplier(run[0]["multiplier"], k=len(suffixes))
 					for suffix in suffixes:
-						comment = "#" if suffix in ["nF1", "jF1", "eF1"] else ""
-						# in case of multiple datasets per metric (e.g. kallisto), we always take the first item's multiplier
-						multiplier = multipliers.get(suffix, multipliers.get("default"))
+						multiplier = multipliers.get(suffix)
+						comment = ""
 						if multiplier is None:
-							raise ValueError("Wasn't able to parse multiplier from {}".format(run[0]["multiplier"]))
+							multiplier = multipliers.get("default")
+							if multiplier is None:
+								raise ValueError("Wasn't able to parse multiplier from {}".format(run[0]["multiplier"]))
+							if suffix in ["nF1", "jF1", "eF1"]:
+								comment = "#"
+
 						if suffix == "tpm":
 							expression = "{{rescaling: max, multiplier: {}}}".format(multiplier)
 							suffix = ""
