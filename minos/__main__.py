@@ -38,6 +38,7 @@ def add_configure_parser(subparsers):
 	configure_parser.add_argument("--external", type=str, default="")
 	configure_parser.add_argument("--external-metrics", type=str, default="")
 	configure_parser.add_argument("--blastmode", choices=("blastp", "blastx"), default="blastp")
+	configure_parser.add_argument("--use-diamond", action="store_true", help="Use diamond instead of NCBI blast+ suite (which is the default)")
 	configure_parser.add_argument("--annotation-version", type=str, default="EIv1")
 	configure_parser.add_argument("--genus-identifier", type=str, default="XYZ")
 	configure_parser.add_argument("--use-tpm-for-picking", action="store_true")

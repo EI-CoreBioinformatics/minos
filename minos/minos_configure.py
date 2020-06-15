@@ -72,6 +72,7 @@ class MinosRunConfiguration(dict):
 			"external-metrics": args.external_metrics,
 			"reference-sequence": args.reference,
 			"blast-mode": args.blastmode,
+			"use-diamond": args.use_diamond,
 			"use-tpm-for-picking": args.use_tpm_for_picking,
 			"external-metrics-data": args.external_metrics,
 			"annotation_version": args.annotation_version,
