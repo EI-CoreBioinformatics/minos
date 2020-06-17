@@ -2,10 +2,11 @@ import os
 import glob
 import sys
 import csv
+import re
 
 from minos.minos_configure import ExternalMetrics
 
-def generate_metrics_info(metrics_path, _out, busco_data):
+def generate_metrics_info(metrics_path, _out, busco_data, use_diamond):
 
 	# this block is unstable against tempering with the structure of the generate_metrics dir
 	# might work better as state-machine
@@ -33,8 +34,14 @@ def generate_metrics_info(metrics_path, _out, busco_data):
 				mclass = "blast"
 				for mid in dirs:
 					cwd, _, files = next(walk)
-					path = glob.glob(os.path.join(cwd, "*.tophit"))[0]
-					rows.append((ExternalMetrics.PROTEIN_BLAST_TOPHITS, mclass, mid, path))
+					pattern = (r"\DDIAMOND\D*\Dtophit" if use_diamond else r"\DBLAST\D*\Dtophit")
+					for file in filter(lambda x: re.search(pattern, x), files):
+						path = os.path.join(cwd,file)
+						rows.append((ExternalMetrics.PROTEIN_BLAST_TOPHITS, mclass, mid, path))
+						try:
+							_ = next(walk)
+						except StopIteration:
+							pass
 					# last block is not necessary if we clean up the blast databases before
 					try:
 						_ = next(walk)
