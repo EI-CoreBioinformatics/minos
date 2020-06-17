@@ -33,20 +33,14 @@ def generate_metrics_info(metrics_path, _out, busco_data, use_diamond):
 			elif cwd_base in {"blastp", "blastx"}:
 				mclass = "blast"
 				for mid in dirs:
-					cwd, _, files = next(walk)
+					cwd, dbdirs, files = next(walk)
 					pattern = (r"\DDIAMOND\D*\Dtophit" if use_diamond else r"\DBLAST\D*\Dtophit")
-					for file in filter(lambda x: re.search(pattern, x), files):
-						path = os.path.join(cwd,file)
+					for f in filter(lambda x: re.search(pattern, x), files):
+						path = os.path.join(cwd, f)
 						rows.append((ExternalMetrics.PROTEIN_BLAST_TOPHITS, mclass, mid, path))
-						try:
-							_ = next(walk)
-						except StopIteration:
-							pass
-					# last block is not necessary if we clean up the blast databases before
-					try:
+					# skip the blast databases (if existing)
+					for dbdir in dbdirs:
 						_ = next(walk)
-					except StopIteration:
-						pass
 			elif cwd_base == "kallisto":
 				mclass = "expression"
 				for mid in dirs:
