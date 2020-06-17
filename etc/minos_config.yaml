@@ -25,6 +25,13 @@ params:
     tophit:
       pident_threshold: 0.0
       qcov_threshold: 0.0
+  diamond:
+    makedb: ""
+    blastp: "--max-target-seqs 1 --evalue 1e-5"
+    blastx: "--max-target-seqs 1 --evalue 1e-5"
+    tophit:
+      pident_threshold: 0.0
+      qcov_threshold: 0.0
   genometools:
     check: "gff3 -sort -tidy -retainids yes -addids no"
     sort: "gff3 -sort -tidy -retainids yes"
@@ -46,6 +53,7 @@ program_calls:
   cpc2: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img CPC2.py"
   kallisto: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img kallisto {program}"
   blast: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img {program}"
+  diamond: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img diamond {program}"
   genometools: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img gt"
   prinseq: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img prinseq-lite.pl"
   busco: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.busco.img busco"

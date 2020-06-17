@@ -58,7 +58,7 @@ for run in config.get("data", dict()).get("protein-runs", dict()):
 for run in config.get("data", dict()).get("transcript-runs", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", run, "mikado_" + run + ".refmap"))
 for run in config.get("data", dict()).get("protein-seqs", dict()):
-	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".{}.tsv.tophit".format(config["blast-mode"])))
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], run, run + ".DIAMOND.{}.tsv.tophit".format(config["blast-mode"]) if config["use-diamond"] else run + ".BLAST.{}.tsv.tophit".format(config["blast-mode"])))
 for run in config.get("data", dict()).get("repeat-data", dict()):
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{}.no_strand.exon.gff".format(run)))
 	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{}.no_strand.exon.gff.cbed".format(run)))
@@ -428,25 +428,27 @@ rule minos_metrics_mikado_compare_vs_proteins:
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log}" + \
 		" && touch {output[0]}"
 
+BLASTDB_CMD = "{params.program_call} {params.program_params} -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log}"
+DIAMONDDB_CMD = "{params.program_call} {params.program_params} --in {input[0]} --db {params.outdir}/{params.db_prefix} --verbose &> {log}"
+
 rule minos_metrics_blastp_mkdb:
 	input:
 		get_protein_sequences
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "blastdb", "{run}")
+		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "diamonddb" if config["use-diamond"] else "blastdb", "{run}")
 	log:
-		os.path.join(LOG_DIR, config["prefix"] + ".makeblastdb.{run}.log")
+		os.path.join(LOG_DIR, config["prefix"] + ".makedb.{run}.log" if config["use-diamond"] else config["prefix"] + ".makeblastdb.{run}.log")
 	params:
-		program_call = config["program_calls"]["blast"].format(program="makeblastdb"),
-		program_params = config["params"]["blast"]["makeblastdb"],
-		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run, "blastdb"),
+		program_call = config["program_calls"]["diamond"].format(program="makedb") if config["use-diamond"] else config["program_calls"]["blast"].format(program="makeblastdb"),
+		program_params = config["params"]["diamond"]["makedb"] if config["use-diamond"] else config["params"]["blast"]["makeblastdb"],
+		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], wildcards.run, "diamonddb" if config["use-diamond"] else "blastdb"),
 		db_prefix = lambda wildcards: wildcards.run
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_mkdb")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_blastp_mkdb") * attempt
 	shell:
-		"{params.program_call} {params.program_params} -in {input[0]} -out {params.outdir}/{params.db_prefix} -logfile {log}" + \
-		" && touch {output[0]}"
+		"{cmd} && touch {{output[0]}}".format(cmd=DIAMONDDB_CMD if config["use-diamond"] else BLASTDB_CMD)
 
 checkpoint minos_chunk_proteins:
 	input:
@@ -467,30 +469,33 @@ checkpoint minos_chunk_proteins:
 		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
 		" && awk 'BEGIN {{n=0;m=1;}} /^>/ {{ if (n%{params.chunksize}==0) {{f=sprintf(\"{params.outdir}/chunk-%d.txt\",m); m++;}}; n++; }} {{ print >> f }}' {input[0]} &> {log}"
 
+BLAST_CMD = "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} " + \
+			"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
+DIAMOND_CMD = "{params.program_call} {params.program_params} --query {input.chunk} --out {output[0]} --threads {threads} " + \
+			"--db {input.db} --outfmt 6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore &> {log}"
+			
 rule minos_metrics_blastp_chunked:
 	input:
 		chunk = os.path.join(TEMP_DIR, "chunked_proteins", "chunk-{chunk}.txt"),
 		db = rules.minos_metrics_blastp_mkdb.output[0]
 	output:
-		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv")
+		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}.DIAMOND." + config["blast-mode"] + ".tsv" if config["use-diamond"] else "chunk-{chunk}.BLAST." + config["blast-mode"] + ".tsv")
 	log:
-		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}." + config["blast-mode"] + ".log")
+		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}.DIAMOND." + config["blast-mode"] + ".log" if config["use-diamond"] else "chunk-{chunk}.{run}.BLAST." + config["blast-mode"] + ".log")
 	params:
-		program_call = config["program_calls"]["blast"].format(program=config["blast-mode"]),
-		program_params = config["params"]["blast"][config["blast-mode"]]
+		program_call = config["program_calls"]["diamond" if config["use-diamond"] else "blast"].format(program=config["blast-mode"]),
+		program_params = config["params"]["diamond" if config["use-diamond"] else "blast"][config["blast-mode"]]
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_chunked")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_blastp_chunked") * attempt
 	shell:
-		"{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} " + \
-		"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
-
+		"{cmd}".format(cmd=DIAMOND_CMD if config["use-diamond"] else BLAST_CMD)
 
 def aggregate_blastp_input(wildcards):
 	checkpoint_output = checkpoints.minos_chunk_proteins.get(**wildcards).output.chunk_dir
 	return expand(
-		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}." + config["blast-mode"] + ".tsv"),
+		os.path.join(TEMP_DIR, "chunked_proteins", "{run}", "chunk-{chunk}.DIAMOND." + config["blast-mode"] + ".tsv" if config["use-diamond"] else "chunk-{chunk}.BLAST." + config["blast-mode"] + ".tsv"),
 		run=wildcards.run,
 		chunk=glob_wildcards(os.path.join(checkpoint_output, "chunk-{chunk}.txt")).chunk
 	)
@@ -500,7 +505,7 @@ rule minos_metrics_blastp_combine:
 	input:
 		aggregate_blastp_input
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}." + config["blast-mode"] + ".tsv")		
+		os.path.join(EXTERNAL_METRICS_DIR, config["blast-mode"], "{run}", "{run}.DIAMOND." + config["blast-mode"] + ".tsv" if config["use-diamond"] else "{run}.BLAST." + config["blast-mode"] + ".tsv")
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_combine")
 	resources:
@@ -518,8 +523,8 @@ rule minos_metrics_blastp_tophit:
 	output:
 		rules.minos_metrics_blastp_combine.output[0] + ".tophit"
 	params:
-		pident_threshold = config["params"]["blast"]["tophit"]["pident_threshold"],
-		qcov_threshold = config["params"]["blast"]["tophit"]["qcov_threshold"]
+		pident_threshold = config["params"]["diamond" if config["use-diamond"] else "blast"]["tophit"]["pident_threshold"],
+		qcov_threshold = config["params"]["diamond" if config["use-diamond"] else "blast"]["tophit"]["qcov_threshold"]
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_tophit")
 	resources:
@@ -550,7 +555,7 @@ rule minos_metrics_generate_metrics_info:
 	run:
 		from minos.scripts.generate_metrics_info import generate_metrics_info
 		busco_data = list(config["data"].get("busco-data", {"busco_proteins": ""}).keys())[0]
-		generate_metrics_info(EXTERNAL_METRICS_DIR, output[0], busco_data)
+		generate_metrics_info(EXTERNAL_METRICS_DIR, output[0], busco_data, config["use-diamond"])
 
 
 rule minos_metrics_generate_metrics_matrix:
