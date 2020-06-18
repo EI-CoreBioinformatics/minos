@@ -15,7 +15,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 	description = long_description = description.read()
 
 name="minos"
-version = "1.6"
+version = "1.6.1"
 
 if sys.version_info.major != 3:
 	raise EnvironmentError("""minos is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
@@ -69,8 +69,8 @@ setup(
 	},
 	include_package_data=True,
 	data_files=[
-		("etc", glob.glob("etc/*.*")),
-		("dependencies", glob.glob("dependencies/*.*"))
+		(ddir, glob.glob("{}/*.*".format(ddir)))
+		for ddir in ("etc", "dependencies")
 	]
 )
 
