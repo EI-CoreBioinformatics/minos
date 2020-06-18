@@ -69,7 +69,7 @@ setup(
 	},
 	include_package_data=True,
 	data_files=[
-		("etc", glob.glob("etc/*.*"))
+		("etc", glob.glob("etc/*.*")),
 		("dependencies", glob.glob("dependencies/*.*"))
 	]
 )
