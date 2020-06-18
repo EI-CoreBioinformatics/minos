@@ -18,6 +18,7 @@ script:
   - set -x
   - python --version
   - which minos
+  - ls $(dirname $(which minos))/..
   - echo "BLAHBLAHBLAH"
   - python -c "from minos import __version__; print(__version__);"
   - minos -h
