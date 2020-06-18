@@ -15,7 +15,7 @@ install:
   - source activate env_name
   - python setup.py install;
 script:
-  - set -x
+  # - set -x
   - python --version
   - which minos
   - ls $(dirname $(which minos))/..
