@@ -8,3 +8,4 @@ dependencies:
   - drmaa
   - pyyaml>=5
   - defaults::python>=3.6
+  - mikado

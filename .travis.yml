@@ -28,3 +28,4 @@ script:
   - export CPC_HOME=$(pwd)/CPC2-beta
   - ls -l $CPC_HOME/bin
   - CPC2.py -h
+  - mikado -h
