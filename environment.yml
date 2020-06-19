@@ -3,6 +3,7 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
+  - biopython
   - snakemake>=5.14.0
   - drmaa
   - pyyaml>=5

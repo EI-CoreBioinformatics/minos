@@ -15,9 +15,16 @@ install:
   - source activate env_name
   - python setup.py install;
 script:
-  - set -x
+  # - set -x
   - python --version
   - which minos
+  - ls $(dirname $(which minos))/../lib/python3.7/site-packages
+  - ls $(dirname $(which minos))/../etc
   - echo "BLAHBLAHBLAH"
   - python -c "from minos import __version__; print(__version__);"
   - minos -h
+  - install_cpc2 .
+  - export PATH=$PATH:$(pwd)/CPC2-beta/bin
+  - export CPC_HOME=$(pwd)/CPC2-beta
+  - ls -l $CPC_HOME/bin
+  - CPC2.py -h
