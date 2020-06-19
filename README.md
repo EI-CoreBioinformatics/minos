@@ -61,8 +61,13 @@ Before running minos, the user has to register all dependencies in the `program_
 - CPC2 requires Python2
 - instructions for a Python3 port of CPC2 are available below (also part of our main dependency container definition)
 - alternatively, the user has to ensure a local CPC2 installation (but still should port CPC2 to Python3)
+- There is a CPC2 installation/patch script `minos/scripts/install_cpc2.py`, which can be invoked with `install_cpc2 PATH_TO_INSTALLATION` after installation of minos. 
 
-##### Porting CPC2 to Python3
+      install_cpc2 PATH_TO_INSTALLATION
+      export CPC_HOME=PATH_TO_INSTALLATION/CPC2-beta
+      export PATH=$PATH/CPC_HOME/bin
+
+##### Manually porting CPC2 to Python3
     # patch compress.py
     sed -i "s/\bfile(/open(/g" compress.py
     # patch CPC2.py
