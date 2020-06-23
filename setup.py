@@ -47,7 +47,7 @@ setup(
 	],
 	install_requires=[
 		"snakemake>=5.14.0",
-		"drmaa",
+		"drmaa==0.7.9",
 		"pyyaml>=5"
 	],
 	entry_points={
