@@ -18,6 +18,7 @@ script:
   # - set -x
   - python --version
   - which minos
+  - ls $(dirname $(which minos))
   - ls $(dirname $(which minos))/../lib/python3.7/site-packages
   - ls $(dirname $(which minos))/../etc
   - echo "BLAHBLAHBLAHx"
