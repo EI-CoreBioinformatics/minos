@@ -28,3 +28,8 @@ script:
   - export CPC_HOME=$(pwd)/CPC2-beta
   - ls -l $CPC_HOME/bin
   - CPC2.py -h
+  - wget https://zenodo.org/record/3906678/files/sample_data.tar.gz?download=1 -O sample_data.tar.gz
+  - tar xvzf sample_data.tar.gz
+  - cp -v sample_data/input_config/* .
+  - cp -v $(dirname $(which minos))/../etc/minos_config.yaml .
+  - ls -l .
