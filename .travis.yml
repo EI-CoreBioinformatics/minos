@@ -20,7 +20,7 @@ script:
   - which minos
   - ls $(dirname $(which minos))/../lib/python3.7/site-packages
   - ls $(dirname $(which minos))/../etc
-  - echo "BLAHBLAHBLAH"
+  - echo "BLAHBLAHBLAHx"
   - python -c "from minos import __version__; print(__version__);"
   - minos -h
   - install_cpc2 .
