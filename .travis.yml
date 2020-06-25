@@ -38,4 +38,5 @@ script:
   - cp -v $(dirname $(which minos))/../etc/minos_config.yaml.example .
   - ls -l .
   - minos configure --no_drmaa --scheduler NONE --use_conda --config-file minos_config.yaml.example -o minos_test_run --external external.yaml --external-metrics external_metrics.txt --use-tpm-for-picking --genus-identifier CIS --annotation-version EIv1 --busco-level none list.txt scoring_template.yaml sample_data/genome/scaffold_6.fa
+  - minos run --no_drmaa --scheduler NONE --use_conda -o minos_test_run
   # minos configure --mikado-container $MIKADO -o ${RUN_DIR} --external external.yaml --external-metrics external_metrics.txt $TPM_FOR_PICKING --genus-identifier ABC --annotation-version EIv2 --busco-lineage /ei/workarea/group-pb/BUSCO_DATABASES/odb10/embryophyta_odb10 $INPUT_MODELS $SCORING_TEMPLATE Melia_azedarach.genome.uc.fasta

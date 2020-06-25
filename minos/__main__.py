@@ -144,7 +144,7 @@ def main():
 			elif args.rerun_from == "collapse_metrics" and os.path.exists(collapse_sentinel):
 				open(collapse_sentinel, "w").close()
 
-		result = run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun)
+		result = run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun, use_conda=args.use_conda)
 		if result:
 			open(minos_complete_sentinel, "w").close()
 	
