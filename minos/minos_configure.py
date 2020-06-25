@@ -58,7 +58,7 @@ class MinosRunConfiguration(dict):
 
 
 		print("Running mikado configure...")
-		result = run_snakemake(snake, args.outdir, config_configuration_file, exe_env, dryrun=args.dryrun)
+		result = run_snakemake(snake, args.outdir, config_configuration_file, exe_env, dryrun=args.dryrun, use_conda=args.use_conda)
 		if not result:
 			raise ValueError("Problem running mikado configure.")
 		# cmd = MIKADO_CONFIGURE_CMD.format(

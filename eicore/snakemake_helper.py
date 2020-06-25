@@ -79,6 +79,7 @@ def make_exeenv_arg_group(parser, default_hpc_config_file=DEFAULT_HPC_CONFIG_FIL
 						help="""If the snakemake pipeline is not running because it is reporting that the directory is locked, 
 						then you can unlock it using this option.  Please make sure that there are no other snakemake jobs 
 						are running in this directory before using this option!""")
+	hpc_group.add_argument("--use_conda", action="store_true", default=False)
 
 	return parser
 
