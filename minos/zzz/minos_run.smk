@@ -904,7 +904,7 @@ rule minos_extract_final_sequences:
 		program_call = config["program_calls"]["gffread"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
 	conda:
-		os.path.join(ENV_DIR, "gffread")
+		os.path.join(ENV_DIR, "gffread.yaml")
 	shell:
 		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
 

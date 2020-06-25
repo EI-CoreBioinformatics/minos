@@ -35,6 +35,9 @@ script:
   - mikado -h
   - wget https://zenodo.org/record/3906678/files/sample_data.tar.gz?download=1 -O sample_data.tar.gz
   - tar xvzf sample_data.tar.gz
+  - wget https://busco-data.ezlab.org/v4/data/lineages/arthropoda_odb10.2019-11-20.tar.gz -O arthropoda_odb10.tar.gz
+  - tar xvzf arthropoda_odb10.tar.gz
+  - ls arthropoda_odb10
   - cp -v sample_data/input_config/* .
   - cp -v $(dirname $(which minos))/../etc/minos_config.yaml.example .
   - ls -l .
