@@ -133,7 +133,9 @@ BUSCO_COPY = [
 BUSCO_COPY_SOURCES = [src for src, dest in BUSCO_COPY]
 BUSCO_COPY_TARGETS = [dest for src, dest in BUSCO_COPY]
 
-if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
+RUN_BUSCO = BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS
+
+if RUN_BUSCO:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
 	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
 	OUTPUTS.extend(BUSCO_PROTEIN_PREPARE_RUNS)
@@ -197,7 +199,7 @@ rule all:
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
 			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary", ".metrics.tsv"}
 		],
-		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
+		BUSCO_ANALYSES + ([BUSCO_TABLE] if RUN_BUSCO else []),
 		BUSCO_COPY_TARGETS
 
 
@@ -1139,22 +1141,24 @@ rule busco_copy_results:
 			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parents=True)
 			shutil.copyfile(src, tgt)
 
-rule busco_summary:
-	input:
-		rules.minos_mikado_prepare_extract_coords.output[0],
-		rules.minos_mikado_pick_extract_coords.output[0],
-		BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS
-	output:
-		BUSCO_TABLE
-	run:
-		from minos.scripts.generate_busco_tables import BuscoTableGenerator
-
-		btg = BuscoTableGenerator(
-			os.path.join(config["outdir"], "tx2gene"),
-			input[0],
-			input[1],
-			os.path.join(BUSCO_PATH, "runs")	
-		)
-		btg.write_review_table(output[0])
-		btg.write_raw_data(output[0])
-		btg.write_busco_table(output[0], config["misc"]["busco_max_copy_number"])	
+if RUN_BUSCO:
+	
+	rule busco_summary:
+		input:
+			rules.minos_mikado_prepare_extract_coords.output[0],
+			rules.minos_mikado_pick_extract_coords.output[0],
+			BUSCO_ANALYSES + BUSCO_PROTEIN_PREPARE_RUNS
+		output:
+			BUSCO_TABLE
+		run:
+			from minos.scripts.generate_busco_tables import BuscoTableGenerator
+	
+			btg = BuscoTableGenerator(
+				os.path.join(config["outdir"], "tx2gene"),
+				input[0],
+				input[1],
+				os.path.join(BUSCO_PATH, "runs")	
+			)
+			btg.write_review_table(output[0])
+			btg.write_raw_data(output[0])
+			btg.write_busco_table(output[0], config["misc"]["busco_max_copy_number"])	
