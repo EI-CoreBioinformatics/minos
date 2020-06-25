@@ -71,7 +71,7 @@ setup(
 	include_package_data=True,
 	data_files=[
 		(ddir, glob.glob("{}/*.*".format(ddir)))
-		for ddir in ("etc", "dependencies")
+		for ddir in ("envs", "etc", "dependencies")
 	]
 )
 
