@@ -219,8 +219,8 @@ rule minos_mikado_prepare:
 		HPC_CONFIG.get_cores("minos_mikado_prepare")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_prepare") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	#conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
 
@@ -271,8 +271,8 @@ rule minos_mikado_compare_index_reference:
 		HPC_CONFIG.get_cores("minos_mikado_compare_index_reference")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_compare_index_reference") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	# conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params} -r {input} &> {log}"
 
@@ -416,8 +416,8 @@ rule minos_metrics_mikado_compare_vs_transcripts:
 		HPC_CONFIG.get_cores("minos_metrics_mikado_compare_vs_transcripts")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_mikado_compare_vs_transcripts") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	#conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.transcripts} -o {params.outdir}/mikado_{params.transcripts} &> {log}" + \
@@ -441,8 +441,8 @@ rule minos_metrics_mikado_compare_vs_proteins:
 		HPC_CONFIG.get_cores("minos_metrics_mikado_compare_vs_proteins")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_mikado_compare_vs_proteins") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	#conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log}" + \
@@ -612,8 +612,8 @@ rule minos_mikado_serialise:
 		HPC_CONFIG.get_cores("minos_mikado_serialise")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_serialise") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	#conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log}" + \
 		" && touch {output[0]}"
@@ -639,8 +639,8 @@ rule minos_mikado_pick:
 		HPC_CONFIG.get_cores("minos_mikado_pick")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_pick") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	#conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params}" + \
 		" -od {params.outdir} --procs {threads} --json-conf {input.config}" + \
@@ -885,8 +885,8 @@ rule minos_generate_mikado_stats:
 		HPC_CONFIG.get_cores("minos_generate_mikado_stats")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_generate_mikado_stats") * attempt
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	# conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {input} --tab-stats {output[1]} > {output[0]}" + \
 		" && parse_mikado_stats {output[0]} > {output[0]}.summary"
