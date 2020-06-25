@@ -13,7 +13,8 @@ pathlib.Path(EXTERNAL_METRICS_DIR).mkdir(exist_ok=True, parents=True)
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
-ENV_DIR = pkg_resources.resource_filename("minos.zzz", "envs")
+# ENV_DIR = pkg_resources.resource_filename("minos.zzz", "envs")
+from eicore.snakemake_helper import ENV_DIR
 
 
 def get_rnaseq(wc):
