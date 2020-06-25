@@ -75,7 +75,7 @@ BUSCO_PRECOMPUTED = """
 BUSCO_CMD = """
 	mkdir -p {BUSCO_PATH}/logs
 	&& cfgdir={BUSCO_PATH}/config/{params.busco_stage}/{params.run} && mkdir -p $cfgdir
-	&& {params.copy} {AUGUSTUS_CONFIG_DATA} $cfgdir/
+	&& {params.copy_cmd} {AUGUSTUS_CONFIG_DATA} $cfgdir/
 	&& export AUGUSTUS_CONFIG_PATH=$cfgdir/config
 	&& rm -rvf {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& mkdir -p {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
@@ -993,7 +993,7 @@ rule busco_proteins_prepare:
 		run = lambda wildcards: wildcards.run,
 		busco_mode = "proteins",
 		busco_stage = "proteins_prepare",
-		copy = config["program_calls"]["copy"]
+		copy_cmd = config["program_calls"]["copy"]
 	threads:
 		HPC_CONFIG.get_cores("busco_proteins_prepare")
 	resources:
@@ -1020,7 +1020,7 @@ rule busco_proteins_final:
 		run = "proteins_final",
 		busco_mode = "proteins",
 		busco_stage = "proteins_final",
-		copy = config["program_calls"]["copy"]
+		copy_cmd = config["program_calls"]["copy"]
 	threads:
 		HPC_CONFIG.get_cores("busco_proteins_final")
 	resources:
@@ -1060,7 +1060,7 @@ rule busco_transcripts_prepare:
 		run = lambda wildcards: wildcards.run,
 		busco_mode = "transcriptome",
 		busco_stage = "transcripts_prepare",
-		copy = config["program_calls"]["copy"]
+		copy_cmd = config["program_calls"]["copy"]
 	threads:
 		HPC_CONFIG.get_cores("busco_transcripts_prepare")
 	resources:
@@ -1087,7 +1087,7 @@ rule busco_transcripts_final:
 		run = "transcripts_final",
 		busco_mode = "transcriptome",
 		busco_stage = "transcripts_final",
-		copy = config["program_calls"]["copy"]
+		copy_cmd = config["program_calls"]["copy"]
 	threads:
 		HPC_CONFIG.get_cores("busco_transcripts_final")
 	resources:
@@ -1117,7 +1117,7 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 			run = "genome",
 			busco_mode = "genome",
 			busco_stage = "genome",
-			copy = config["program_calls"]["copy"]
+			copy_cmd = config["program_calls"]["copy"]
 		threads:
 			HPC_CONFIG.get_cores("busco_genome")
 		resources:
