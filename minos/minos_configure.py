@@ -12,6 +12,8 @@ from minos import __version__
 from minos.minos_scoring import ScoringMetricsManager
 from minos.busco_configure import BuscoConfiguration
 
+from eicore.snakemake_helper import *
+
 #!TODO: 
 # - scan config template for reference
 # - warn if not present
@@ -31,20 +33,48 @@ MIKADO_CONFIGURE_CMD = "{cmd} --list {list_file}{external_metrics}-od {output_di
 
 
 class MinosRunConfiguration(dict):
-	def _run_mikado_configure(self, args):
-		cmd = MIKADO_CONFIGURE_CMD.format(
-			cmd=self["program_calls"]["mikado"].format(container=args.mikado_container, program="configure"),
-			list_file=args.list_file,
-			external_metrics=(" --external " + args.external + " ") if args.external else " ",
-			output_dir=args.outdir,
-			reference=args.reference,
-			scoring_file=self.scoring_file,
-			junctions=(" --junctions " + list(self.smm.getMetricsData("junction").values())[0][0][0] + " ") if self.smm.getMetricsData("junction") else " ",
-			mikado_config_file=self.mikado_config_file
-		)
-		print("Running mikado configure with:", cmd, sep="\n")
-		out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-		print(out)
+	def _run_mikado_configure(self, args, snake, exe_env):
+		print("Generating configuration file for mikado configure run...")
+		conf_config = {
+			"input": {
+				"transcript_models": args.list_file,
+				"external_metrics": args.external if args.external else None,
+				"reference": args.reference,
+				"scoring_template": self.scoring_file,
+				"junctions": (list(self.smm.getMetricsData("junction").values())[0][0][0] + " ") if self.smm.getMetricsData("junction") else None
+			},
+			"output": {
+				"mikado-config-file": self.mikado_config_file,
+				"outdir": args.outdir,
+				"prefix": args.prefix
+			},
+			"program_calls": {
+				"mikado_configure": self["program_calls"]["mikado"].format(program="configure")
+			}
+		}
+		config_configuration_file = os.path.join(args.outdir, args.prefix + "_conf.config.yaml")
+		with open(config_configuration_file, "wt") as config_out:
+			yaml.dump(conf_config, config_out, default_flow_style=False, sort_keys=False)
+
+
+		print("Running mikado configure...")
+		result = run_snakemake(snake, args.outdir, config_configuration_file, exe_env, dryrun=args.dryrun)
+		if not result:
+			raise ValueError("Problem running mikado configure.")
+		# cmd = MIKADO_CONFIGURE_CMD.format(
+		#	cmd=self["program_calls"]["mikado"].format(container=args.mikado_container, program="configure"),
+		#	list_file=args.list_file,
+		#	external_metrics=(" --external " + args.external + " ") if args.external else " ",
+		#	output_dir=args.outdir,
+		#	reference=args.reference,
+		#	scoring_file=self.scoring_file,
+		#	junctions=(" --junctions " + list(self.smm.getMetricsData("junction").values())[0][0][0] + " ") if self.smm.getMetricsData("junction") else " ",
+		#	mikado_config_file=self.mikado_config_file
+		#)
+		#print("Running mikado configure with:", cmd, sep="\n")
+		#out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+		#print(out)
+	
 	
 	def _generate_scoring_file(self, args):
 		self.scoring_file = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
@@ -89,7 +119,7 @@ class MinosRunConfiguration(dict):
 			yaml.dump(dict(self.items()), run_config_out, default_flow_style=False, sort_keys=False)
 		print(" done.")
 
-	def run(self):
+	def run(self, snake, exe_env):
 		self._generate_scoring_file(self.args)
 		self._generate_run_configuration(self.args)
-		self._run_mikado_configure(self.args)
+		self._run_mikado_configure(self.args, snake, exe_env)

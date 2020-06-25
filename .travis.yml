@@ -30,8 +30,11 @@ script:
   - export CPC_HOME=$(pwd)/CPC2-beta
   - ls -l $CPC_HOME/bin
   - CPC2.py -h
+  - mikado -h
   - wget https://zenodo.org/record/3906678/files/sample_data.tar.gz?download=1 -O sample_data.tar.gz
   - tar xvzf sample_data.tar.gz
   - cp -v sample_data/input_config/* .
-  - cp -v $(dirname $(which minos))/../etc/minos_config.yaml .
+  - cp -v $(dirname $(which minos))/../etc/minos_config.yaml.example .
   - ls -l .
+  - minos configure -o minos_test_run --external external.yaml --external-metrics external_metrics.txt --use-tpm-for-picking --genus-identifier CIS --annotation-version EIv1 --busco-level none list.txt scoring_template.yaml sample_data/genome/scaffold_6.fa
+  # minos configure --mikado-container $MIKADO -o ${RUN_DIR} --external external.yaml --external-metrics external_metrics.txt $TPM_FOR_PICKING --genus-identifier ABC --annotation-version EIv2 --busco-lineage /ei/workarea/group-pb/BUSCO_DATABASES/odb10/embryophyta_odb10 $INPUT_MODELS $SCORING_TEMPLATE Melia_azedarach.genome.uc.fasta

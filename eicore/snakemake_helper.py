@@ -166,7 +166,7 @@ def loadPreCmd(*args):
 	return final_command
 
 
-def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=False):
+def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=False, use_conda=False, use_singularity=False):
 	"""Helper function for calling external_process pipeline.  This helps us deal with all the different options that we
 	might want to switch between running in dryrun and regular mode."""
 	res = False
@@ -227,8 +227,8 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
 						dryrun=dryrun,
 						forceall=dryrun,
 						verbose=True,
-						use_conda=True,
-						use_singularity=True,
+						use_conda=use_conda,
+						use_singularity=use_singularity,
 						restart_times=3,
 						max_status_checks_per_second=30,
 						keepgoing=True

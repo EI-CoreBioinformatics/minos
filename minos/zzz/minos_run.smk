@@ -1,5 +1,6 @@
 import os
 import sys
+import pkg_resources
 import pathlib
 
 from minos.minos_configure import ExternalMetrics
@@ -12,6 +13,7 @@ pathlib.Path(EXTERNAL_METRICS_DIR).mkdir(exist_ok=True, parents=True)
 LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
+ENV_DIR = pkg_resources.resource_filename("minos.zzz", "envs")
 
 
 def get_rnaseq(wc):
@@ -198,7 +200,6 @@ rule all:
 		BUSCO_COPY_TARGETS
 
 
-
 rule minos_mikado_prepare:
 	input:
 		config["mikado-config-file"]
@@ -206,7 +207,7 @@ rule minos_mikado_prepare:
 		os.path.join(config["outdir"], "mikado_prepared.fasta"),
 		os.path.join(config["outdir"], "mikado_prepared.gtf"),
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="prepare"),
+		program_call = config["program_calls"]["mikado"].format(program="prepare"),
 		program_params = config["params"]["mikado"]["prepare"],
 		outdir = config["outdir"]
 	log:
@@ -215,6 +216,8 @@ rule minos_mikado_prepare:
 		HPC_CONFIG.get_cores("minos_mikado_prepare")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_prepare") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params} --json-conf {input[0]} --procs {threads} -od {params.outdir} &> {log}"
 
@@ -257,7 +260,7 @@ rule minos_mikado_compare_index_reference:
 	output:
 		rules.minos_mikado_prepare.output[1] + ".midx"
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="compare"),
+		program_call = config["program_calls"]["mikado"].format(program="compare"),
 		program_params = config["params"]["mikado"]["compare"]["index"]
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare_index_reference.log")
@@ -265,6 +268,8 @@ rule minos_mikado_compare_index_reference:
 		HPC_CONFIG.get_cores("minos_mikado_compare_index_reference")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_compare_index_reference") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params} -r {input} &> {log}"
 
@@ -281,6 +286,8 @@ rule minos_gffread_extract_sequences:
 		program_call = config["program_calls"]["gffread"],
 		program_params = config["params"]["gffread"][config["blast-mode"]],
 		output_params = "-W -x" if config["blast-mode"] == "blastx" else ("-y" if config["blast-mode"] == "blastp" else "")
+	conda:
+		os.path.join(ENV_DIR, "gffread.yaml")
 	shell:
 		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} -W -w {output[1]} {params.output_params} {output[0]} &> {log}"
 
@@ -306,6 +313,8 @@ rule minos_metrics_bedtools_repeat_coverage:
 		HPC_CONFIG.get_cores("minos_metrics_bedtools_repeat_coverage")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_bedtools_repeat_coverage") * attempt
+	conda:
+		os.path.join(ENV_DIR, "bedtools.yaml")
 	shell:
 		"""
 		{params.program_call} -a {input[1]} -b {input[0]} > {output[0]}.tmp
@@ -359,6 +368,8 @@ if config["use-tpm-for-picking"]:
 			HPC_CONFIG.get_cores("minos_metrics_kallisto_index")
 		resources:
 			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_kallisto_index") * attempt
+		conda:
+			os.path.join(ENV_DIR, "kallisto.yaml")
 		shell:
 			"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
@@ -379,6 +390,8 @@ if config["use-tpm-for-picking"]:
 			HPC_CONFIG.get_cores("minos_metrics_kallisto_quant")
 		resources:
 			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_kallisto_quant") * attempt
+		conda:
+			os.path.join(ENV_DIR, "kallisto.yaml")
 		shell:
 			"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
@@ -392,7 +405,7 @@ rule minos_metrics_mikado_compare_vs_transcripts:
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare.tran.{run}.log")
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="compare"),
+		program_call = config["program_calls"]["mikado"].format(program="compare"),
 		program_params = config["params"]["mikado"]["compare"]["transcripts"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "transcripts", wildcards.run),
 		transcripts = lambda wildcards: wildcards.run
@@ -400,6 +413,8 @@ rule minos_metrics_mikado_compare_vs_transcripts:
 		HPC_CONFIG.get_cores("minos_metrics_mikado_compare_vs_transcripts")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_mikado_compare_vs_transcripts") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.transcripts} -o {params.outdir}/mikado_{params.transcripts} &> {log}" + \
@@ -415,7 +430,7 @@ rule minos_metrics_mikado_compare_vs_proteins:
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".mikado_compare.prot.{run}.log")
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="compare"),
+		program_call = config["program_calls"]["mikado"].format(program="compare"),
 		program_params = config["params"]["mikado"]["compare"]["proteins"],
 		outdir = lambda wildcards: os.path.join(EXTERNAL_METRICS_DIR, "mikado_compare", "proteins", wildcards.run),
 		proteins = lambda wildcards: wildcards.run
@@ -423,6 +438,8 @@ rule minos_metrics_mikado_compare_vs_proteins:
 		HPC_CONFIG.get_cores("minos_metrics_mikado_compare_vs_proteins")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_mikado_compare_vs_proteins") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.proteins} -o {params.outdir}/mikado_{params.proteins} &> {log}" + \
@@ -447,6 +464,8 @@ rule minos_metrics_blastp_mkdb:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_mkdb")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_blastp_mkdb") * attempt
+	conda:
+		os.path.join(ENV_DIR, "diamond.yaml") if config["use-diamond"] else os.path.join(ENV_DIR, "blast.yaml")
 	shell:
 		"{cmd} && touch {{output[0]}}".format(cmd=DIAMONDDB_CMD if config["use-diamond"] else BLASTDB_CMD)
 
@@ -489,6 +508,8 @@ rule minos_metrics_blastp_chunked:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_chunked")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_blastp_chunked") * attempt
+	conda:
+		os.path.join(ENV_DIR, "diamond.yaml") if config["use-diamond"] else os.path.join(ENV_DIR, "blast.yaml")
 	shell:
 		"{cmd}".format(cmd=DIAMOND_CMD if config["use-diamond"] else BLAST_CMD)
 
@@ -579,7 +600,7 @@ rule minos_mikado_serialise:
 		os.path.join(config["outdir"], "MIKADO_SERIALISE_DONE"),
 		os.path.join(config["outdir"], "mikado.db")
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="serialise"),
+		program_call = config["program_calls"]["mikado"].format(program="serialise"),
 		program_params = config["params"]["mikado"]["serialise"],
 		outdir = config["outdir"]
 	log:
@@ -588,6 +609,8 @@ rule minos_mikado_serialise:
 		HPC_CONFIG.get_cores("minos_mikado_serialise")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_serialise") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params} --transcripts {input.transcripts} --external-scores {input.ext_scores} --json-conf {input.config} --procs {threads} -od {params.outdir} &> {log}" + \
 		" && touch {output[0]}"
@@ -606,13 +629,15 @@ rule minos_mikado_pick:
 		subloci_metrics = os.path.join(config["outdir"], "mikado.subloci.metrics.tsv"),
 		monoloci_metrics = os.path.join(config["outdir"], "mikado.monoloci.metrics.tsv")
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="pick"),
+		program_call = config["program_calls"]["mikado"].format(program="pick"),
 		program_params = config["params"]["mikado"]["pick"],
 		outdir = config["outdir"]
 	threads:
 		HPC_CONFIG.get_cores("minos_mikado_pick")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_mikado_pick") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {params.program_params}" + \
 		" -od {params.outdir} --procs {threads} --json-conf {input.config}" + \
@@ -640,6 +665,8 @@ rule minos_gffread_extract_sequences_post_pick:
 	params:
 		program_call = config["program_calls"]["gffread"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
+	conda:
+		os.path.join(ENV_DIR, "gffread.yaml")
 	shell:
 		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
 
@@ -666,6 +693,8 @@ rule minos_gff_genometools_check_post_pick:
 	params:
 		program_call = config["program_calls"]["genometools"],
 		program_params = config["params"]["genometools"]["check"]
+	conda:
+		os.path.join(ENV_DIR, "genometools.yaml")
 	shell:
 		"{params.program_call} {params.program_params} {input[0]} > {output.gff} 2> {log}"
 
@@ -695,6 +724,8 @@ rule minos_kallisto_index_post_pick:
 		HPC_CONFIG.get_cores("minos_kallisto_index_post_pick")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_kallisto_index_post_pick") * attempt
+	conda:
+		os.path.join(ENV_DIR, "kallisto.yaml")
 	shell:
 		"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
@@ -715,6 +746,8 @@ rule minos_kallisto_quant_post_pick:
 		HPC_CONFIG.get_cores("minos_kallisto_quant_post_pick")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_kallisto_quant_post_pick") * attempt
+	conda:
+		os.path.join(ENV_DIR, "kallisto.yaml")
 	shell:
 		"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
@@ -808,6 +841,8 @@ rule minos_sort_release_gffs:
 		HPC_CONFIG.get_cores("minos_sort_release_gffs")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_sort_release_gffs") * attempt
+	conda:
+		os.path.join(ENV_DIR, "genometools.yaml")
 	shell:
 		"{params.program_call} {params.program_params} {input[0]} > {output[0]} 2> {log}" + \
 		" && {params.program_call} {params.program_params} {input[1]} > {output[1]} 2>> {log}"
@@ -842,11 +877,13 @@ rule minos_generate_mikado_stats:
 		rules.minos_final_sanity_check.output[0] + ".mikado_stats.txt",
 		rules.minos_final_sanity_check.output[0] + ".mikado_stats.tsv"
 	params:
-		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="util stats"),
+		program_call = config["program_calls"]["mikado"].format(program="util stats"),
 	threads:
 		HPC_CONFIG.get_cores("minos_generate_mikado_stats")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_generate_mikado_stats") * attempt
+	conda:
+		os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} {input} --tab-stats {output[1]} > {output[0]}" + \
 		" && parse_mikado_stats {output[0]} > {output[0]}.summary"
@@ -863,6 +900,8 @@ rule minos_extract_final_sequences:
 	params:
 		program_call = config["program_calls"]["gffread"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
+	conda:
+		os.path.join(ENV_DIR, "gffread")
 	shell:
 		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
 
@@ -881,6 +920,8 @@ rule minos_cleanup_final_proteins:
 		HPC_CONFIG.get_cores("minos_cleanup_final_proteins")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_cleanup_final_proteins") * attempt
+	conda:
+		os.path.join(ENV_DIR, "prinseq.yaml")
 	shell:
 		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
 
@@ -954,6 +995,8 @@ rule busco_proteins_prepare:
 		HPC_CONFIG.get_cores("busco_proteins_prepare")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_proteins_prepare") * attempt
+	conda:
+		os.path.join(ENV_DIR, "busco.yaml")
 	shell:
 		BUSCO_CMD
 
@@ -979,6 +1022,8 @@ rule busco_proteins_final:
 		HPC_CONFIG.get_cores("busco_proteins_final")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_proteins_final") * attempt
+	conda:
+		os.path.join(ENV_DIR, "busco.yaml")
 	shell:
 		BUSCO_CMD
 
@@ -1017,6 +1062,8 @@ rule busco_transcripts_prepare:
 		HPC_CONFIG.get_cores("busco_transcripts_prepare")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_transcripts_prepare") * attempt
+	conda:
+		os.path.join(ENV_DIR, "busco.yaml")
 	shell:
 		BUSCO_CMD
 
@@ -1042,6 +1089,8 @@ rule busco_transcripts_final:
 		HPC_CONFIG.get_cores("busco_transcripts_final")
 	resources:
 		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_transcripts_final") * attempt
+	conda:
+		os.path.join(ENV_DIR, "busco.yaml")
 	shell:
 		BUSCO_CMD
 
@@ -1070,6 +1119,8 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 			HPC_CONFIG.get_cores("busco_genome")
 		resources:
 			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("busco_genome") * attempt
+		conda:
+			os.path.join(ENV_DIR, "busco.yaml")
 		shell:
 			BUSCO_PRECOMPUTED if config["busco_analyses"]["precomputed_genome"] else BUSCO_CMD
 

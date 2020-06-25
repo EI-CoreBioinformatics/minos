@@ -94,13 +94,15 @@ def main():
 		pass 
 
 	print("Runmode is", args.runmode)
+	snake = join(dirname(__file__), "zzz", "minos_{runmode}.smk".format(runmode=args.runmode))
+	exe_env = ExecutionEnvironment(args, NOW, job_suffix="MINOS_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
+
 	if args.runmode == "configure":
 		if run_configuration_file is None or args.force_reconfiguration:
-			MinosRunConfiguration(args).run()
+			MinosRunConfiguration(args).run(snake, exe_env)
 		elif run_configuration_file is not None:
 			print("Configuration file {} already present. Please set --force-reconfiguration/-f to override this.".format(run_configuration_file))
 	elif args.runmode == "run":
-		snake = join(dirname(__file__), "zzz", "minos_run.smk")
 
 		if run_configuration_file is None:
 			raise ValueError("Missing run configuration in " + args.outdir)
@@ -118,7 +120,6 @@ def main():
 		with open(run_configuration_file, "wt") as run_config_out:
 			yaml.dump(run_config, run_config_out, default_flow_style=False, sort_keys=False)
 
-		exe_env = ExecutionEnvironment(args, NOW, job_suffix="MINOS_" + args.outdir, log_dir=os.path.join(args.outdir, "hpc_logs"))
 
 		minos_complete_sentinel = os.path.join(args.outdir, "MINOS_RUN_COMPLETE")
 		results_dir = os.path.join(args.outdir, "results")

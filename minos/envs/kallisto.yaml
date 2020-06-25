@@ -1,0 +1,4 @@
+channels:
+  - bioconda
+dependencies:
+  - bioconda::kallisto==0.44.0
