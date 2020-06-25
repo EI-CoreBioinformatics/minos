@@ -29,8 +29,8 @@ rule minos_mikado_configure:
 		junctions = " --junctions {} ".format(config["input"]["junctions"]) if config["input"]["junctions"] else " "
 	log:
 		os.path.join(LOG_DIR, config["output"]["prefix"] + ".mikado_configure.log")
-	conda:
-		os.path.join(ENV_DIR, "mikado.yaml")
+	#conda:
+	#	os.path.join(ENV_DIR, "mikado.yaml")
 	shell:
 		"{params.program_call} --full" + \
 		" --list {input.tr_list}{params.external_metrics}-od {params.outdir} --reference {input.reference}" + \
