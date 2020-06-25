@@ -16,6 +16,7 @@ install:
   - python setup.py bdist_wheel;
   - pip install --no-deps dist/*whl
   - ls /home/travis/miniconda3/envs/env_name/lib/python3.7/site-packages/minos/*
+  - ls /home/travis/miniconda3/envs/env_name/envs/mikado.yaml
 script:
   # - set -x
   - python --version
