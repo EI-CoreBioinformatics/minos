@@ -26,7 +26,8 @@ def get_etc_dir():
 	return os.path.join(prefix, "etc") 
 	
 
-ETC_DIR = get_etc_dir() 
+ETC_DIR = get_etc_dir()
+ENV_DIR = os.path.join(os.path.dirname(ETC_DIR), "envs") 
 DEFAULT_HPC_CONFIG_FILE = os.path.join(ETC_DIR, "hpc_config.json")
 DEFAULT_CONFIG_FILE = os.path.join(ETC_DIR, "minos_config.yaml")
 
