@@ -5,7 +5,7 @@ import pathlib
 
 LOG_DIR = os.path.join(config["output"]["outdir"], "logs")
 # ENV_DIR = pkg_resources.resource_filename("minos.zzz", "envs")
-from eicore.snakemake_helpers import ENV_DIR
+from eicore.snakemake_helper import ENV_DIR
 
 localrules: minos_mikado_configure, all
 
