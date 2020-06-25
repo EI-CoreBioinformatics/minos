@@ -15,6 +15,7 @@ install:
   - source activate env_name
   - python setup.py bdist_wheel;
   - pip install --no-deps dist/*whl
+  - ls /home/travis/miniconda3/envs/env_name/lib/python3.7/site-packages/minos/*
 script:
   # - set -x
   - python --version
