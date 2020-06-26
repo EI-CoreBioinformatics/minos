@@ -229,9 +229,10 @@ rule minos_mikado_prepare_extract_coords:
 		rules.minos_mikado_prepare.output[1]
 	output:
 		rules.minos_mikado_prepare.output[1] + ".coords"
-	run:
-		from minos.scripts.extract_coords import extract_coords
-		extract_coords(input[0], output[0], filetype="gtf")
+	script:
+		"rule_scripts/minos_mikado_prepare_extract_coords.py"
+		#from minos.scripts.extract_coords import extract_coords
+		#extract_coords(input[0], output[0], filetype="gtf")
 
 rule minos_generate_tx2gene_maps:
 	input:
