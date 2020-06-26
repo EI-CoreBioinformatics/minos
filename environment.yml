@@ -4,7 +4,7 @@ channels:
   - conda-forge
 dependencies:
   - biopython
-  - snakemake>=5.14.0
+  - snakemake==5.14.0
   - drmaa
   - pyyaml>=5
   - defaults::python>=3.6
