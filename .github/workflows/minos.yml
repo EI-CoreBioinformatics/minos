@@ -48,7 +48,8 @@ jobs:
     - name: Miscellaneous tests
       run: |
         which minos
-        ls $(dirname $(which minos))/../lib/python3.7/site-packages
+        version=$(python -c "import sys; print(sys.version_info.major, '.', sys.version_info.minor, sep='')")
+        ls $(dirname $(which minos))/../lib/python${version}/site-packages
         ls $(dirname $(which minos))/../etc
         python -c "from minos import __version__; print(__version__);"
         minos -h
