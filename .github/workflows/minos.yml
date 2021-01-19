@@ -46,16 +46,16 @@ jobs:
       run: |
         python setup.py install
     - name: Miscellaneous tests
-      - run: |
+      run: |
         which minos
         ls $(dirname $(which minos))/../lib/python3.7/site-packages
         ls $(dirname $(which minos))/../etc
         python -c "from minos import __version__; print(__version__);"
         minos -h
     - name: Install CPC2
-        run: |
-          install_cpc2 .
-          export PATH=$PATH:$(pwd)/CPC2-beta/bin
-          export CPC_HOME=$(pwd)/CPC2-beta
-          ls -l $CPC_HOME/bin
-          CPC2.py -h
+      run: |
+        install_cpc2 .
+        export PATH=$PATH:$(pwd)/CPC2-beta/bin
+        export CPC_HOME=$(pwd)/CPC2-beta
+        ls -l $CPC_HOME/bin
+        CPC2.py -h
