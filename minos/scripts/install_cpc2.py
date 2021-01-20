@@ -40,17 +40,17 @@ def main():
 		print("Downloading CPC2...", end="", flush=True)
 		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
-		cmd = "tar --strip-components=1 -C CPC2 -xvzf CPC2.tar.gz".format(args=args)
+		cmd = "tar --strip-components=1 -C CPC2 -xvzf CPC2.tar.gz"
 		print("Unpacking...", end="", flush=True)
 		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
-		cmd = "rm -f CPC2.tar.gz".format(args=args)
+		cmd = "rm -f CPC2.tar.gz"
 		print("Removing tarball...", end="", flush=True)
 		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
-		cmd = "cd CPC2/libs/libsvm/libsvm-3.18 && make clean && make".format(args=args)
+		cmd = "cd CPC2/libs/libsvm/libsvm-3.18 && make clean && make"
 		print("Unpacking and building libsvm...", end="", flush=True)
 		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
