@@ -46,11 +46,11 @@ jobs:
       run: |
         python setup.py bdist_wheel
         pip install dist/minos*.whl;
+	python -c "import numpy"
     - name: Install CPC2
       run: |
         eval $(install_cpc2 . | grep "=" | sed 's/\s\+/\\ /g; s/(/\\(/g; s/)/\\)/g; s/^\([^=]*\)=\(.*\)/export \1="\2"/' | sed "s/\"/'/g");
         ls -l $CPC_HOME/bin
-        pip install numpy biopython;  # necessary for CPC2
         CPC2.py -h
     - name: Miscellaneous tests
       run: |

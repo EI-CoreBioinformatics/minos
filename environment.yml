@@ -5,6 +5,7 @@ channels:
   - defaults
 dependencies:
   - biopython
+  - numpy
   - snakemake>=5.14.0
   - drmaa
   - pyyaml>=5
