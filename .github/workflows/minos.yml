@@ -44,7 +44,8 @@ jobs:
         auto-activate-base: false
     - name: Install dependencies
       run: |
-        python setup.py install
+        python setup.py bdist_wheel
+        pip install dist/minos*.whl
     - name: Miscellaneous tests
       run: |
         which minos
