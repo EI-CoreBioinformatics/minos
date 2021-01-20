@@ -1,0 +1,65 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+name: Python package
+on:
+  [ push, pull_request ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      matrix:
+        python-version: [ 3.8, 3.7 ]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache conda
+      id: cache-miniconda
+      uses: actions/cache@v1
+      env:
+        CACHE_NUMBER: 0
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ runner.os }}-conda-${{ hashFiles('./environment.yml') }}
+    - name: Install system development tools
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt update
+        sudo apt install -y build-essential zlib1g-dev zlib1g
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        miniconda-version: "latest"
+        environment-file: ./environment.yml
+        mamba-version: "*"
+        use-mamba: true
+        channels: bioconda, conda-forge, defaults
+        use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+        auto-update-conda: true
+        activate-environment: "test"
+        auto-activate-base: false
+    - name: Install dependencies
+      run: |
+        python setup.py bdist_wheel
+        pip install dist/minos*.whl
+    - name: Miscellaneous tests
+      run: |
+        which minos
+        minos_folder=$(dirname $(python -c "import pkg_resources; print(pkg_resources.resource_filename(\"minos\", \"__init__.py\"))"))
+        version=$(python -c "import sys; print(sys.version_info.major, '.', sys.version_info.minor, sep='')")
+        ls ${minos_folder}
+        ls ${minos_folder}/etc
+        python -c "from minos import __version__; print(__version__);"
+        minos -h
+# Disabling the CPC2 test for now as the download link is REALLY erratic.
+#    - name: Install CPC2
+#      run: |
+#        install_cpc2 .
+#        export PATH=$PATH:$(pwd)/CPC2-beta/bin
+#        export CPC_HOME=$(pwd)/CPC2-beta
+#        ls -l $CPC_HOME/bin
+#        CPC2.py -h
