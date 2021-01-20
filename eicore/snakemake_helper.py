@@ -23,7 +23,7 @@ def get_etc_dir():
 	if prefix is None:
 		raise ValueError("Cannot deduce install location from " + __file__)
 
-	return os.path.join(prefix, "etc") 
+	return os.path.join(prefix, "../minos/etc")
 	
 
 ETC_DIR = get_etc_dir() 

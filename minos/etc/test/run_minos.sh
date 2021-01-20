@@ -9,8 +9,9 @@ MIKADO=/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CB
 RUN_DIR=$1
 TPM_FOR_PICKING="--use-tpm-for-picking"
 
-SCORING_TEMPLATE=/ei/software/cb/minos/dev/src/minos/etc/scoring_template.yaml
-HPC_CONFIG=/ei/software/cb/minos/1.0/x86_64/etc/hpc_config.json
+etc=$(python -c "import pkg_resources; print(pkg_resources.resource_filename(\"minos\", \"etc\"))")
+SCORING_TEMPLATE=${etc}/scoring_template.yaml
+HPC_CONFIG=${etc}/hpc_config.json
 INPUT_MODELS=list_gtf.txt
 
 

@@ -66,12 +66,13 @@ setup(
 		]
 	},
 	package_data={
-		"minos.zzz": ["*.smk"]
+		"minos.zzz": ["*.smk"],
+		"minos.etc": ["*.json", "*.yaml", "*.def", "test/*"],
+		"minos.dependencies": ["*.sh", "container_defs/*"]
 	},
 	include_package_data=True,
-	data_files=[
-		(ddir, glob.glob("{}/*.*".format(ddir)))
-		for ddir in ("etc", "dependencies")
-	]
+	# data_files=[
+	# 	(ddir, glob.glob("{}/*.*".format(ddir)))
+	# 	for ddir in ("etc", "dependencies")
+	# ]
 )
-
