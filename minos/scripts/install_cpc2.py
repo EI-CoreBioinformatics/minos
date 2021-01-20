@@ -30,27 +30,28 @@ def main():
 	args.install_path = os.path.abspath(args.install_path)
 	
 	with cd(args.install_path):
-		cmd = "wget http://cpc2.cbi.pku.edu.cn/data/CPC2-beta.tar.gz"
+		cmd = "wget --no-check-certificate --content-disposition https://github.com/biocoder/CPC2/tarball/9a2b596"
 		print("Downloading CPC2...", end="", flush=True)
 		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
-		cmd = "tar xvzf CPC2-beta.tar.gz"
+		cmd = "tar xvzf biocoder-CPC2-9a2b596.tar.gz"
 		print("Unpacking...", end="", flush=True)
 		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
-		cmd = "rm -f CPC2-beta.tar.gz"
+		cmd = "rm -f biocoder-CPC2-9a2b596.tar.gz"
 		print("Removing tarball...", end="", flush=True)
 		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
-		cmd = "cd CPC2-beta/libs/libsvm && tar xvzf libsvm-3.18.tar.gz && cd libsvm-3.18 && make clean && make"
+		cmd = "cd biocoder-CPC2-9a2b596/libs/libsvm/libsvm-3.18 && make clean && make"
 		print("Unpacking and building libsvm...", end="", flush=True)
 		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
 	print("Patching CPC2...", end="", flush=True)
-	cpc2_dir = os.path.join(args.install_path, "CPC2-beta")
+	cpc2_dir_name = "biocoder-CPC2-9a2b596"
+	cpc2_dir = os.path.join(args.install_path, cpc2_dir_name)
 	bin_dir = os.path.join(cpc2_dir, "bin")
 	compress_py = os.path.join(bin_dir, "compress.py")
 	code = open(compress_py).read()
@@ -83,8 +84,8 @@ def main():
 	print(" done.")
 		
 
-	print("CPC_HOME={}/CPC2-beta".format(args.install_path))
-	print("PATH={}:{}/CPC2-beta/bin".format(os.environ.get("PATH"), args.install_path))
+	print("CPC_HOME={}/{}".format(args.install_path, cpc2_dir_name))
+	print("PATH={}:{}/{}/bin".format(os.environ.get("PATH"), args.install_path, cpc2_dir_name))
 
 	pass
 

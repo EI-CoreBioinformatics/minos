@@ -55,11 +55,8 @@ jobs:
         ls ${minos_folder}/etc
         python -c "from minos import __version__; print(__version__);"
         minos -h
-# Disabling the CPC2 test for now as the download link is REALLY erratic.
-#    - name: Install CPC2
-#      run: |
-#        install_cpc2 .
-#        export PATH=$PATH:$(pwd)/CPC2-beta/bin
-#        export CPC_HOME=$(pwd)/CPC2-beta
-#        ls -l $CPC_HOME/bin
-#        CPC2.py -h
+   - name: Install CPC2
+     run: |
+       eval $(install_cpc2 . | grep "=" | sed 's/\s\+/\\ /g; s/(/\\(/g; s/)/\\)/g; s/^\([^=]*\)=\(.*\)/export \1="\2"/' | sed "s/\"/'/g") 
+       ls -l $CPC_HOME/bin
+       CPC2.py -h
