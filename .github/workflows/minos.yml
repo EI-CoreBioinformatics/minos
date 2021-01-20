@@ -45,8 +45,8 @@ jobs:
     - name: Install dependencies
       run: |
         python setup.py bdist_wheel
-        pip install dist/minos*.whl
-	python -c "import numpy as np"
+        pip install dist/minos*.whl;
+        python -c "import numpy as np";
     - name: Install CPC2
       run: |
         eval $(install_cpc2 . | grep "=" | sed 's/\s\+/\\ /g; s/(/\\(/g; s/)/\\)/g; s/^\([^=]*\)=\(.*\)/export \1="\2"/' | sed "s/\"/'/g");
