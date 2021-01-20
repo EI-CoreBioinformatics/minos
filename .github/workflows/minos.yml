@@ -46,6 +46,12 @@ jobs:
       run: |
         python setup.py bdist_wheel
         pip install dist/minos*.whl
+	python -c "import numpy as np"
+    - name: Install CPC2
+      run: |
+        eval $(install_cpc2 . | grep "=" | sed 's/\s\+/\\ /g; s/(/\\(/g; s/)/\\)/g; s/^\([^=]*\)=\(.*\)/export \1="\2"/' | sed "s/\"/'/g");
+        ls -l $CPC_HOME/bin
+        CPC2.py -h	
     - name: Miscellaneous tests
       run: |
         which minos
@@ -55,8 +61,3 @@ jobs:
         ls ${minos_folder}/etc
         python -c "from minos import __version__; print(__version__);"
         minos -h
-    - name: Install CPC2
-      run: |
-        eval $(install_cpc2 . | grep "=" | sed 's/\s\+/\\ /g; s/(/\\(/g; s/)/\\)/g; s/^\([^=]*\)=\(.*\)/export \1="\2"/' | sed "s/\"/'/g");
-        ls -l $CPC_HOME/bin
-        CPC2.py -h
