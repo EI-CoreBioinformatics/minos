@@ -24,34 +24,39 @@ def cd(newdir):
 def main():
 
 	ap = argparse.ArgumentParser()
-	ap.add_argument("install_path", default=".", type=str)
+	ap.add_argument("--hash", default="9a2b596", help="Hash or version tag to use for downloading CPC2 from github")
+	ap.add_argument("--repo-name", default="CPC2", help="Name of the repository in GitHub to download from.")
+	ap.add_argument("-u", "--username", default="biocoder", help="Username associated with the CPC2 repo on GitHub")
+	ap.add_argument("install_path", default=".", type=str, nargs="?")
 	args = ap.parse_args()
 
 	args.install_path = os.path.abspath(args.install_path)
-	
+
+	args.hash = args.hash[:7]
 	with cd(args.install_path):
-		cmd = "wget --no-check-certificate --content-disposition https://github.com/biocoder/CPC2/tarball/9a2b596"
+		os.makedirs("CPC2", exist_ok=True)
+		cmd = "wget -O CPC2.tar.gz --no-check-certificate --content-disposition https://github.com/{args.username}/{args.repo_name}/tarball/{args.hash}".format(
+			args=args)
 		print("Downloading CPC2...", end="", flush=True)
-		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
-		cmd = "tar xvzf biocoder-CPC2-9a2b596.tar.gz"
+		cmd = "tar --strip-components=1 -C CPC2 -xvzf CPC2.tar.gz".format(args=args)
 		print("Unpacking...", end="", flush=True)
-		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
-		cmd = "rm -f biocoder-CPC2-9a2b596.tar.gz"
+		cmd = "rm -f CPC2.tar.gz".format(args=args)
 		print("Removing tarball...", end="", flush=True)
-		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
-		cmd = "cd biocoder-CPC2-9a2b596/libs/libsvm/libsvm-3.18 && make clean && make"
+		cmd = "cd CPC2/libs/libsvm/libsvm-3.18 && make clean && make".format(args=args)
 		print("Unpacking and building libsvm...", end="", flush=True)
-		p = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+		subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(" done.")
 
 	print("Patching CPC2...", end="", flush=True)
-	cpc2_dir_name = "biocoder-CPC2-9a2b596"
-	cpc2_dir = os.path.join(args.install_path, cpc2_dir_name)
+	cpc2_dir = os.path.join(args.install_path, "CPC2")
 	bin_dir = os.path.join(cpc2_dir, "bin")
 	compress_py = os.path.join(bin_dir, "compress.py")
 	code = open(compress_py).read()
@@ -82,12 +87,12 @@ def main():
 	for f in glob.glob(os.path.join(bin_dir, "*.py")):
 		os.chmod(f, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
 	print(" done.")
-		
 
-	print("CPC_HOME={}/{}".format(args.install_path, cpc2_dir_name))
-	print("PATH={}:{}/{}/bin".format(os.environ.get("PATH"), args.install_path, cpc2_dir_name))
+	print("CPC_HOME={}".format(cpc2_dir))
+	print("PATH={}:{}/bin".format(os.environ.get("PATH"), cpc2_dir))
 
 	pass
+
 
 if __name__ == "__main__":
 	main()
