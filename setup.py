@@ -20,9 +20,11 @@ version = "1.6.1"
 if sys.version_info.major != 3:
 	raise EnvironmentError("""minos is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
 
+requirements = [line.rstrip() for line in open("requirements.txt", "rt")]
 
 setup(
 	name=name,
+	python_requires=">=3.6",
 	version=version,
 	description=description,
 	long_description=long_description,
@@ -45,11 +47,7 @@ setup(
 	scripts=[
 		script for script in glob.glob("bin/slurm/*_sub")
 	],
-	install_requires=[
-		"snakemake>=5.14.0",
-		"drmaa",
-		"pyyaml>=5"
-	],
+        install_requires=requirements,
 	entry_points={
 		"console_scripts": [
 			"minos=minos.__main__:main",
@@ -71,8 +69,4 @@ setup(
 		"minos.dependencies": ["*.sh", "container_defs/*"]
 	},
 	include_package_data=True,
-	# data_files=[
-	# 	(ddir, glob.glob("{}/*.*".format(ddir)))
-	# 	for ddir in ("etc", "dependencies")
-	# ]
 )

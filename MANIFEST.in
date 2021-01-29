@@ -1,0 +1,9 @@
+include DESCRIPTION.md
+include README.md
+include LICENSE
+include requirements.txt
+recursive-include minos *smk *json *yaml
+recursive-include eicore *py
+recursive-include minos/etc *
+recursive-include minos/dependencies *
+recursive-include minos/scripts *
