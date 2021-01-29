@@ -14,7 +14,8 @@ jobs:
         python-version: [ 3.8, 3.7 ]
     steps:
     - uses: actions/checkout@v2
-      submodules: true
+      with:
+        submodules: true
     - name: Cache conda
       id: cache-miniconda
       uses: actions/cache@v1
