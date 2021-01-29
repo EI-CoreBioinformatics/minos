@@ -28,7 +28,7 @@ jobs:
       run: |
         export DEBIAN_FRONTEND=noninteractive
         sudo apt update
-        sudo apt install -y build-essential zlib1g-dev zlib1g
+        sudo apt install -y build-essential zlib1g-dev zlib1g git
     - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
@@ -49,9 +49,10 @@ jobs:
         python -c "import numpy"
     - name: Install CPC2
       run: |
-        eval $(install_cpc2 . | grep "=" | sed 's/\s\+/\\ /g; s/(/\\(/g; s/)/\\)/g; s/^\([^=]*\)=\(.*\)/export \1="\2"/' | sed "s/\"/'/g");
-        ls -l $CPC_HOME/bin
-        CPC2.py -h
+        git clone https://github.com/EI-CoreBioinformatics/CPC2 CPC2
+        cd CPC2
+        python setup.py develop
+        CPC2 -h
     - name: Miscellaneous tests
       run: |
         which minos
