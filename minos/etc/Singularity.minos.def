@@ -9,7 +9,6 @@ From: ubuntu:20.04
 
 %environment
     export PYTHONDONTWRITEBYTECODE=true
-    export CPC_HOME=/usr/local/CPC2/
     alias python=python3
 
 %post
@@ -21,16 +20,13 @@ From: ubuntu:20.04
     apt install -y python3 python3-pip git wget build-essential
     pip3 install wheel
     cd /usr/local/src/
-    git clone https://github.com/EI-CoreBioinformatics/minos minos
-    cd minos
+    git clone --recursive https://github.com/EI-CoreBioinformatics/minos minos
+    cd minos/CPC2
+    python3 setup.py bdist_wheel && pip3 install dist/*whl
+
+    cd /usr/local/src/minos/
     python3 setup.py bdist_wheel
     pip3 install --prefix /usr/local/  dist/*whl
-
-    # Install CPC2
-    cd /usr/local/src/
-    git clone https://github.com/EI-CoreBioinformatics/CPC2 CPC2
-    cd CPC2
-    python3 setup.py bdist_wheel && pip3 install dist/*whl
 
     # Create global folder
     mkdir -p /global && cd /global && rm -rf /usr/local/src/minos
