@@ -51,6 +51,7 @@ jobs:
         python -c "import numpy"
     - name: Install CPC2
       run: |
+        git clone --depth=1 https://github.com/EI-CoreBioinformatics/CPC2
         cd CPC2
         python setup.py develop
         CPC2 -h
