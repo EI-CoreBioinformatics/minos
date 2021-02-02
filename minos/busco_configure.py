@@ -1,10 +1,5 @@
-import csv
-import sys
-import yaml
 import os
 import glob
-import pathlib
-import subprocess
 
 BUSCO_LEVELS = {
 	"proteins", "proteome", "prot", "p",
@@ -13,11 +8,12 @@ BUSCO_LEVELS = {
 	"all", "none", "off"
 }
 
+
 class BuscoConfiguration(dict):
 	@staticmethod
 	def parse_busco_levels(levels):
 		if not levels:
-			return True, True, True # while developing
+			return True, True, True  #  while developing
 			return True, False, False
 		levels = set(l.lower() for l in levels.split(","))
 		invalid_levels = levels.difference(BUSCO_LEVELS)

@@ -4,7 +4,7 @@
 #MIKADO=/ei/software/cb/mikado/20190605_2705cbe/x86_64/mikado-20190605_2705cbe.img
 #MIKADO=/ei/software/cb/mikado/20190606_6c8d542/x86_64/mikado-20190606_6c8d542.img
 #MIKADO=/ei/software/cb/mikado/2.0rc6_f7f086d_CBG/x86_64/mikado-2.0rc6_f7f086d_CBG.img
-MIKADO=/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CBG.img
+MIKADO=/ei/software/cb/mikado/2.0/x86_64/mikado-2.0.simg
 
 RUN_DIR=$1
 TPM_FOR_PICKING="--use-tpm-for-picking"

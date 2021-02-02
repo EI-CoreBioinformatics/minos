@@ -1,34 +1,20 @@
 import datetime
 import os
 import time
-import sys
 from enum import Enum, unique
 from textwrap import dedent
-
+import pkg_resources
 from snakemake import snakemake
-
 from .capturing import Capturing
 
 
 NOW = datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')
 
-def get_etc_dir():
-	path, prefix = __file__, None
-	while path:
-		path, here = os.path.split(path)
-		if here == "lib":
-			prefix = path
-			break
-	
-	if prefix is None:
-		raise ValueError("Cannot deduce install location from " + __file__)
 
-	return os.path.join(prefix, "../minos/etc")
-	
-
-ETC_DIR = get_etc_dir() 
+ETC_DIR = pkg_resources.resource_filename("minos", "etc")
 DEFAULT_HPC_CONFIG_FILE = os.path.join(ETC_DIR, "hpc_config.json")
 DEFAULT_CONFIG_FILE = os.path.join(ETC_DIR, "minos_config.yaml")
+
 
 @unique
 class RunMode(Enum):
