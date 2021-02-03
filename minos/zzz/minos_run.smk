@@ -1,7 +1,6 @@
 import os
 import sys
 import pathlib
-
 from minos.minos_configure import ExternalMetrics
 from eicore.hpc_config import HpcConfig
 HPC_CONFIG = HpcConfig(config["hpc_config"])

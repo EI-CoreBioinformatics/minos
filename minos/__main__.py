@@ -1,17 +1,9 @@
 #!/usr/bin/env python 
-import csv
 import sys
-import yaml
 import argparse
-import os
-from os.path import join, basename, dirname, abspath
-import pathlib
-import subprocess
+from os.path import join, dirname
 import glob
 import shutil
-
-from collections import OrderedDict
-
 from minos import __version__
 from minos.minos_configure import *
 from eicore.snakemake_helper import *

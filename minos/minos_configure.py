@@ -1,16 +1,12 @@
 import csv
-import sys
 import yaml
 import os
-import glob
 import pathlib
 import subprocess
-
 from enum import Enum, unique, auto
-
-from minos import __version__
 from minos.minos_scoring import ScoringMetricsManager
 from minos.busco_configure import BuscoConfiguration
+
 
 #!TODO: 
 # - scan config template for reference
@@ -26,6 +22,7 @@ class ExternalMetrics(Enum):
     KALLISTO_TPM_EXPRESSION = auto()
     REPEAT_ANNOTATION = auto()
     BUSCO_PROTEINS = auto()
+
 
 MIKADO_CONFIGURE_CMD = "{cmd} --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
 
@@ -51,7 +48,7 @@ class MinosRunConfiguration(dict):
 		self.smm = ScoringMetricsManager(args)
 		print("Generating scoring file " + self.scoring_file + " ...", end="", flush=True)
 		self.smm.generateScoringFile(args.scoring_template, self.scoring_file, busco_scoring=args.busco_scoring)
-		print(" done.")                                                                                                                      	
+		print(" done.")
 	def __init__(self, args):
 		print("Configuring run...")
 		print(args)
@@ -59,8 +56,6 @@ class MinosRunConfiguration(dict):
 		pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
 		pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(exist_ok=True, parents=True)
 		self.mikado_config_file = os.path.join(args.outdir, args.prefix + ".mikado_config.yaml")
-
-
 
 	def _generate_run_configuration(self, args):
 		print("Generating run configuration file ...", flush=True, end="")

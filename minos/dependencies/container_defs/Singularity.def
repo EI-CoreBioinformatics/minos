@@ -35,38 +35,7 @@ Include: yum which wget
   	#make release
 
 	cd /opt/software
-	# http://cpc2.cbi.pku.edu.cn/download.php
-	wget http://cpc2.cbi.pku.edu.cn/data/CPC2-beta.tar.gz
-	tar xvzf CPC2-beta.tar.gz
-	rm CPC2-beta.tar.gz
-	export CPC_HOME=/opt/software/CPC2-beta
-	cd CPC2-beta/libs/libsvm
-	tar xvzf libsvm-3.18.tar.gz
-	cd libsvm-3.18
-	make clean && make
-	cd /opt/software/CPC2-beta/bin
-
-	# apply patches for Python3 compatibility
-	# patch compress.py
-	sed -i "s/\bfile(/open(/g" compress.py
-	# patch CPC2.py
-	sed -i "s/commands/subprocess/g" CPC2.py
-	sed -i "s/\bfile(/open(/g" CPC2.py
-	sed -i "s/triplet_got.next()/next(triplet_got)/g" CPC2.py
-
-	head -n 355 CPC2.py >> CPC2.py.1
-	echo $'\t'$'\t'"os.system('mv ' + outfile + '.txt ' + outfile)" >> CPC2.py.1
-	tail -n +356 CPC2.py >> CPC2.py.1
-	mv CPC2.py.1 CPC2.py
-	# patch seqio.py
-	sed -i "s/print \([^ $]\+\)/print(\1)/g" seqio.py
-	chmod 775 *.py
-
-	python3 CPC2.py -h
-
-	#pip show pip
-
-
-
-
-	#bbmap cutadapt trim-galore fastqc bamtools bowtie2 seqtk picard samtools qualimap hisat2 sortmerna stringtie
+	mkdir -p CPC2
+	tar xvaf CPC2.tar.gz --strip-components=1 -C CPC2
+	cd CPC2
+	python3 setup.py bdist_wheel && pip3 install dist/*whl
