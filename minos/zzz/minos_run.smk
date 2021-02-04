@@ -71,7 +71,7 @@ BUSCO_PRECOMPUTED = """
 BUSCO_CMD = """
 	mkdir -p {BUSCO_PATH}/logs
 	&& cfgdir={BUSCO_PATH}/config/{params.busco_stage}/{params.run} && mkdir -p $cfgdir
-	&& {params.copy} {AUGUSTUS_CONFIG_DATA} $cfgdir/
+	&& {params.copy_busco} {AUGUSTUS_CONFIG_DATA} $cfgdir/
 	&& export AUGUSTUS_CONFIG_PATH=$cfgdir/config
 	&& rm -rvf {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& mkdir -p {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
@@ -292,7 +292,7 @@ rule minos_metrics_repeats_convert:
 	run:
 		from minos.scripts.parse_repeatmasker import parse_repeatmasker
 		parse_repeatmasker(input[0], output[0], output[1], wildcards.run)
-			
+
 rule minos_metrics_bedtools_repeat_coverage:
 	input:
 		rules.minos_metrics_repeats_convert.output[1],
@@ -337,7 +337,7 @@ rule minos_metrics_cpc2:
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_cpc2")
 	resources:
-		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_cpc2") * attempt	
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_cpc2") * attempt
 	shell:
 		"{params.program_call} {params.program_params} -i {input[0]} -o {output[0]} &> {log}"
 
@@ -403,7 +403,7 @@ rule minos_metrics_mikado_compare_vs_transcripts:
 		"mkdir -p {params.outdir}" + \
 		" && {params.program_call} {params.program_params} -r {input.mika} -p {input.transcripts} -o {params.outdir}/mikado_{params.transcripts} &> {log}" + \
 		" && touch {output[0]}"
-		
+
 rule minos_metrics_mikado_compare_vs_proteins:
 	input:
 		midx = rules.minos_mikado_compare_index_reference.output[0],
@@ -472,7 +472,7 @@ BLAST_CMD = "{params.program_call} {params.program_params} -query {input.chunk} 
 			"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
 DIAMOND_CMD = "{params.program_call} {params.program_params} --query {input.chunk} --out {output[0]} --threads {threads} " + \
 			"--db {input.db} --outfmt 6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore &> {log}"
-			
+
 rule minos_metrics_blastp_chunked:
 	input:
 		chunk = os.path.join(TEMP_DIR, "chunked_proteins", "chunk-{chunk}.txt"),
@@ -651,7 +651,7 @@ rule minos_calculate_cds_lengths_post_pick:
 	params:
 		min_cds_length = config["misc"]["min_cds_length"]
 	run:
-		from minos.scripts.calculate_cdslen import calculate_cdslen 
+		from minos.scripts.calculate_cdslen import calculate_cdslen
 		calculate_cdslen(input[0], output[0], params.min_cds_length)
 
 
@@ -791,7 +791,7 @@ rule minos_create_release_metrics:
 					if row[0] is None:
 						continue
 				print(*row, sep="\t", flush=True, file=metrics_out)
-				
+
 rule minos_sort_release_gffs:
 	input:
 		rules.minos_create_release_gffs.output
@@ -901,7 +901,7 @@ rule minos_generate_final_table:
 
 rule minos_collate_metric_oddities:
 	input:
-		loci = rules.minos_mikado_pick.output.loci_metrics, 
+		loci = rules.minos_mikado_pick.output.loci_metrics,
 		subloci = rules.minos_mikado_pick.output.subloci_metrics,
 		monoloci = rules.minos_mikado_pick.output.monoloci_metrics,
 		old_new_rel = rules.minos_create_release_gffs.output[2],
@@ -948,7 +948,7 @@ rule busco_proteins_prepare:
 		run = lambda wildcards: wildcards.run,
 		busco_mode = "proteins",
 		busco_stage = "proteins_prepare",
-		copy = config["program_calls"]["copy"]
+		copy_busco = config["program_calls"]["copy_busco"]
 	threads:
 		HPC_CONFIG.get_cores("busco_proteins_prepare")
 	resources:
@@ -973,7 +973,7 @@ rule busco_proteins_final:
 		run = "proteins_final",
 		busco_mode = "proteins",
 		busco_stage = "proteins_final",
-		copy = config["program_calls"]["copy"]
+		copy_busco = config["program_calls"]["copy_busco"]
 	threads:
 		HPC_CONFIG.get_cores("busco_proteins_final")
 	resources:
@@ -1011,7 +1011,7 @@ rule busco_transcripts_prepare:
 		run = lambda wildcards: wildcards.run,
 		busco_mode = "transcriptome",
 		busco_stage = "transcripts_prepare",
-		copy = config["program_calls"]["copy"]
+		copy_busco = config["program_calls"]["copy_busco"]
 	threads:
 		HPC_CONFIG.get_cores("busco_transcripts_prepare")
 	resources:
@@ -1036,7 +1036,7 @@ rule busco_transcripts_final:
 		run = "transcripts_final",
 		busco_mode = "transcriptome",
 		busco_stage = "transcripts_final",
-		copy = config["program_calls"]["copy"]
+		copy_busco = config["program_calls"]["copy_busco"]
 	threads:
 		HPC_CONFIG.get_cores("busco_transcripts_final")
 	resources:
@@ -1064,7 +1064,7 @@ if config["busco_analyses"]["genome"] or config["busco_analyses"]["precomputed_g
 			run = "genome",
 			busco_mode = "genome",
 			busco_stage = "genome",
-			copy = config["program_calls"]["copy"]
+			copy_busco = config["program_calls"]["copy_busco"]
 		threads:
 			HPC_CONFIG.get_cores("busco_genome")
 		resources:
@@ -1100,8 +1100,8 @@ rule busco_summary:
 			os.path.join(config["outdir"], "tx2gene"),
 			input[0],
 			input[1],
-			os.path.join(BUSCO_PATH, "runs")	
+			os.path.join(BUSCO_PATH, "runs")
 		)
 		btg.write_review_table(output[0])
 		btg.write_raw_data(output[0])
-		btg.write_busco_table(output[0], config["misc"]["busco_max_copy_number"])	
+		btg.write_busco_table(output[0], config["misc"]["busco_max_copy_number"])
