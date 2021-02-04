@@ -17,7 +17,7 @@ params:
   cpc2: "-r"
   kallisto:
     index: ""
-    quant: "-b 100" 
+    quant: "-b 100"
   blast:
     makeblastdb: "-dbtype prot"
     blastp: "-max_target_seqs 1 -evalue 1e-5"
@@ -57,7 +57,7 @@ program_calls:
   genometools: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img gt"
   prinseq: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img prinseq-lite.pl"
   busco: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.busco.img busco"
-  copy: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.busco.img cp -r"
+  copy_busco: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.busco.img cp -r"
   bedtools:
     coverageBed: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img coverageBed"
   time: "/usr/bin/time -v"
