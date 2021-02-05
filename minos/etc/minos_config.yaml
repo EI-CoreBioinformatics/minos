@@ -75,6 +75,8 @@ collapse_metrics_thresholds:
   #discard: "protein_score eq 0 & transcript_score eq 0 & hom_acov_score eq 0 & expression_score lt 0.3"
 
 report_metric_oddities:
+ - "{exon_num} == 1"
+ - "{exon_num} > 1"
  - "{five_utr_length} >= 10000"
  - "{five_utr_num} >= 5"
  - "{three_utr_length} >= 10000"
@@ -85,7 +87,7 @@ report_metric_oddities:
  - "{max_exon_length} >= 10000"
  - "{max_intron_length} >= 500000"
  - "{min_exon_length} <= 5"
- - "{min_intron_length} <= 5"
+ - "0 < {min_intron_length} <= 5"
  - "{selected_cds_fraction} <= 0.3"
  - "{canonical_intron_proportion} != 1"
  - "{non_verified_introns_num} >= 1"
