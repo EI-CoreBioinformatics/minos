@@ -653,7 +653,7 @@ rule minos_calculate_cds_lengths_post_pick:
 		min_cds_length = config["misc"]["min_cds_length"]
 	run:
 		from minos.scripts.calculate_cdslen import calculate_cdslen
-		calculate_cdslen(cds, cdna, output[0], params.min_cds_length)
+		calculate_cdslen(input.cds, input.cdna, output[0], params.min_cds_length)
 
 
 rule minos_gff_genometools_check_post_pick:
