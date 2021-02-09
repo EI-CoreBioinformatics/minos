@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 import sys
 import argparse
 from os.path import join, dirname
@@ -7,41 +7,54 @@ import shutil
 from minos import __version__
 from minos.minos_configure import *
 from eicore.snakemake_helper import *
+from minos.busco_configure import BUSCO_LEVELS
 
 
 def add_default_options(parser):
 	common_group = parser.add_argument_group("minos options")
-			
-	common_group.add_argument("--outdir", "-o", type=str, default="minos_run")
-	common_group.add_argument("--prefix", type=str, default="minos_run")
-	common_group.add_argument("--mikado-container", type=str, default="/ei/software/testing/minos/dev/x86_64/mikado.simg")
-	common_group.add_argument("--dryrun", action="store_true")
+
+	common_group.add_argument("--outdir", "-o", type=str,
+	                          default="minos_run", help="(default: %(default)s)")
+	common_group.add_argument(
+		"--prefix", type=str, default="minos_run", help="(default: %(default)s)")
+	common_group.add_argument("--mikado-container", type=str,
+	                          default="/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CBG.img", help="(default: %(default)s)")
+	common_group.add_argument(
+		"--dryrun", action="store_true", help="(default: %(default)s)")
 	make_exeenv_arg_group(parser, allow_mode_selection=False, silent=True)
-		
+
 def add_configure_parser(subparsers):
 	configure_parser = subparsers.add_parser(
 		"configure",
 		help="",
 		description=""
 	)
-	
-	configure_parser.add_argument("list_file", type=str)	
+
+	configure_parser.add_argument("list_file", type=str)
 	configure_parser.add_argument("scoring_template", type=str)
 	configure_parser.add_argument("reference", type=str)
 	configure_parser.add_argument("--external", type=str, default="")
 	configure_parser.add_argument("--external-metrics", type=str, default="")
-	configure_parser.add_argument("--blastmode", choices=("blastp", "blastx"), default="blastp")
-	configure_parser.add_argument("--use-diamond", action="store_true", help="Use diamond instead of NCBI blast+ suite (which is the default)")
-	configure_parser.add_argument("--annotation-version", type=str, default="EIv1")
-	configure_parser.add_argument("--genus-identifier", type=str, default="XYZ")
-	configure_parser.add_argument("--use-tpm-for-picking", action="store_true")
-	configure_parser.add_argument("--force-reconfiguration", "-f", action="store_true")
-	configure_parser.add_argument("--config-file", type=str, default=DEFAULT_CONFIG_FILE)
-	configure_parser.add_argument("--busco-level", type=str, default="all") # proteins in release 
+	configure_parser.add_argument(
+		"--blastmode", choices=("blastp", "blastx"), default="blastp", help="(default: %(default)s)")
+	configure_parser.add_argument("--use-diamond", action="store_true",
+	                              help="Use diamond instead of NCBI blast+ suite (default: %(default)s)")
+	configure_parser.add_argument(
+		"--annotation-version", type=str, default="EIv1", help="(default: %(default)s)")
+	configure_parser.add_argument(
+		"--genus-identifier", type=str, default="XYZ", help="(default: %(default)s)")
+	configure_parser.add_argument(
+		"--use-tpm-for-picking", action="store_true", help="(default: %(default)s)")
+	configure_parser.add_argument(
+		"--force-reconfiguration", "-f", action="store_true", help="(default: %(default)s)")
+	configure_parser.add_argument(
+		"--config-file", type=str, default=DEFAULT_CONFIG_FILE, help="(default: %(default)s)")
+	configure_parser.add_argument("--busco-level", type=str, default="all",
+	                              help=f"Possible choices are [{BUSCO_LEVELS}] (default: %(default)s). Combinations are accepted, like p,t (implies proteome,transcriptome)")  # proteins in release
 	configure_parser.add_argument("--busco-scoring", type=int, help="Force busco protein runs and use results in transcript scoring with the specified multiplier.")
 	configure_parser.add_argument("--busco-lineage", type=str, help="Required if --busco-level is not in {none,off}.")
 	configure_parser.add_argument("--busco-genome-run",type=str, help="Directory with short_summary.txt and full_table.tsv from processing the reference with busco genome.")
-	
+
 	add_default_options(configure_parser)
 	configure_parser.set_defaults(runmode="configure")
 
@@ -53,7 +66,7 @@ def add_run_parser(subparsers):
 		description=""
 	)
 
-	run_parser.add_argument("--rerun-from", type=str, choices=("start", "pick", "collapse_metrics", "off"), default="off", help="Rerun from specific stage [off]")
+	run_parser.add_argument("--rerun-from", type=str, choices=("start", "pick", "collapse_metrics", "off"), default="off", help="Rerun from specific stage (default: %(default)s)")
 
 	add_default_options(run_parser)
 	run_parser.set_defaults(runmode="run")
@@ -70,20 +83,20 @@ def parse_args():
 	return ap.parse_args()
 
 
-def main():	
+def main():
 	print("Starting MINOS V " + __version__)
 	print()
-	
+
 	if len(sys.argv) == 1:
 		sys.argv.append("-h")
-	
+
 	args = parse_args()
 
 	run_configuration_file = None
 	try:
 		run_configuration_file = os.path.abspath(glob.glob(os.path.join(args.outdir, "*.run_config.yaml")).pop())
 	except:
-		pass 
+		pass
 
 	print("Runmode is", args.runmode)
 	if args.runmode == "configure":
@@ -138,9 +151,8 @@ def main():
 		result = run_snakemake(snake, args.outdir, run_configuration_file, exe_env, dryrun=args.dryrun)
 		if result:
 			open(minos_complete_sentinel, "w").close()
-	
 
 	pass
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
 	main()
