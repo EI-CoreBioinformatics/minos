@@ -13,18 +13,18 @@ class BuscoConfiguration(dict):
 	@staticmethod
 	def parse_busco_levels(levels):
 		if not levels:
-			return True, True, True  #  while developing
-			return True, False, False
+			return False, False, False  #  while developing
+			# return True, False, False
 		levels = set(l.lower() for l in levels.split(","))
 		invalid_levels = levels.difference(BUSCO_LEVELS)
 		if invalid_levels:
-			raise ValueError("Invalid busco levels specified with --busco-level option ({}). Valid levels are {}.".format(invalid_levels, BUSCO_LEVELS))
+			raise ValueError(
+				"Invalid busco levels specified with --busco-level option ({}). Valid levels are {}.".format(invalid_levels, BUSCO_LEVELS))
 		switch_off = {"off", "none"}.intersection(levels)
 		unique_levels = set(level[0] for level in levels.difference({"off", "none"}))
 		do_proteins = unique_levels.intersection({"a", "p"}) and not switch_off
 		do_transcripts = unique_levels.intersection({"a", "t"}) and not switch_off
 		do_genome = unique_levels.intersection({"a", "g"}) and not switch_off
-
 		return tuple(map(bool, (do_proteins, do_transcripts, do_genome)))
 
 	def _check_precomputed_genome_run(self, bg_run):
@@ -55,7 +55,11 @@ class BuscoConfiguration(dict):
 			))
 
 		self["precomputed_genome"] = self._check_precomputed_genome_run(args.busco_genome_run)
-		self["lineage"] = args.busco_lineage	
+		self["lineage"] = args.busco_lineage
+		if any([self["proteins"], self["transcriptome"], self["genome"]]) and self["lineage"] is None:
+			selected = [key for key in ["genome", "transcriptome", "proteins"] if self[key]]
+			raise ValueError("BUSCO levels {} were set but no lineage was specified. Please correct.".format(
+				",".join(selected)))
 
 	def to_dict(self):
 		return {k: v for k, v in self.items()}
