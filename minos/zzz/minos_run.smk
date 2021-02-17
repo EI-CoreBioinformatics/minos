@@ -129,6 +129,7 @@ BUSCO_COPY = [
 BUSCO_COPY_SOURCES = [src for src, dest in BUSCO_COPY]
 BUSCO_COPY_TARGETS = [dest for src, dest in BUSCO_COPY]
 
+BUSCO_TABLE = ""
 if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
 	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
