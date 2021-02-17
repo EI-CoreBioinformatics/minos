@@ -59,10 +59,6 @@ class BuscoConfiguration(dict):
 
 		self["precomputed_genome"] = self._check_precomputed_genome_run(args.busco_genome_run)
 		self["lineage"] = args.busco_lineage
-		if any([self["proteins"], self["transcriptome"], self["genome"]]) and self["lineage"] is None:
-			selected = [key for key in ["genome", "transcriptome", "proteins"] if self[key]]
-			raise ValueError("BUSCO levels {} were set but no lineage was specified. Please correct.".format(
-				",".join(selected)))
 
 	def to_dict(self):
 		return {k: v for k, v in self.items()}
