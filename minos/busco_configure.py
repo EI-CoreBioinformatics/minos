@@ -53,6 +53,9 @@ class BuscoConfiguration(dict):
 				*self.values(),
 				args.busco_lineage
 			))
+		if args.busco_lineage and not set(args.busco_level.split(",")).issubset(BUSCO_LEVELS.difference({"off", "none"})):
+			raise ValueError("BUSCO lineage (--busco-lineage ({})) requires --busco-level ({} - user provided) not in {{off,none}})".format(
+				args.busco_lineage, args.busco_level))
 
 		self["precomputed_genome"] = self._check_precomputed_genome_run(args.busco_genome_run)
 		self["lineage"] = args.busco_lineage
