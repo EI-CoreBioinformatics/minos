@@ -78,6 +78,7 @@ BUSCO_CMD = """
 	&& cd {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} &> {log}
 	&& mv {params.run}/* . && rm -rf {params.run}
+	&& rm -rf run_*/hmmer_output
 	&& touch {output[2]}
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
