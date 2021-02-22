@@ -25,7 +25,7 @@ class RunMode(Enum):
 	DRYRUN = 4
 
 
-def make_exeenv_arg_group(parser, default_hpc_config_file=DEFAULT_HPC_CONFIG_FILE, allow_mode_selection=True, silent=False):  
+def make_exeenv_arg_group(parser, default_hpc_config_file=DEFAULT_HPC_CONFIG_FILE, allow_mode_selection=True, silent=False):
 	"""
 	This adds a command line option group to the provided parser.  These options help control the external_process process over various architectures and schedulers
 	:param parser: The command line parser to add exeenv options to
@@ -38,33 +38,33 @@ def make_exeenv_arg_group(parser, default_hpc_config_file=DEFAULT_HPC_CONFIG_FIL
 	if allow_mode_selection:
 		hpc_group.add_argument("--mode", choices=[rm.name.lower() for rm in RunMode], default="normal",
 							help=dedent("""This option controls how to run the pipelines.
-								\"normal\" - This mode will start the run from scratch into an non-existant output directory.  This 
+								\"normal\" - This mode will start the run from scratch into an non-existant output directory.  This
 								is the default option.  However, if the output directory already exists then the pipeline will fail.
-								\"resume\" - This skips the validation step and resumes the pipeline from an existing output directory 
+								\"resume\" - This skips the validation step and resumes the pipeline from an existing output directory
 								where it left off before.
 								\"restart\" - Wipes the output directory and start afresh.  WARNING: this will delete all contents in
 								the output directory.
 								\"validate\" - Does not attempt to run an snakemake pipeline.  Simply analyses and validates any input provided.
 								\"dryrun\" - As \'validate\' mode but also performs a dryrun of the pipeline, ensuring the pipeline
-								 works with the input as well.  In addition, this produces a DAG in dot format, that can be turned into a plot.  
+								 works with the input as well.  In addition, this produces a DAG in dot format, that can be turned into a plot.
 								 e.g. dot -T svg pipeline.dot > pipeline.svg."""))
 
 	hpc_group.add_argument("--partition", type=str,
 						   help="Will run all child jobs on this partition/queue, this setting overrides anything specified in the \"--hpc_config\" file.")
-	hpc_group.add_argument("--scheduler", type=str,
-						   help="The job scheduler to use.  LSF, PBS and SLURM currently supported.  If running without a scheduler type NONE here. Assumes SLURM by default.")
+	hpc_group.add_argument("--scheduler", type=str, default="SLURM",
+                        help="The job scheduler to use.  LSF, PBS and SLURM currently supported.  If running without a scheduler type NONE here (default: %(default)s)")
 	hpc_group.add_argument("--no_drmaa", action='store_true', default=False,
-						   help="Use this flag if DRMAA is not available")
+                        help="Use this flag if DRMAA is not available (default: %(default)s)")
 	hpc_group.add_argument("-N", "--max_nodes", type=int, default=100,
-						   help="Maximum number of nodes to use concurrently")
+						   help="Maximum number of nodes to use concurrently (default: %(default)s)")
 	hpc_group.add_argument("-c", "--max_cores", type=int, default=200,
-						   help="Maximum number of cores to use concurrently")
+                        help="Maximum number of cores to use concurrently (default: %(default)s)")
 	hpc_group.add_argument("--hpc_config", default=default_hpc_config_file,
-						   help="Configuration file for the HPC.  Can be used to override what resources and partitions each job uses.")
+                        help="Configuration file for the HPC.  Can be used to override what resources and partitions each job uses (default: %(default)s)")
 	hpc_group.add_argument("--unlock", action='store_true', default=False,
-						help="""If the snakemake pipeline is not running because it is reporting that the directory is locked, 
-						then you can unlock it using this option.  Please make sure that there are no other snakemake jobs 
-						are running in this directory before using this option!""")
+						help="""If the snakemake pipeline is not running because it is reporting that the directory is locked,
+						then you can unlock it using this option.  Please make sure that there are no other snakemake jobs
+						are running in this directory before using this option! (default: %(default)s)""")
 
 	return parser
 
@@ -135,7 +135,7 @@ class ExecutionEnvironment:
 
 
 def loadPreCmd(*args):
-	
+
 	"""Used to prefix a shell command that utilises some external software with another command used
 	to load that software"""
 
