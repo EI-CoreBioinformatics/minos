@@ -42,12 +42,13 @@ class MinosRunConfiguration(dict):
 		print("Running mikado configure with:", cmd, sep="\n")
 		out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
 		print(out)
-	
+
 	def _generate_scoring_file(self, args):
 		self.scoring_file = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
 		self.smm = ScoringMetricsManager(args)
 		print("Generating scoring file " + self.scoring_file + " ...", end="", flush=True)
-		self.smm.generateScoringFile(args.scoring_template, self.scoring_file, busco_scoring=args.busco_scoring)
+		self.smm.generateScoringFile(args.scoring_template, self.scoring_file,
+		                             busco_scoring=args.busco_scoring, use_tpm=args.use_tpm_for_picking)
 		print(" done.")
 	def __init__(self, args):
 		print("Configuring run...")
