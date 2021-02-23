@@ -77,6 +77,7 @@ BUSCO_CMD = """
 	&& cd {BUSCO_PATH}/runs/{params.busco_stage}/{params.run}
 	&& {params.program_call} {params.program_params} -i {params.input} -c {threads} -m {params.busco_mode} --force -l {params.lineage_path} -o {params.run} &> {log}
 	&& mv {params.run}/* . && rm -rf {params.run}
+	&& rm -rf run_*/hmmer_output
 	&& touch {output[2]}
 	&& rm -rf $cfgdir
 """.strip().replace("\n\t", " ")
@@ -128,6 +129,7 @@ BUSCO_COPY = [
 BUSCO_COPY_SOURCES = [src for src, dest in BUSCO_COPY]
 BUSCO_COPY_TARGETS = [dest for src, dest in BUSCO_COPY]
 
+BUSCO_TABLE = ""
 if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
 	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
@@ -642,14 +644,15 @@ rule minos_gffread_extract_sequences_post_pick:
 
 rule minos_calculate_cds_lengths_post_pick:
 	input:
-		rules.minos_gffread_extract_sequences_post_pick.output.cds
+		cds = rules.minos_gffread_extract_sequences_post_pick.output.cds,
+		cdna = rules.minos_gffread_extract_sequences_post_pick.output.cdna
 	output:
 		rules.minos_gffread_extract_sequences_post_pick.output.cds + ".lengths"
 	params:
 		min_cds_length = config["misc"]["min_cds_length"]
 	run:
 		from minos.scripts.calculate_cdslen import calculate_cdslen
-		calculate_cdslen(input[0], output[0], params.min_cds_length)
+		calculate_cdslen(input.cds, input.cdna, output[0], params.min_cds_length)
 
 
 rule minos_gff_genometools_check_post_pick:
