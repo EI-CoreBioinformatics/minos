@@ -62,16 +62,20 @@ class ScoringMetricsManager(object):
 							metric_name, ScoringMetricsManager.STRANDINFO
 						))
 				else:
-					print("Found expression metric: {} but --use-tpm-for-picking was not set. Ignoring.".format(metric_name))
-					continue
+					print("Found expression metric: {} but --use-tpm-for-picking was not set. Commenting it on scoring file.".format(metric_name))
 
 			self.metrics.setdefault(metric_class, OrderedDict()).setdefault(metric_name, list()).append(data)
-	
+
 		if len(self.metrics.get("junction", OrderedDict())) > 1:
 			raise ValueError("More than one junction file supplied. " + self.metrics.get("junction", list()))
 
+		if len(self.metrics.get("expression", OrderedDict())) == 0 and use_tpm:
+				print("\nWARNING: No expression file supplied but --use-tpm-for-picking was set to {}. Unsetting it to False.\n".format(use_tpm))
+				self.args.use_tpm_for_picking = False
+
 
 	def __init__(self, args):
+		self.args = args
 		self.__importMetricsData(args.external_metrics, use_tpm=args.use_tpm_for_picking)
 
 	def getMetricsData(self, metric):
@@ -80,8 +84,8 @@ class ScoringMetricsManager(object):
 			mdata.setdefault(k, list()).extend(item["files"] for item in self.metrics[metric][k])
 			pass
 		return mdata
-	
-	def generateScoringFile(self, scoring_template, outfile, busco_scoring=None):
+
+	def generateScoringFile(self, scoring_template, outfile, busco_scoring=None, use_tpm=False):
 
 		def generate_nf_expression(metrics):
 			ext_metrics = list()
@@ -89,7 +93,7 @@ class ScoringMetricsManager(object):
 				if mclass not in NON_NF:
 					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
 					for runid, run in runs.items():
-						for suffix in suffixes:						
+						for suffix in suffixes:
 							ext_metrics.append("external.{}_{}".format(runid, suffix))
 
 			expression = "[((exon_num.multi and (combined_cds_length.multi or {0}))"
@@ -98,7 +102,7 @@ class ScoringMetricsManager(object):
 			return expression.format("*".join(ext_metrics).replace("*", " or "))
 
 		def generate_nf_params(metrics):
-			params = list() 
+			params = list()
 			for mclass, runs in metrics.items():
 				if mclass not in NON_NF:
 					suffixes = NF_SUFFIXES.get(mclass, ["aF1"])
@@ -115,8 +119,8 @@ class ScoringMetricsManager(object):
 					raise ValueError("multi-multiplier string ({}) does not contain expected multipliers (k={})".format(m, k))
 				return dict(item.split(":") for item in m_split)
 			return {"default": m}
-				
-			
+
+
 		def generate_external_scoring(metrics):
 			scoring = list()
 
@@ -140,13 +144,15 @@ class ScoringMetricsManager(object):
 						if suffix == "tpm":
 							expression = "{{rescaling: max, multiplier: {}}}".format(multiplier)
 							suffix = ""
+							if not use_tpm:
+								comment = "#"
 						else:
 							expression = "{{rescaling: max, use_raw: true, multiplier: {}}}".format(multiplier)
 							suffix = "_" + suffix
 						scoring.append(
 							"  {}external.{}{}: {}".format(comment, runid, suffix, expression)
 						)
-			
+
 			return scoring
 
 		if busco_scoring is None:

@@ -89,7 +89,7 @@ class ExpressionData(dict):
 				files_imported += 1
 
 		if files_imported == 0:
-			raise ValueError("No kallisto data processed")
+			print("Warning: No kallisto data processed. Assigning kallisto scores to 0.0")
 
 class TranscriptScores:
 	def __init__(self, metrics_info, expression_score, short_cds, **metrics):
@@ -130,7 +130,7 @@ class MetricCollapser:
 					if mdata is not None:
 						raise ValueError("Error: Potential duplicate entry. Transcript '{}' already processed. Please check.\n{}\n".format(metrics["tid"], "\t".join(metrics)))
 
-					kallisto_score = self.expression_data.get(tdata["id"])
+					kallisto_score = self.expression_data.get(tdata["id"], 0.0)
 					if kallisto_score is None:
 						raise ValueError("Error: Could not extract tpm data for transcript {} ({})".format(metrics["tid"], tdata["id"]))
 

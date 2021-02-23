@@ -12,6 +12,8 @@ LOG_DIR = os.path.join(config["outdir"], "logs")
 TEMP_DIR = os.path.join(config["outdir"], "tmp")
 AUGUSTUS_CONFIG_DATA = config["paths"]["augustus_config_data"]
 
+# check if we have RNA-Seq expression data
+EXPRESSION_OK = len(config["data"]["expression-runs"])
 
 def get_rnaseq(wc):
 	return [item for sublist in config["data"]["expression-runs"][wc.run] for item in sublist]
@@ -41,15 +43,12 @@ OUTPUTS = [
 	os.path.join(EXTERNAL_METRICS_DIR, "CPC-2.0_beta", "mikado_prepared.fasta.cpc2output.txt"),
 ]
 
-if config["use-tpm-for-picking"]:
-	OUTPUTS.append(
-		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx")
-	)
+if EXPRESSION_OK > 0:
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "mikado_prepared.fasta.idx"))
 
 POST_PICK_EXPRESSION = list()
 for run in config.get("data", dict()).get("expression-runs", dict()):
-	if config["use-tpm-for-picking"]:
-		OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
+	OUTPUTS.append(os.path.join(EXTERNAL_METRICS_DIR, "kallisto", run, "abundance.tsv"))
 	POST_PICK_EXPRESSION.append(os.path.join(config["outdir"], "kallisto", run, "abundance.tsv"))
 
 for run in config.get("data", dict()).get("protein-runs", dict()):
@@ -174,7 +173,7 @@ rule all:
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
 			for suffix in {".gff", ".proteins.fasta", ".table.txt", ".cds.fasta", ".cds.fasta.lengths", ".cdna.fasta"}
 		],
-		os.path.join(config["outdir"], "kallisto", POST_PICK_PREFIX + ".cdna.fasta.idx"),
+		os.path.join(config["outdir"], "kallisto", POST_PICK_PREFIX + ".cdna.fasta.idx") if EXPRESSION_OK > 0 else [],
 		POST_PICK_EXPRESSION,
 		[
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
@@ -342,44 +341,42 @@ rule minos_metrics_cpc2:
 		"{params.program_call} {params.program_params} -i {input[0]} -o {output[0]} &> {log}"
 
 
-if config["use-tpm-for-picking"]:
+rule minos_metrics_kallisto_index:
+	input:
+		rules.minos_mikado_prepare.output[0]
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", os.path.basename(rules.minos_mikado_prepare.output[0]) + ".idx")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index.log")
+	params:
+		program_call = config["program_calls"]["kallisto"].format(program="index"),
+		program_params = config["params"].get("kallisto", {}).get("index", "")
+	threads:
+		HPC_CONFIG.get_cores("minos_metrics_kallisto_index")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_kallisto_index") * attempt
+	shell:
+		"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
 
-	rule minos_metrics_kallisto_index:
-		input:
-			rules.minos_mikado_prepare.output[0]
-		output:
-			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", os.path.basename(rules.minos_mikado_prepare.output[0]) + ".idx")
-		log:
-			os.path.join(LOG_DIR, config["prefix"] + ".kallisto_index.log")
-		params:
-			program_call = config["program_calls"]["kallisto"].format(program="index"),
-			program_params = config["params"].get("kallisto", {}).get("index", "")
-		threads:
-			HPC_CONFIG.get_cores("minos_metrics_kallisto_index")
-		resources:
-			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_kallisto_index") * attempt
-		shell:
-			"{params.program_call} {params.program_params} -i {output[0]} {input[0]} &> {log}"
-
-	rule minos_metrics_kallisto_quant:
-		input:
-			index = rules.minos_metrics_kallisto_index.output[0],
-			reads = get_rnaseq
-		output:
-			os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}", "abundance.tsv")
-		log:
-			os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.log")
-		params:
-			program_call = config["program_calls"]["kallisto"].format(program="quant"),
-			program_params = config["params"].get("kallisto", {}).get("quant", ""),
-			stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
-			outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
-		threads:
-			HPC_CONFIG.get_cores("minos_metrics_kallisto_quant")
-		resources:
-			mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_kallisto_quant") * attempt
-		shell:
-			"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
+rule minos_metrics_kallisto_quant:
+	input:
+		index = rules.minos_metrics_kallisto_index.output[0],
+		reads = get_rnaseq
+	output:
+		os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}", "abundance.tsv")
+	log:
+		os.path.join(LOG_DIR, config["prefix"] + ".{run}.kallisto.log")
+	params:
+		program_call = config["program_calls"]["kallisto"].format(program="quant"),
+		program_params = config["params"].get("kallisto", {}).get("quant", ""),
+		stranded = lambda wildcards: "" if wildcards.run.endswith("_xx") else "--" + wildcards.run[-2:] + "-stranded",
+		outdir = os.path.join(EXTERNAL_METRICS_DIR, "kallisto", "{run}")
+	threads:
+		HPC_CONFIG.get_cores("minos_metrics_kallisto_quant")
+	resources:
+		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_metrics_kallisto_quant") * attempt
+	shell:
+		"{params.program_call} {params.program_params} {params.stranded} -i {input.index} -o {params.outdir} --threads {threads} {input.reads} &> {log}"
 
 rule minos_metrics_mikado_compare_vs_transcripts:
 	input:
