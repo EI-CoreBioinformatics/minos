@@ -18,6 +18,7 @@ class BuscoTableGenerator:
 		self.txcoords_pick = dict(line.strip().split("\t") for line in open(txcoords_pick))
 
 	def parse_rundata(self, busco_run_path):
+		missing_busco_proteins_list, missing_busco_transcripts_list = list(), list()
 		for d in os.listdir(busco_run_path):
 			if d.endswith("_final") or d == "genome":
 				f = glob.glob(os.path.join(busco_run_path, d, d, "run_*", "full*"))[0]
@@ -33,22 +34,23 @@ class BuscoTableGenerator:
 						self.run_tables[runid], complete_buscos, missing_buscos, fragmented_buscos = read_full_table(f, self.tx2gene)
 						if os.path.basename(d).startswith("proteins"):
 							self.complete_busco_proteins[dd] = complete_buscos
-							if not self.missing_busco_proteins:
-								self.missing_busco_proteins.update(missing_buscos)
-							else:
-								self.missing_busco_proteins.intersection_update(missing_buscos)
+							missing_busco_proteins_list.append(missing_buscos)
 							self.fragmented_busco_proteins[dd] = fragmented_buscos
 						else:
 							self.complete_busco_transcripts[dd] = complete_buscos
-							if not self.missing_busco_transcripts:
-								self.missing_busco_transcripts.update(missing_buscos)
-							else:
-								self.missing_busco_transcripts.intersection_update(missing_buscos)
+							missing_busco_transcripts_list.append(missing_buscos)
+
+		if len(missing_busco_proteins_list) > 0:
+			self.missing_busco_proteins.update(
+                            missing_busco_proteins_list[0].intersection(*missing_busco_proteins_list))
+		if len(missing_busco_transcripts_list) > 0:
+			self.missing_busco_transcripts.update(
+                            missing_busco_transcripts_list[0].intersection(*missing_busco_transcripts_list))
 
 	def __init__(self, tx2gene_data_dir, txcoords_prepare, txcoords_pick, busco_run_path):
 		self.import_tx2gene_data(tx2gene_data_dir)
 		self.import_txcoords(txcoords_prepare, txcoords_pick)
-		
+
 		self.run_tables = dict()
 		self.complete_busco_proteins, self.complete_busco_transcripts = dict(), dict()
 		self.complete_busco_proteins_final = dict()
@@ -77,7 +79,7 @@ class BuscoTableGenerator:
 				row = [bid, tid, busco_status, tid_coords, ",".join(prepare_tids), ",".join(prepare_coords)]
 				print(*row, sep="\t", flush=True, file=review_out)
 
-	def write_raw_data(self, prefix): 
+	def write_raw_data(self, prefix):
 		with open(prefix + ".raw", "w") as raw_out:
 			for k, v in self.run_tables.items():
 				print(k, v, file=raw_out, sep="\t", flush=True)
@@ -90,7 +92,7 @@ class BuscoTableGenerator:
 				if cat.startswith("Complete_"):
 					copies = cat.split("_")[1]
 					cat_lbl = "Complete (single copy)" if copies == "1" else "Complete ({} copies)".format(copies)
-				
+
 				print(cat_lbl, *(v[cat] for v in self.run_tables.values()), sep="\t", flush=True, file=table_out)
 
 			complete_busco_proteins_, complete_busco_transcripts_ = set(), set()
