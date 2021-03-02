@@ -9,16 +9,18 @@ from minos.minos_configure import *
 from eicore.snakemake_helper import *
 from minos.busco_configure import BUSCO_LEVELS
 
+def check_file(x):
+	if not os.path.exists(x):
+		raise argparse.ArgumentTypeError("{0} does not exist".format(x))
+	return x
 
 def add_default_options(parser):
 	common_group = parser.add_argument_group("minos options")
 
-	common_group.add_argument("--outdir", "-o", type=str,
-	                          default="minos_run", help="(default: %(default)s)")
+	common_group.add_argument("--outdir", "-o", type=str, default="minos_run", help="(default: %(default)s)")
 	common_group.add_argument(
 		"--prefix", type=str, default="minos_run", help="(default: %(default)s)")
-	common_group.add_argument("--mikado-container", type=str,
-	                          default="/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CBG.img", help="(default: %(default)s)")
+	common_group.add_argument("--mikado-container", type=str, default="/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CBG.img", help="(default: %(default)s)")
 	common_group.add_argument(
 		"--dryrun", action="store_true", help="(default: %(default)s)")
 	make_exeenv_arg_group(parser, allow_mode_selection=False, silent=True)
@@ -30,15 +32,14 @@ def add_configure_parser(subparsers):
 		description=""
 	)
 
-	configure_parser.add_argument("list_file", type=str)
-	configure_parser.add_argument("scoring_template", type=str)
-	configure_parser.add_argument("reference", type=str)
+	configure_parser.add_argument("list_file", type=check_file)
+	configure_parser.add_argument("scoring_template", type=check_file)
+	configure_parser.add_argument("reference", type=check_file)
 	configure_parser.add_argument("--external", type=str, default="")
 	configure_parser.add_argument("--external-metrics", type=str, default="")
 	configure_parser.add_argument(
 		"--blastmode", choices=("blastp", "blastx"), default="blastp", help="(default: %(default)s)")
-	configure_parser.add_argument("--use-diamond", action="store_true",
-	                              help="Use diamond instead of NCBI blast+ suite (default: %(default)s)")
+	configure_parser.add_argument("--use-diamond", action="store_true", help="Use diamond instead of NCBI blast+ suite (default: %(default)s)")
 	configure_parser.add_argument(
 		"--annotation-version", type=str, default="EIv1", help="(default: %(default)s)")
 	configure_parser.add_argument(
