@@ -132,7 +132,7 @@ BUSCO_COPY_TARGETS = [dest for src, dest in BUSCO_COPY]
 BUSCO_TABLE = ""
 if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_ANALYSES.extend(TX2GENE_MAPS)
-	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".busco_final_table.tsv")
+	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.busco_final_table.tsv")
 	OUTPUTS.extend(BUSCO_PROTEIN_PREPARE_RUNS)
 
 localrules:
@@ -168,7 +168,7 @@ rule all:
 		os.path.join(config["outdir"], "mikado.subloci.gff3"),
 		os.path.join(config["outdir"], "mikado.monoloci.gff3"),
 		os.path.join(config["outdir"], "mikado.loci.gff3"),
-		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".metrics_oddities.tsv"),
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.metrics_oddities.tsv"),
 		#os.path.join(RESULTS_DIR, "mikado.monoloci.metrics_oddities.tsv"),
 		#os.path.join(RESULTS_DIR, "mikado.loci.metrics_oddities.tsv"),
 		[
@@ -181,18 +181,18 @@ rule all:
 			os.path.join(config["outdir"], POST_PICK_PREFIX + suffix)
 			for suffix in {".gt_checked.gff", ".collapsed_metrics.tsv", ".gt_checked.validation_report.txt", ".release.unsorted.gff3", ".release_browser.unsorted.gff3"}
 		],
-		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".collapsed_metrics.summary.tsv"),
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.collapsed_metrics.summary.tsv"),
 		[
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
-			for suffix in {".release.gff3", ".release_browser.gff3",
-							".sanity_checked.release.gff3", ".sanity_checked.release.gff3.mikado_stats.txt", ".sanity_checked.release.gff3.mikado_stats.tsv"}
+			for suffix in {".release.gff3", ".release.browser.gff3",
+							".sanity_checked.release.gff3", ".release.gff3.mikado_stats.txt", ".release.gff3.mikado_stats.tsv"}
 		],
 		[
-			os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".sanity_checked.release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
+			os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
 		],
 		[
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
-			for suffix in {".sanity_checked.release.gff3.final_table.tsv", ".sanity_checked.release.gff3.biotype_conf.summary", ".metrics.tsv"}
+			for suffix in {".release.gff3.final_table.tsv", ".release.gff3.biotype_conf.summary", ".release.metrics.tsv"}
 		],
 		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
 		BUSCO_COPY_TARGETS
@@ -744,7 +744,7 @@ rule minos_summarise_collapsed_metrics:
 	input:
 		rules.minos_collapse_metrics.output[0]
 	output:
-		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".collapsed_metrics.summary.tsv")
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.collapsed_metrics.summary.tsv")
 	run:
 		from minos.scripts.summarise_collapsed_metrics import CollapsedMetricsSummariser
 		with open(output[0], "w") as out:
@@ -775,7 +775,7 @@ rule minos_create_release_metrics:
 		rules.minos_create_release_gffs.output[2],
 		rules.minos_collapse_metrics.output[0]
 	output:
-		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".metrics.tsv")
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.metrics.tsv")
 	run:
 		import csv
 		genes, transcripts = dict(), dict()
@@ -797,7 +797,7 @@ rule minos_sort_release_gffs:
 		rules.minos_create_release_gffs.output
 	output:
 		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.gff3"),
-		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release_browser.gff3")
+		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.browser.gff3")
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".sort_release_gffs.log")
 	params:
@@ -815,7 +815,7 @@ rule minos_final_sanity_check:
 	input:
 		rules.minos_sort_release_gffs.output[0]
 	output:
-		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".sanity_checked.release.gff3")
+		temp(os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".sanity_checked.release.gff3"))
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".final_sanity_check.log")
 	threads:
@@ -838,8 +838,8 @@ rule minos_generate_mikado_stats:
 	input:
 		rules.minos_final_sanity_check.output[0]
 	output:
-		rules.minos_final_sanity_check.output[0] + ".mikado_stats.txt",
-		rules.minos_final_sanity_check.output[0] + ".mikado_stats.tsv"
+		rules.minos_sort_release_gffs.output[0] + ".mikado_stats.txt",
+		rules.minos_sort_release_gffs.output[0] + ".mikado_stats.tsv"
 	params:
 		program_call = config["program_calls"]["mikado"].format(container=config["mikado-container"], program="util stats"),
 	threads:
@@ -855,10 +855,10 @@ rule minos_extract_final_sequences:
 		gff = rules.minos_final_sanity_check.output[0],
 		refseq = config["reference-sequence"]
 	output:
-		cdna = rules.minos_final_sanity_check.output[0] + ".cdna.fasta",
-		tbl = rules.minos_final_sanity_check.output[0] + ".gffread.table.txt",
-		cds = rules.minos_final_sanity_check.output[0] + ".cds.fasta",
-		pep = rules.minos_final_sanity_check.output[0] + ".pep.raw.fasta"
+		cdna = rules.minos_sort_release_gffs.output[0] + ".cdna.fasta",
+		tbl = rules.minos_sort_release_gffs.output[0] + ".gffread.table.txt",
+		cds = rules.minos_sort_release_gffs.output[0] + ".cds.fasta",
+		pep = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta"
 	params:
 		program_call = config["program_calls"]["gffread"],
 		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
@@ -889,8 +889,8 @@ rule minos_generate_final_table:
 		seq_table = rules.minos_extract_final_sequences.output.tbl,
 		bt_conf_table = rules.minos_final_sanity_check.output[0]
 	output:
-		final_table = rules.minos_final_sanity_check.output[0] + ".final_table.tsv",
-		summary = rules.minos_final_sanity_check.output[0] + ".biotype_conf.summary"
+		final_table = rules.minos_sort_release_gffs.output[0] + ".final_table.tsv",
+		summary = rules.minos_sort_release_gffs.output[0] + ".biotype_conf.summary"
 	threads:
 		HPC_CONFIG.get_cores("minos_generate_final_table")
 	resources:
@@ -907,7 +907,7 @@ rule minos_collate_metric_oddities:
 		old_new_rel = rules.minos_create_release_gffs.output[2],
 		final_table = rules.minos_generate_final_table.output.final_table,
 	output:
-		os.path.join(config["outdir"], "results", RELEASE_PREFIX + ".metrics_oddities.tsv"),
+		os.path.join(config["outdir"], "results", RELEASE_PREFIX + ".release.metrics_oddities.tsv"),
 	run:
 		import csv
 		from minos.scripts.metric_oddities import MetricOddityParser
