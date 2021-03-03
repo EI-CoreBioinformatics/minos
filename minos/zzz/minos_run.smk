@@ -197,8 +197,7 @@ rule all:
 		os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.collapsed_metrics.summary.tsv"),
 		[
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + suffix)
-			for suffix in {".release.gff3", ".release.browser.gff3",
-							".sanity_checked.release.gff3", ".release.gff3.mikado_stats.txt", ".release.gff3.mikado_stats.tsv"}
+			for suffix in {".release.gff3", ".release.browser.gff3", ".release.gff3.mikado_stats.txt", ".release.gff3.mikado_stats.tsv"}
 		],
 		[
 			os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.gff3") + ".{}.fasta".format(dtype) for dtype in {"cdna", "cds", "pep.raw", "pep"}
