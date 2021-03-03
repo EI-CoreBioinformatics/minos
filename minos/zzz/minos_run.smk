@@ -135,6 +135,18 @@ if BUSCO_ANALYSES or BUSCO_PROTEIN_PREPARE_RUNS:
 	BUSCO_TABLE = os.path.join(RESULTS_DIR, RELEASE_PREFIX + ".release.busco_final_table.tsv")
 	OUTPUTS.extend(BUSCO_PROTEIN_PREPARE_RUNS)
 
+CONFIG_FILES = [
+	os.path.join(config["outdir"], "{prefix}." + config_file).format(prefix=prefix) for prefix in [config["prefix"]] for config_file in ("scoring.yaml", "run_config.yaml", "mikado_config.yaml")
+]
+
+CONFIG_COPY = [
+	(path, os.path.join(RESULTS_DIR, "config", path.replace(os.path.join(config["outdir"], ""), "")))
+	for path in CONFIG_FILES
+]
+
+CONFIG_COPY_SOURCES = [src for src, dest in CONFIG_COPY]
+CONFIG_COPY_TARGETS = [dest for src, dest in CONFIG_COPY]
+
 localrules:
 	all,
 	minos_extract_exons,
@@ -153,6 +165,7 @@ localrules:
 	split_proteins_prepare,
 	split_transcripts_prepare,
 	busco_copy_results,
+	config_copy_results,
 	busco_concat_protein_metrics,
 	busco_summary,
 	minos_create_release_metrics,
@@ -195,7 +208,8 @@ rule all:
 			for suffix in {".release.gff3.final_table.tsv", ".release.gff3.biotype_conf.summary", ".release.metrics.tsv"}
 		],
 		BUSCO_ANALYSES + ([BUSCO_TABLE] if BUSCO_TABLE else []),
-		BUSCO_COPY_TARGETS
+		BUSCO_COPY_TARGETS,
+		CONFIG_COPY_TARGETS
 
 
 
@@ -918,6 +932,21 @@ rule minos_collate_metric_oddities:
 		}
 		with open(output[0], "w") as loci_oddities_out:
 			MetricOddityParser(input[0], input[1], input[2], config["report_metric_oddities"], transcript_data=transcript_data).write_table(stream=loci_oddities_out)
+
+rule config_copy_results:
+	input:
+		rules.minos_collate_metric_oddities.output[0],
+		CONFIG_COPY_SOURCES
+	output:
+		CONFIG_COPY_TARGETS
+	run:
+		import pathlib
+		import os
+		import shutil
+		for src, tgt in CONFIG_COPY:
+			tgt_dir = os.path.dirname(tgt)
+			pathlib.Path(tgt_dir).mkdir(exist_ok=True, parents=True)
+			shutil.copyfile(src, tgt)
 
 rule split_proteins_prepare:
 	input:
