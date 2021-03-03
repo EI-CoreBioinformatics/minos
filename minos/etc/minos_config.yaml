@@ -50,7 +50,7 @@ misc:
 program_calls:
   mikado: "singularity exec {container} mikado {program}"
   gffread: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img gffread"
-  cpc2: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img CPC2.py"
+  cpc2: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img CPC2"
   kallisto: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img kallisto {program}"
   blast: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img {program}"
   diamond: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img diamond {program}"
