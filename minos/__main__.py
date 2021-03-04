@@ -20,7 +20,8 @@ def add_default_options(parser):
 	common_group.add_argument("--outdir", "-o", type=str, default="minos_run", help="(default: %(default)s)")
 	common_group.add_argument(
 		"--prefix", type=str, default="minos_run", help="(default: %(default)s)")
-	common_group.add_argument("--mikado-container", type=str, default="/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CBG.img", help="(default: %(default)s)")
+	common_group.add_argument("--mikado-container", type=str,
+	                          default="/ei/software/cb/mikado/2.1.1/x86_64/mikado-2.1.1.simg", help="(default: %(default)s)")
 	common_group.add_argument(
 		"--dryrun", action="store_true", help="(default: %(default)s)")
 	make_exeenv_arg_group(parser, allow_mode_selection=False, silent=True)
