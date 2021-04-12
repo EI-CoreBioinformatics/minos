@@ -2,7 +2,7 @@
 
 minos is a Python3/Snakemake - based pipeline that generates and utilises metrics derived from protein, transcript and expression data sets to consolidate gene models obtained from gene annotation workflows. 
 
-For the majority of the computational work, minos utilises Mikado (https://github.com/EI-CoreBioinformatics/Mikado). The pipeline runs Mikado `prepare` on provided gene sets, and generates external metrics such as blastp/blastx alignments, busco assessments and kallisto expression quantification. These metrics are then passed on to Mikado `serialise` and `pick`. In a final set of steps, models are filtered according to user-provided criteria and annotated release gene/transcript sets are generated.
+For the majority of the computational work, minos utilises [Mikado](https://github.com/EI-CoreBioinformatics/Mikado). The pipeline runs Mikado `prepare` on provided gene sets, and generates external metrics such as blastp/blastx alignments, busco assessments and kallisto expression quantification. These metrics are then passed on to Mikado `serialise` and `pick`. In a final set of steps, models are filtered according to user-provided criteria and annotated release gene/transcript sets are generated.
 
 ## Installation 
 
@@ -16,24 +16,27 @@ These dependencies should be installed automatically if not present.
 * drmaa (for hpc environments)
 
 ### Installation from GitHub
-    git clone https://github.com/EI-CoreBioinformatics/minos.git
-    cd minos
-    python setup.py bdist_wheel;
-    pip install dist/*whl
+```console
+git clone https://github.com/EI-CoreBioinformatics/minos.git
+cd minos
+python setup.py bdist_wheel;
+pip install dist/*whl
+```
 
 ### Installation from conda
     TBD
 
 ### Workflow dependencies
 minos makes extensive use of 3rd party software, most of which can be installed from conda.
-The following tools are required.
+The following tools are required and these tools can be installed using singularity container definitions provided ([Singularity.tools.def](minos/etc/Singularity.tools.def).
 
 * kallisto 0.44.0 (generation of expression based metrics from RNAseq data)
 * blast+ (generation of protein similarity metrics from blastp/x analysis of protein evidence data)
 * prinseq (fasta processing)
-* genometools (fasta validation)
+* genometools (GFF3 validation)
 * gffread (extraction of transcript parameters and CDS, cDNA, protein sequences)
 * bedtools (transposable element analysis)
+* CPC2 (http://cpc2.cbi.pku.edu.cn) (assess the protein-coding potential of transcripts)
 
 The following three dependencies require special treatment (s. below):
 
@@ -42,7 +45,7 @@ The following three dependencies require special treatment (s. below):
 * CPC2 (http://cpc2.cbi.pku.edu.cn) ***
 
 #### Registering workflow dependencies with minos
-Before running minos, the user has to register all dependencies in the `program_calls` section of the run configuration file (etc/minos_config.yaml). This allows users to manage their own installations. For convenience, we provide singularity container definitions for most dependencies as well as a conda recipe. Unfortunately, due to our hpc environment, we cannot provide solutions utilising the native conda/singularity support in current Snakemake version. (However, we would be glad for any community contributions in that regard).
+Before running minos, the user has to register all dependencies in the `program_calls` section of the run configuration file (etc/minos_config.yaml). This allows users to manage their own installations. For convenience, we provide singularity container definitions ([Singularity.tools.def](minos/etc/Singularity.tools.def)) for most dependencies, except BUSCO, as well as a conda recipe. Unfortunately, due to our hpc environment, we cannot provide solutions utilising the native conda/singularity support in current Snakemake version. (However, we would be glad for any community contributions in that regard).
 
 #### Special case: Mikado
 - preferred: singularity container due to development cycle and ease of installation
@@ -52,36 +55,12 @@ Before running minos, the user has to register all dependencies in the `program_
 #### Special case: BUSCO
 - BUSCO requires an older version of blast due to issues with multithreading tblastn
 - this is not compatible with having a newer blast+ for the minos protein blast analyses
-- our solution: individual BUSCO singularity container
+- our solution: individual BUSCO singularity container [Singularity.busco.def](minos/etc/Singularity.busco.def)
 - potential solution: conda environment
 
 #### Special case: CPC2
-- CPC2 is not on conda
-- CPC2 is not on GitHub
-- CPC2 requires Python2
-- instructions for a Python3 port of CPC2 are available below (also part of our main dependency container definition)
-- alternatively, the user has to ensure a local CPC2 installation (but still should port CPC2 to Python3)
-- There is a CPC2 installation/patch script `minos/scripts/install_cpc2.py`, which can be invoked with `install_cpc2 PATH_TO_INSTALLATION` after installation of minos. 
-
-      install_cpc2 PATH_TO_INSTALLATION
-      export CPC_HOME=PATH_TO_INSTALLATION/CPC2-beta
-      export PATH=$PATH/CPC_HOME/bin
-
-##### Manually porting CPC2 to Python3
-    # patch compress.py
-    sed -i "s/\bfile(/open(/g" compress.py
-    # patch CPC2.py
-    sed -i "s/commands/subprocess/g" CPC2.py
-    sed -i "s/\bfile(/open(/g" CPC2.py
-    sed -i "s/triplet_got.next()/next(triplet_got)/g" CPC2.py
-
-    head -n 355 CPC2.py >> CPC2.py.1
-    echo $'\t'$'\t'"os.system('mv ' + outfile + '.txt ' + outfile)" >> CPC2.py.1
-    tail -n +356 CPC2.py >> CPC2.py.1
-    mv CPC2.py.1 CPC2.py
-    # patch seqio.py
-    sed -i "s/print \([^ $]\+\)/print(\1)/g" seqio.py
-    chmod 775 *.py
+- CPC2 is forked to our repository and ported to Python3 and can be installed from here - https://github.com/EI-CoreBioinformatics/CPC2
+- Installation instructions are also added to the singularity container definition file ([Singularity.tools.def](minos/etc/Singularity.tools.def)
 
 ## Getting started
 
@@ -96,12 +75,12 @@ A minos run consists of two steps:
 
 `minos configure` takes as input a set of configuration files:
 
-1. **list_file** A tab-separated file describing the set of transcript models for the run described in Section transcript_model_info. The files with the transcript models need to be soft-linked into the project directory.
-2. **scoring_template** A yaml file containing the scoring settings. This can be copied from the minos repo (minos/etc/scoring_template.yaml) and modified if required. There is no need to add in the external metrics and scoring sections as this will be done automatically by minos configure!
+1. **list_file** A tab-separated file describing the set of transcript models. An example file is provided here [list.txt](data/list.txt). A detailed description for each column header can be found here - [Mikado list file format](https://mikado.readthedocs.io/en/stable/Usage/Configure/#input-annotation-files)
+2. **scoring_template** A yaml file containing the scoring settings. This can be copied from the minos repo [minos/etc/scoring_template.yaml](minos/etc/scoring_template.yaml) and modified if required. There is no need to add in the external metrics and scoring sections as this will be done automatically by minos configure!
 3. **genome_reference** A fasta file containing the genome reference. This should be softlinked instead of copied.
-4. **external_metrics_configuration** A Mikado configuration file (e.g. https://github.com/EI-CoreBioinformatics/mikado/blob/master/sample_data/plant_external.yaml)
-5. **external_metrics** A tab-separated file describing the metrics data to be used in the minos run. The column descriptions can be found in Section metrics_info.
-6. **configuration** A yaml file with parameters to control minos run. This can be obtained from the minos repo (https://github.com/EI-CoreBioinformatics/minos/blob/master/etc/minos_config.yaml).
+4. **external_metrics_configuration** A Mikado configuration file (e.g. [sample_data/plant_external.yaml](https://github.com/EI-CoreBioinformatics/mikado/blob/master/sample_data/plant_external.yaml))
+5. **external_metrics** A tab-separated file describing the metrics data to be used in the minos run. The column descriptions can be found in [Section metrics_info](#metrics-info).
+6. **configuration** A yaml file with parameters to control minos run. This can be obtained from the minos repo ([minos/etc/minos_config.yaml](minos/etc/minos_config.yaml)).
 
 After these input files have been generated/obtained, `minos configure` can be run. Items 1,2,3 from the above list are positional arguments, items 4,5,6 are optional. [TBC!]
 
@@ -121,7 +100,7 @@ Final output files are named with the prefix `<GENUS_IDENTIFIER>_<ANNOTATION_VER
 
     --use-tpm-for-picking
 
-Controls whether RNA-seq data is used for metrics generation in addition to classification. (default: off) Caution: `--use-tpm-for-picking` activates using expression metrics for the picking stage. *This is supposed to be optional but might be required in the current version, as one of the downstream scripts might not have it coded as optional (which I just realized…or maybe I am mixing this up with the post-picking stage).*
+Controls whether RNA-seq data is used for metrics generation in addition to classification. (default: off) Caution: `--use-tpm-for-picking` activates using expression metrics for the picking stage.
 
     --force-reconfiguration, -f
 
@@ -155,10 +134,13 @@ BUSCO copy number assessment can be configured by passing/modifying the `--limit
 
 **minos configure example run:**
 
-    minos configure --mikado-container </path/to/mikado/container> -o <output-directory> --external external.yaml --external-metrics external_metrics.txt --use-tpm-for-picking --genus-identifier <GENUS_ID> --annotation-version <ANN_VERSION> list.txt </path/to/scoring-template.yaml> </path/to/genome_reference>
-
-EI_internal:
-Latest tested mikado-container: `/ei/software/cb/mikado/2.0rc6_d094f99_CBG/x86_64/mikado-2.0rc6_d094f99_CBG.img`
+```console
+minos configure --mikado-container </path/to/mikado/container> \
+    -o <output-directory> --external external.yaml \
+    --external-metrics external_metrics.txt --use-tpm-for-picking \
+    --genus-identifier <GENUS_ID> --annotation-version <ANN_VERSION> \
+    list.txt </path/to/scoring-template.yaml> </path/to/genome_reference>
+```
 
 ### minos run
 
@@ -170,13 +152,26 @@ Note that for convenience, `minos run` has an NBI cluster wrapper called `minos_
 
 **minos run example run:**
 
-    minos_run_sub --mikado-container </path/to/mikado/container> --partition <partition> -o <output-directory> --hpc_config /ei/software/testing/minos/dev/src/minos/minos/etc/hpc_config.json
+From local machine:
+
+```console
+minos run --mikado-container </path/to/mikado/container> \
+    --no_drmaa --scheduler NONE -o <output-directory>
+```
+
+On HPC (default `SLURM`, an example HPC config JSON we use is here [hpc_config.json](minos/etc/hpc_config.json)):
+
+```console
+minos_run_sub --mikado-container </path/to/mikado/container> \
+    --partition <partition> --hpc_config /path/to/hpc_config.json \
+    -o <output-directory>
+```
 
 ## Configuration files
 
 ### run configuration
 
-The minos workflow is controlled by a run configuration file in yaml format. This file is generated by `minos configure` from a configuration template (https://github.com/EI-CoreBioinformatics/minos/blob/master/etc/minos_run_config.yaml), the command line options, and [...] and saved to the run directory.
+The minos workflow is controlled by a run configuration file in yaml format. This file is generated by `minos configure` from a configuration template ([minos_config.yaml](minos/etc/minos_config.yaml)), and is saved to the output directory.
 
 The run configuration template contains the following information:
 
