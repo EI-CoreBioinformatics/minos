@@ -43,6 +43,8 @@ def add_configure_parser(subparsers):
     configure_parser.add_argument("--external", type=str, default="")
     configure_parser.add_argument("--external-metrics", type=str, default="")
     configure_parser.add_argument(
+        "--codon-table", type=int, default=1, help="Codon table to use. Full list : https://www.ncbi.nlm.nih.gov/Taxonomy/taxonomyhome.html/index.cgi?chapter=tgencodes (default: %(default)s) i.e., Standard, NCBI #1")
+    configure_parser.add_argument(
         "--blastmode", choices=("blastp", "blastx"), default="blastp", help="(default: %(default)s)")
     configure_parser.add_argument("--use-diamond", action="store_true",
                                   help="Use diamond instead of NCBI blast+ suite (default: %(default)s)")
