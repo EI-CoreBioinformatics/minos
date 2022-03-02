@@ -8,10 +8,10 @@ from minos.minos_scoring import ScoringMetricsManager
 from minos.busco_configure import BuscoConfiguration
 
 
-#!TODO: 
+#!TODO:
 # - scan config template for reference
 # - warn if not present
-# - add command line option 
+# - add command line option
 
 
 @unique
@@ -24,13 +24,15 @@ class ExternalMetrics(Enum):
     BUSCO_PROTEINS = auto()
 
 
-MIKADO_CONFIGURE_CMD = "{cmd} --list {list_file}{external_metrics}-od {output_dir} --reference {reference} --scoring {scoring_file}{junctions}{mikado_config_file} --full"
+MIKADO_CONFIGURE_CMD = "{cmd} --codon-table {codon_table} --list {list_file} {external_metrics} -od {output_dir} --reference {reference} --scoring {scoring_file} {junctions}{mikado_config_file} --full"
 
 
 class MinosRunConfiguration(dict):
 	def _run_mikado_configure(self, args):
 		cmd = MIKADO_CONFIGURE_CMD.format(
 			cmd=self["program_calls"]["mikado"].format(container=args.mikado_container, program="configure"),
+			# Just for Mikado we need to use 0 for the standard genetic code, check mikado configure --help for more details
+			codon_table=str(args.codon_table - 1) if args.codon_table == 1 else args.codon_table,
 			list_file=args.list_file,
 			external_metrics=(" --external " + args.external + " ") if args.external else " ",
 			output_dir=args.outdir,
@@ -80,6 +82,7 @@ class MinosRunConfiguration(dict):
 		self["data"] = {"transcript_models": {row[1]: row[0] for row in csv.reader(open(args.list_file), delimiter="\t")}}
 		self["data"].update(self.smm.get_scoring_data())
 		self.update(yaml.load(open(args.config_file), Loader=yaml.SafeLoader))
+		self["params"]["seqkit"]["codon_table"] = int(args.codon_table)
 
 		with open(os.path.join(args.outdir, args.prefix + ".run_config.yaml"), "wt") as run_config_out:
 			yaml.dump(dict(self.items()), run_config_out, default_flow_style=False, sort_keys=False)
