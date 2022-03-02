@@ -49,6 +49,8 @@ params:
 misc:
   min_cds_length: 30
   busco_max_copy_number: 4
+  # for formatting fasta headers
+  add_fields: "name,note,confidence,representative,biotype,multiexonic,superlocus"
 
 program_calls:
   mikado: "singularity exec {container} mikado {program}"

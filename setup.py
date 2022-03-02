@@ -60,6 +60,7 @@ setup(
             "sanity_check=minos.scripts.sanity_check:main",
             "parse_mikado_stats=minos.scripts.parse_mikado_stats:main",
             "analyse_busco=minos.scripts.analyse_busco:main",
+            "clean_fasta_header=minos.scripts.clean_fasta_header:main",
             "install_cpc2=minos.scripts.install_cpc2:main"
         ]
     },
