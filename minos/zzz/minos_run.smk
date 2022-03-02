@@ -286,16 +286,20 @@ rule minos_gffread_extract_sequences:
 		gtf = rules.minos_mikado_prepare.output[1],
 		refseq = config["reference-sequence"]
 	output:
-		rules.minos_mikado_prepare.output[1] + (".prot.fasta" if config["blast-mode"] == "blastp" else ".cds.fasta"),
-		rules.minos_mikado_prepare.output[1] + ".cdna.fasta"
+		cdna = rules.minos_mikado_prepare.output[1] + ".cdna.fasta",
+		cds = rules.minos_mikado_prepare.output[1] + ".cds.fasta",
+		pep = rules.minos_mikado_prepare.output[1] + ".prot.fasta",
+		pep_temp = rules.minos_mikado_prepare.output[1] + ".prot.fasta.temp"
 	log:
 		os.path.join(LOG_DIR, config["prefix"] + ".gffread_extract.log")
 	params:
-		program_call = config["program_calls"]["gffread"],
-		program_params = config["params"]["gffread"][config["blast-mode"]],
-		output_params = "-W -x" if config["blast-mode"] == "blastx" else ("-y" if config["blast-mode"] == "blastp" else "")
+		program_call_gffread = config["program_calls"]["gffread"],
+		program_call_seqkit = config["program_calls"]["seqkit"],
+		program_params_gffread = config["params"]["gffread"][config["blast-mode"]],
+		program_params_translate = config["params"]["seqkit"]["translate"],
+		codon_table = config["params"]["seqkit"]["codon_table"]
 	shell:
-		"{params.program_call} {input.gtf} -g {input.refseq} {params.program_params} -W -w {output[1]} {params.output_params} {output[0]} &> {log}"
+		"({params.program_call_gffread} {input.gtf} -g {input.refseq} {params.program_params_gffread} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header > {output.pep}) > {log} 2>&1"
 
 rule minos_metrics_repeats_convert:
 	input:
@@ -463,11 +467,11 @@ rule minos_metrics_blastp_mkdb:
 
 checkpoint minos_chunk_proteins:
 	input:
-		rules.minos_gffread_extract_sequences.output[0]
+		rules.minos_gffread_extract_sequences.output.pep if config["blast-mode"] == "blastp" else rules.minos_gffread_extract_sequences.output.cds,
 	output:
 		chunk_dir = directory(os.path.join(TEMP_DIR, "chunked_proteins"))
 	log:
-		os.path.join(LOG_DIR, os.path.basename(rules.minos_gffread_extract_sequences.output[0]) + ".chunk.log")
+		os.path.join(LOG_DIR, os.path.basename(rules.minos_gffread_extract_sequences.output.pep if config["blast-mode"] == "blastp" else rules.minos_gffread_extract_sequences.output.cds) + ".chunk.log")
 	params:
 		chunksize = 1000,
 		outdir = os.path.join(TEMP_DIR, "chunked_proteins")
@@ -648,11 +652,16 @@ rule minos_gffread_extract_sequences_post_pick:
 		tbl = os.path.join(config["outdir"], POST_PICK_PREFIX + ".table.txt"),
 		cds = os.path.join(config["outdir"], POST_PICK_PREFIX + ".cds.fasta"),
 		pep = os.path.join(config["outdir"], POST_PICK_PREFIX + ".proteins.fasta"),
+		pep_temp = os.path.join(config["outdir"], POST_PICK_PREFIX + ".proteins.fasta.temp")
 	params:
-		program_call = config["program_calls"]["gffread"],
-		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
+		program_call_gffread = config["program_calls"]["gffread"],
+		program_call_seqkit = config["program_calls"]["seqkit"],
+		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness",
+		program_params_translate = config["params"]["seqkit"]["translate"],
+		codon_table = config["params"]["seqkit"]["codon_table"],
+		add_fields = config["misc"]["add_fields"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
+		"{params.program_call_gffread} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} -o {output.tbl} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header --add_fields {params.add_fields} > {output.pep}"
 
 
 rule minos_calculate_cds_lengths_post_pick:
@@ -871,12 +880,17 @@ rule minos_extract_final_sequences:
 		cdna = rules.minos_sort_release_gffs.output[0] + ".cdna.fasta",
 		tbl = rules.minos_sort_release_gffs.output[0] + ".gffread.table.txt",
 		cds = rules.minos_sort_release_gffs.output[0] + ".cds.fasta",
-		pep = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta"
+		pep = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta",
+		pep_temp = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta.temp"
 	params:
-		program_call = config["program_calls"]["gffread"],
-		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness"
+		program_call_gffread = config["program_calls"]["gffread"],
+		program_call_seqkit = config["program_calls"]["seqkit"],
+		table_format = "--table @chr,@start,@end,@strand,@numexons,@covlen,@cdslen,ID,Note,confidence,representative,biotype,InFrameStop,partialness",
+		program_params_translate = config["params"]["seqkit"]["translate"],
+		codon_table = config["params"]["seqkit"]["codon_table"],
+		add_fields = config["misc"]["add_fields"]
 	shell:
-		"{params.program_call} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep} -o {output.tbl}"
+		"{params.program_call_gffread} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} -o {output.tbl} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header --add_fields {params.add_fields} > {output.pep}"
 
 rule minos_cleanup_final_proteins:
 	input:
@@ -949,7 +963,7 @@ rule config_copy_results:
 
 rule split_proteins_prepare:
 	input:
-		rules.minos_gffread_extract_sequences.output[0]
+		rules.minos_gffread_extract_sequences.output.pep
 	output:
 		expand(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", "{run}.proteins.fasta"), run=config["data"]["transcript_models"])
 	log:
@@ -1012,7 +1026,7 @@ rule busco_proteins_final:
 
 rule split_transcripts_prepare:
 	input:
-		rules.minos_gffread_extract_sequences.output[1]
+		rules.minos_gffread_extract_sequences.output.cdna
 	output:
 		expand(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", "{run}.cdna.fasta"), run=config["data"]["transcript_models"])
 	log:
