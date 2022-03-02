@@ -14,6 +14,9 @@ params:
     blastx: ""
     default: ""
     final: ""
+  seqkit:
+    translate: "translate --threads 1 --line-width 70"
+    codon_table: 1
   cpc2: "-r"
   kallisto:
     index: ""
@@ -50,6 +53,7 @@ misc:
 program_calls:
   mikado: "singularity exec {container} mikado {program}"
   gffread: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img gffread"
+  seqkit: "singularity exec /ei/software/cb/seqkit/2.1.0/x86_64/seqkit-2.1.0_CBG.img seqkit"
   cpc2: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img CPC2"
   kallisto: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img kallisto {program}"
   blast: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img {program}"
