@@ -60,6 +60,7 @@ setup(
             "analyse_busco=minos.scripts.analyse_busco:main",
             "clean_fasta_header=minos.scripts.clean_fasta_header:main",
             "install_cpc2=minos.scripts.install_cpc2:main",
+            "generate_final_table=minos.scripts.generate_final_table:main",
         ]
     },
     package_data={

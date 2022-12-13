@@ -1,5 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script to generate final_table.tsv, biotype_conf.summary
+"""
+
 import csv
 from collections import Counter
+import argparse
 
 
 def generate_final_table(seq_table, bt_conf_table, stats_table, final_table, summary):
@@ -54,3 +61,47 @@ def generate_final_table(seq_table, bt_conf_table, stats_table, final_table, sum
             sep="\t",
             file=summary_out,
         )
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Script to generate final_table.tsv, biotype_conf.summary"
+    )
+    ap.add_argument(
+        "seq_table",
+        type=str,
+        help="Provide input gffread.table.txt file (default: %(default)s)",
+    )
+    ap.add_argument(
+        "bt_conf_table",
+        type=str,
+        help="Provide input release.gff3 file (default: %(default)s)",
+    )
+    ap.add_argument(
+        "stats_table",
+        type=str,
+        help="Provide input mikado_stats.tsv file (default: %(default)s)",
+    )
+    ap.add_argument(
+        "final_table",
+        type=str,
+        help="Provide output file name, for example, final_table.tsv (default: %(default)s)",
+    )
+    ap.add_argument(
+        "summary",
+        type=str,
+        help="Provide output file name, for example, biotype_conf.summary (default: %(default)s)",
+    )
+    args = ap.parse_args()
+
+    generate_final_table(
+        args.seq_table,
+        args.bt_conf_table,
+        args.stats_table,
+        args.final_table,
+        args.summary,
+    )
+
+
+if __name__ == "__main__":
+    main()
