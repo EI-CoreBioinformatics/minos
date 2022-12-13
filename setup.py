@@ -18,7 +18,8 @@ version = "1.8.0"
 
 if sys.version_info.major != 3:
     raise EnvironmentError(
-        """minos is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased.""")
+        """minos is a python module that requires python3, and is not compatible with python2. Also, it is now 2020 and support for 2.x has ceased."""
+    )
 
 requirements = [line.rstrip() for line in open("requirements.txt", "rt")]
 
@@ -36,17 +37,14 @@ setup(
         "Topic :: Scientific Engineering :: Bio/Informatics",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
-        'Programming Language :: Python :: 3.4',
+        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6"
-        "Programming Language :: Python :: 3.7"
+        "Programming Language :: Python :: 3.6" "Programming Language :: Python :: 3.7",
     ],
     zip_safe=False,
     keywords="gene annotation",
     packages=find_packages(exclude=["test"]),
-    scripts=[
-        script for script in glob.glob("bin/slurm/*_sub")
-    ],
+    scripts=[script for script in glob.glob("bin/slurm/*_sub")],
     install_requires=requirements,
     entry_points={
         "console_scripts": [
@@ -61,13 +59,13 @@ setup(
             "parse_mikado_stats=minos.scripts.parse_mikado_stats:main",
             "analyse_busco=minos.scripts.analyse_busco:main",
             "clean_fasta_header=minos.scripts.clean_fasta_header:main",
-            "install_cpc2=minos.scripts.install_cpc2:main"
+            "install_cpc2=minos.scripts.install_cpc2:main",
         ]
     },
     package_data={
         "minos.zzz": ["*.smk"],
         "minos.etc": ["*.json", "*.yaml", "*.def", "test/*"],
-        "minos.dependencies": ["*.sh", "container_defs/*"]
+        "minos.dependencies": ["*.sh", "container_defs/*"],
     },
     include_package_data=True,
 )
