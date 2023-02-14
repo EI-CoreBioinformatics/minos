@@ -296,10 +296,11 @@ rule minos_gffread_extract_sequences:
 		program_call_gffread = config["program_calls"]["gffread"],
 		program_call_seqkit = config["program_calls"]["seqkit"],
 		program_params_gffread = config["params"]["gffread"][config["blast-mode"]],
+		program_params_seq = config["params"]["seqkit"]["seq"],
 		program_params_translate = config["params"]["seqkit"]["translate"],
 		codon_table = config["params"]["seqkit"]["codon_table"]
 	shell:
-		"({params.program_call_gffread} {input.gtf} -g {input.refseq} {params.program_params_gffread} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header > {output.pep}) > {log} 2>&1"
+		"({params.program_call_gffread} {input.gtf} -g {input.refseq} {params.program_params_gffread} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} && {params.program_call_seqkit} {params.program_params_seq} {output.cds} | {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} | clean_fasta_header > {output.pep}) > {log} 2>&1"
 
 rule minos_metrics_repeats_convert:
 	input:

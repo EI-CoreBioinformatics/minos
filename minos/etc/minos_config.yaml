@@ -15,6 +15,8 @@ params:
     default: ""
     final: ""
   seqkit:
+    # seqkit seq option is to filter CDS bps below -m <int> post mikado prepare stage
+    seq: "seq -m 48"
     translate: "translate --threads 1 --line-width 70"
     codon_table: 1
   cpc2: "-r"
