@@ -29,8 +29,8 @@ setup(
     version=version,
     description=description,
     long_description=long_description,
-    author="Christian Schudoma",
-    author_email="christian.schudoma@earlham.ac.uk",
+    author="Christian Schudoma, Gemy Kaithakottil",
+    author_email="christian.schudoma@earlham.ac.uk, gemy.kaithakottil@earlham.ac.uk",
     license="MIT",
     classifiers=[
         "Development Status :: 4 - Beta",
