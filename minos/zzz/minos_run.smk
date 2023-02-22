@@ -882,7 +882,7 @@ rule minos_extract_final_sequences:
 		tbl = rules.minos_sort_release_gffs.output[0] + ".gffread.table.txt",
 		cds = rules.minos_sort_release_gffs.output[0] + ".cds.fasta",
 		pep = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta",
-		pep_temp = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta.temp"
+		pep_fasta = rules.minos_sort_release_gffs.output[0] + ".pep.fasta"
 	params:
 		program_call_gffread = config["program_calls"]["gffread"],
 		program_call_seqkit = config["program_calls"]["seqkit"],
@@ -891,25 +891,7 @@ rule minos_extract_final_sequences:
 		codon_table = config["params"]["seqkit"]["codon_table"],
 		add_fields = config["misc"]["add_fields"]
 	shell:
-		"{params.program_call_gffread} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} -o {output.tbl} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header --add_fields {params.add_fields} > {output.pep}"
-
-rule minos_cleanup_final_proteins:
-	input:
-		rules.minos_extract_final_sequences.output.pep
-	output:
-		rules.minos_extract_final_sequences.output.pep.replace(".raw.fasta", ".fasta")
-	log:
-		os.path.join(LOG_DIR, "cleanup_proteins.log")
-	params:
-		prefix = rules.minos_extract_final_sequences.output.pep.replace(".raw.fasta", ""),
-		program_call = config["program_calls"]["prinseq"],
-		program_params = config["params"]["prinseq"]
-	threads:
-		HPC_CONFIG.get_cores("minos_cleanup_final_proteins")
-	resources:
-		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_cleanup_final_proteins") * attempt
-	shell:
-		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
+		"{params.program_call_gffread} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep_fasta} -o {output.tbl} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header --add_fields {params.add_fields} > {output.pep}"
 
 rule minos_generate_final_table:
 	input:

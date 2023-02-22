@@ -32,7 +32,7 @@ The following tools are required and these tools can be installed using singular
 
 * kallisto 0.44.0 (generation of expression based metrics from RNAseq data)
 * blast+ (generation of protein similarity metrics from blastp/x analysis of protein evidence data)
-* prinseq (fasta processing)
+* seqkit (fasta processing)
 * genometools (GFF3 validation)
 * gffread (extraction of transcript parameters and CDS, cDNA, protein sequences)
 * bedtools (transposable element analysis)

@@ -137,11 +137,6 @@
         "cores": "1",
         "J": "minos_extract_final_proteins"
     },
-    "minos_cleanup_final_proteins": {
-        "memory": "2048",
-        "cores": "1",
-        "J": "minos_cleanup_final_proteins"
-    },
     "busco_proteins_prepare": {
         "memory": "8192",
         "cores": "8",
