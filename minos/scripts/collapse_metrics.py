@@ -1,6 +1,36 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script to collapse metrics
+"""
+
 import argparse
 import sys
 import csv
+import os
+import yaml
+from eicore.snakemake_helper import DEFAULT_CONFIG_FILE
+
+run_config = dict()
+minos_config = str()
+# use minos config from ENV by default or use default minos config
+if "DEFAULT_MINOS_CONFIG_FILE" in os.environ:
+    minos_config = os.path.abspath(os.environ["DEFAULT_MINOS_CONFIG_FILE"])
+    if os.path.exists(minos_config):
+        run_config = yaml.load(open(minos_config), Loader=yaml.SafeLoader)
+    else:
+        print(
+            f"WARNING: Could not find file associated with ENV DEFAULT_MINOS_CONFIG_FILE: '{minos_config}'. Going to use the default minos config instead {DEFAULT_CONFIG_FILE}",
+            file=sys.stderr,
+        )
+        minos_config = DEFAULT_CONFIG_FILE
+        run_config = yaml.load(open(DEFAULT_CONFIG_FILE), Loader=yaml.SafeLoader)
+
+else:
+    minos_config = DEFAULT_CONFIG_FILE
+    run_config = yaml.load(open(DEFAULT_CONFIG_FILE), Loader=yaml.SafeLoader)
+
+print(f"INFO: Minos config used: '{minos_config}'", file=sys.stderr)
 
 SCORES = [
     "protein_score",
@@ -51,6 +81,7 @@ class TranscriptData(dict):
                 if not row[0].startswith("#"):
                     ftype = row[2].strip().lower()
                     if ftype in {"mrna", "ncrna"}:
+                        # TODO: The attribute strip to be made more comprehensive
                         attrib = dict(
                             item.split("=") for item in row[8].strip("; ").split(";")
                         )
@@ -197,7 +228,7 @@ class MetricCollapser:
                         self.metrics_info,
                         kallisto_score,
                         self.short_cds[tdata["id"]],
-                        **metrics
+                        **metrics,
                     ).__dict__
                     self.model_info[metrics["tid"]].update(tmetrics)
 
@@ -243,32 +274,57 @@ class MetricCollapser:
                 )
             row.extend(gene_scores)
 
-            biotype = "protein_coding_gene"
-            repeat_associated = eval(
-                checks["repeat_associated"].format(**self.gene_info[gid])
-            )
-            if repeat_associated:
-                biotype = "transposable_element_gene"
-            elif eval(checks["predicted_gene"].format(**self.gene_info[gid])):
-                biotype = "predicted_gene"
+            # classify protein coding and ncRNA models
 
-            high_confidence = eval(
-                checks["hi_confidence"].format(**self.gene_info[gid])
-            )
-            discard = eval(checks["discard"].format(**self.gene_info[gid]))
+            # classify ncRNA models
+            if tinfo["type"].lower() == "ncrna":
+                discard = False
+                ncrna_gene = eval(checks["ncrna_gene"].format(**self.gene_info[gid]))
+                biotype = "ncrna_gene"
+                # discard any ncRNA not meeting the collapse_metrics_thresholds
+                if not ncrna_gene:
+                    discard = True
+                repeat_associated = eval(
+                    checks["repeat_associated"].format(**self.gene_info[gid])
+                )
+                if repeat_associated:
+                    biotype = "transposable_element_gene"
+                # standard for ncRNA for now
+                high_confidence = False
+                row.extend(
+                    [
+                        "High" if high_confidence else "Low",
+                        str(repeat_associated),
+                        biotype,
+                        str(discard),
+                        tinfo["region"],
+                    ]
+                )
+            # classify protein coding models
+            else:
+                biotype = "protein_coding_gene"
+                repeat_associated = eval(
+                    checks["repeat_associated"].format(**self.gene_info[gid])
+                )
+                if repeat_associated:
+                    biotype = "transposable_element_gene"
+                elif eval(checks["predicted_gene"].format(**self.gene_info[gid])):
+                    biotype = "predicted_gene"
 
-            if tinfo["type"] == "ncrna":
-                high_confidence, biotype = False, "predicted_gene"
+                high_confidence = eval(
+                    checks["hi_confidence"].format(**self.gene_info[gid])
+                )
+                discard = eval(checks["discard_coding"].format(**self.gene_info[gid]))
 
-            row.extend(
-                [
-                    "High" if high_confidence else "Low",
-                    str(repeat_associated),
-                    biotype,
-                    str(discard),
-                    tinfo["region"],
-                ]
-            )
+                row.extend(
+                    [
+                        "High" if high_confidence else "Low",
+                        str(repeat_associated),
+                        biotype,
+                        str(discard),
+                        tinfo["region"],
+                    ]
+                )
 
             print(*row, sep="\t", file=stream)
 
@@ -283,9 +339,13 @@ def main():
     args = ap.parse_args()
 
     mc = MetricCollapser(
-        args.input_gff, args.metrics_info, args.metrics_matrix, args.kallisto_tpm
+        args.input_gff,
+        args.metrics_info,
+        args.metrics_matrix,
+        args.short_cds,
+        args.kallisto_tpm,
     )
-    mc.write_scores()
+    mc.write_scores(run_config["collapse_metrics_thresholds"])
 
 
 if __name__ == "__main__":
