@@ -19,7 +19,9 @@ class GffValidator:
     ]
     valid_feature_types = {
         "gene",
+        "ncRNA_gene",
         "mRNA",
+        "ncRNA",
         "exon",
         "CDS",
         "five_prime_UTR",
@@ -43,7 +45,7 @@ class GffValidator:
             open(gff_input), fieldnames=self.gff_header, delimiter="\t"
         ):
             if not row["seqid"].startswith("#"):
-                if row["type"] in {"mRNA", "ncRNA"}:
+                if row["type"].lower() in {"mrna", "ncrna"}:
                     start, end = int(row["start"]), int(row["end"])
                     start, end = (start, end) if start < end else (end, start)
                     attrib = dict(
@@ -72,7 +74,7 @@ class GffValidator:
                     item.split("=") for item in row["attributes"].strip(";").split(";")
                 )
 
-                if row["type"] == "gene":
+                if row["type"].lower() in {"gene", "ncrna_gene"}:
                     gid = GffValidator.get_attrib("ID", attrib, row["type"]).strip()
                     ginfo = self.gene_info.get(gid, None)
                     if ginfo is None:

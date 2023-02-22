@@ -53,7 +53,9 @@ class GffReleaseGenerator:
     ]
     valid_feature_types = {
         "gene",
+        "ncRNA_gene",
         "mRNA",
+        "ncRNA",
         "exon",
         "CDS",
         "five_prime_UTR",
@@ -118,7 +120,7 @@ class GffReleaseGenerator:
 
                         row["source"] = name_prefix
 
-                        if row["type"] == "gene":
+                        if row["type"].lower() in {"gene", "ncrna_gene"}:
                             gid = get_attrib("ID", attrib, row["type"])
 
                             ginfo = self.gene_metrics_info.get(gid, None)
@@ -154,9 +156,12 @@ class GffReleaseGenerator:
                             )
 
                             print(*row.values(), sep="\t", file=out_rel)
+                            # change type for loading to browser
+                            if row["type"].lower() == "ncrna_gene":
+                                row["type"] = "gene"
                             print(*row.values(), sep="\t", file=out_brw)
 
-                        elif row["type"] == "mRNA":
+                        elif row["type"].lower() in {"mrna", "ncrna"}:
                             tid = get_attrib("ID", attrib, row["type"])
                             gid = get_attrib("Parent", attrib, row["type"])
 
@@ -221,11 +226,6 @@ class GffReleaseGenerator:
                             attribs = "ID={0};Parent={1};Name={0};Note={1}".format(
                                 new_transcript, new_gene
                             )
-                            # browser gff has different attributes
-                            row["attributes"] = attribs + "|{}|conf:{}|rep:{}".format(
-                                tinfo["biotype"], tinfo["confidence"], is_primary
-                            )
-                            print(*row.values(), sep="\t", file=out_brw)
                             #  release gff
                             row["attributes"] = (
                                 attribs
@@ -234,7 +234,14 @@ class GffReleaseGenerator:
                                 )
                             )
                             print(*row.values(), sep="\t", file=out_rel)
-
+                            # browser gff has different attributes
+                            row["attributes"] = attribs + "|{}|conf:{}|rep:{}".format(
+                                tinfo["biotype"], tinfo["confidence"], is_primary
+                            )
+                            # change type for loading to browser
+                            if row["type"].lower() == "ncrna":
+                                row["type"] = "mRNA"
+                            print(*row.values(), sep="\t", file=out_brw)
                             print(
                                 new_gene,
                                 new_transcript,

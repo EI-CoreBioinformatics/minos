@@ -17,7 +17,9 @@ class TranscriptDataValidator:
     ]
     valid_feature_types = {
         "gene",
+        "ncRNA_gene",
         "mRNA",
+        "ncRNA",
         "exon",
         "CDS",
         "five_prime_UTR",

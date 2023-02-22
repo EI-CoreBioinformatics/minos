@@ -92,9 +92,9 @@ class GffRecord:
     def normalize_feature(self):
         norm_map = {
             "sublocus": "gene",
-            "ncrna_gene": "gene",
+            "ncrna_gene": "ncRNA_gene",
             "mrna": "mRNA",
-            "ncrna": "mRNA",
+            "ncrna": "ncRNA",
             "transcript": "mRNA",
         }
 
@@ -172,6 +172,7 @@ def main():
     args = ap.parse_args()
 
     MikadoLociParser.parse(args.gff, source=args.source)
+
 
 if __name__ == "__main__":
     main()

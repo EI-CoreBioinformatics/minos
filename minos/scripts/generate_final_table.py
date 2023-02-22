@@ -24,9 +24,9 @@ def generate_final_table(seq_table, bt_conf_table, stats_table, final_table, sum
     genes, transcripts = dict(), dict()
     for row in csv.reader(open(bt_conf_table), delimiter="\t"):
         if not row[0].startswith("#"):
-            if row[2].lower() in {"gene", "mrna", "ncrna"}:
+            if row[2].lower() in {"gene", "ncrna_gene", "mrna", "ncrna"}:
                 attrib = dict(item.split("=") for item in row[8].strip().split(";"))
-                if row[2].lower() == "gene":
+                if row[2].lower() in {"gene", "ncrna_gene"}:
                     genes[attrib["ID"]] = (attrib["biotype"], attrib["confidence"])
                 else:
                     transcripts[attrib["ID"]] = (
