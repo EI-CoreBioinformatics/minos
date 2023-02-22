@@ -1,195 +1,195 @@
 {
-  "__default__": {
-    "partition": "ei-medium",
-    "memory": "8192",
-    "cores": "8",
-    "J": "minos",
-    "time": "24:00:00",
-    "exclude": "t128n84"
-  },
-  "minos_mikado_prepare": {
-    "memory": "122880",
-    "cores": "30",
-    "J": "minos_mprep"
-  },
-  "minos_metrics_cpc2": {
-    "memory": "20480",
-    "cores": "4",
-    "J": "minos_met_cpc2"
-  },
-  "minos_metrics_kallisto_index": {
-    "memory": "12288",
-    "cores": "1",
-    "J": "minos_met_kallisto_index"
-  },
-  "minos_metrics_kallisto_quant": {
-    "memory": "61440",
-    "cores": "32",
-    "J": "minos_met_kallisto_quant"
-  },
-  "minos_metrics_mikado_compare_vs_all": {
-    "memory": "30720",
-    "cores": "1",
-    "J": "minos_met_mikado_compare_all"
-  },
-  "minos_metrics_mikado_compare_vs_proteins": {
-    "memory": "30720",
-    "cores": "1",
-    "J": "minos_met_mikado_cmp_prot"
-  },
-  "minos_metrics_mikado_compare_vs_transcripts": {
-    "memory": "30720",
-    "cores": "1",
-    "J": "minos_met_mikado_cmp_tran"
-  },
-  "minos_mikado_compare_index_reference": {
-    "memory": "8192",
-    "cores": "1",
-    "J": "minos_mikado_cmp_index"
-  },
-  "minos_metrics_blastp_mkdb": {
-    "memory": "10240",
-    "cores": "1",
-    "J": "minos_met_makeblastdb"
-  },
-  "minos_chunk_proteins": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_chunk_cds"
-  },
-  "minos_gffread_extract_sequences": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_generate_cds"
-  },
-  "minos_metrics_blastp_chunked": {
-    "memory": "32768",
-    "cores": "8",
-    "J": "minos_met_blastp"
-  },
-  "minos_metrics_blastp_tophit": {
-    "cores": "1",
-    "memory": "4096",
-    "J": "minos_met_blastp_tophit"
-  },
-  "minos_mikado_serialise": {
-    "cores": "32",
-    "memory": "125952",
-    "J": "minos_mikado_serialise"
-  },
-  "minos_mikado_pick": {
-    "cores": "30",
-    "memory": "125952",
-    "J": "minos_mikado_pick"
-  },
-  "minos_kallisto_index_post_pick": {
-    "memory": "12288",
-    "cores": "1",
-    "J": "minos_met_kallisto_index_post_pick"
-  },
-  "minos_kallisto_quant_post_pick": {
-    "memory": "61440",
-    "cores": "32",
-    "J": "minos_met_kallisto_quant_post_pick"
-  },
-  "minos_gff_validate_post_gt": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_gff_validate_post_gt"
-  },
-  "minos_collapse_metrics": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_collapse_metrics"
-  },
-  "minos_create_release_gffs": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_create_release_gffs"
-  },
-  "minos_sort_release_gffs": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_sort_release_gffs"
-  },
-  "minos_final_sanity_check": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_final_sanity_check"
-  },
-  "minos_generate_mikado_stats": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_generate_mikado_stats"
-  },
-  "minos_extract_final_sequences": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_extract_final_sequences"
-  },
-  "minos_extract_final_transcripts": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_extract_final_sequences"
-  },
-  "minos_extract_final_proteins": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_extract_final_proteins"
-  },
-  "minos_cleanup_final_proteins": {
-    "memory": "2048",
-    "cores": "1",
-    "J": "minos_cleanup_final_proteins"
-  },
-  "busco_proteins_prepare": {
-    "memory": "8192",
-    "cores": "8",
-    "J": "minos_busco_proteins_prepare"
-  },
-  "busco_proteins_final": {
-    "memory": "8192",
-    "cores": "8",
-    "J": "minos_busco_proteins_final"
-  },
-  "busco_transcripts_prepare": {
-    "memory": "8192",
-    "cores": "8",
-    "J": "minos_busco_transcripts_prepare"
-  },
-  "busco_transcripts_final": {
-    "memory": "8192",
-    "cores": "8",
-    "J": "minos_busco_transcripts_final"
-  },
-  "busco_genome": {
-    "memory": "8192",
-    "cores": "8",
-    "J": "minos_busco_genome"
-  },
-  "minos_metrics_bedtools_repeat_coverage": {
-    "memory": "8192",
-    "cores": "1",
-    "J": "minos_metrics_bedtools_repeat_coverage"
-  },
-  "minos_metrics_blastp_combine": {
-    "memory": "4096",
-    "cores": "1",
-    "J": "minos_metrics_blastp_combine"
-  },
-  "minos_generate_final_table": {
-    "memory": "4096",
-    "cores": "1",
-    "J": "minos_generate_final_table"
-  },
-  "minos_generate_tx2gene_maps": {
-    "memory": "4096",
-    "cores": "1",
-    "J": "minos_generate_tx2gene_maps"
-  },
-  "minos_metrics_generate_metrics_matrix": {
-    "memory": "4096",
-    "cores": "1",
-    "J": "minos_metrics_generate_metrics_matrix"
-  }
+    "__default__": {
+        "partition": "ei-medium",
+        "memory": "8192",
+        "cores": "8",
+        "J": "minos",
+        "time": "24:00:00",
+        "exclude": "t128n84"
+    },
+    "minos_mikado_prepare": {
+        "memory": "122880",
+        "cores": "30",
+        "J": "minos_mprep"
+    },
+    "minos_metrics_cpc2": {
+        "memory": "20480",
+        "cores": "4",
+        "J": "minos_met_cpc2"
+    },
+    "minos_metrics_kallisto_index": {
+        "memory": "12288",
+        "cores": "1",
+        "J": "minos_met_kallisto_index"
+    },
+    "minos_metrics_kallisto_quant": {
+        "memory": "61440",
+        "cores": "32",
+        "J": "minos_met_kallisto_quant"
+    },
+    "minos_metrics_mikado_compare_vs_all": {
+        "memory": "30720",
+        "cores": "1",
+        "J": "minos_met_mikado_compare_all"
+    },
+    "minos_metrics_mikado_compare_vs_proteins": {
+        "memory": "30720",
+        "cores": "1",
+        "J": "minos_met_mikado_cmp_prot"
+    },
+    "minos_metrics_mikado_compare_vs_transcripts": {
+        "memory": "30720",
+        "cores": "1",
+        "J": "minos_met_mikado_cmp_tran"
+    },
+    "minos_mikado_compare_index_reference": {
+        "memory": "8192",
+        "cores": "1",
+        "J": "minos_mikado_cmp_index"
+    },
+    "minos_metrics_blastp_mkdb": {
+        "memory": "10240",
+        "cores": "1",
+        "J": "minos_met_makeblastdb"
+    },
+    "minos_chunk_proteins": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_chunk_cds"
+    },
+    "minos_gffread_extract_sequences": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_generate_cds"
+    },
+    "minos_metrics_blastp_chunked": {
+        "memory": "32768",
+        "cores": "8",
+        "J": "minos_met_blastp"
+    },
+    "minos_metrics_blastp_tophit": {
+        "cores": "1",
+        "memory": "4096",
+        "J": "minos_met_blastp_tophit"
+    },
+    "minos_mikado_serialise": {
+        "cores": "32",
+        "memory": "125952",
+        "J": "minos_mikado_serialise"
+    },
+    "minos_mikado_pick": {
+        "cores": "30",
+        "memory": "125952",
+        "J": "minos_mikado_pick"
+    },
+    "minos_kallisto_index_post_pick": {
+        "memory": "12288",
+        "cores": "1",
+        "J": "minos_met_kallisto_index_post_pick"
+    },
+    "minos_kallisto_quant_post_pick": {
+        "memory": "61440",
+        "cores": "32",
+        "J": "minos_met_kallisto_quant_post_pick"
+    },
+    "minos_gff_validate_post_gt": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_gff_validate_post_gt"
+    },
+    "minos_collapse_metrics": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_collapse_metrics"
+    },
+    "minos_create_release_gffs": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_create_release_gffs"
+    },
+    "minos_sort_release_gffs": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_sort_release_gffs"
+    },
+    "minos_final_sanity_check": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_final_sanity_check"
+    },
+    "minos_generate_mikado_stats": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_generate_mikado_stats"
+    },
+    "minos_extract_final_sequences": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_extract_final_sequences"
+    },
+    "minos_extract_final_transcripts": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_extract_final_sequences"
+    },
+    "minos_extract_final_proteins": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_extract_final_proteins"
+    },
+    "minos_cleanup_final_proteins": {
+        "memory": "2048",
+        "cores": "1",
+        "J": "minos_cleanup_final_proteins"
+    },
+    "busco_proteins_prepare": {
+        "memory": "8192",
+        "cores": "8",
+        "J": "minos_busco_proteins_prepare"
+    },
+    "busco_proteins_final": {
+        "memory": "8192",
+        "cores": "8",
+        "J": "minos_busco_proteins_final"
+    },
+    "busco_transcripts_prepare": {
+        "memory": "8192",
+        "cores": "8",
+        "J": "minos_busco_transcripts_prepare"
+    },
+    "busco_transcripts_final": {
+        "memory": "8192",
+        "cores": "8",
+        "J": "minos_busco_transcripts_final"
+    },
+    "busco_genome": {
+        "memory": "8192",
+        "cores": "8",
+        "J": "minos_busco_genome"
+    },
+    "minos_metrics_bedtools_repeat_coverage": {
+        "memory": "8192",
+        "cores": "1",
+        "J": "minos_metrics_bedtools_repeat_coverage"
+    },
+    "minos_metrics_blastp_combine": {
+        "memory": "4096",
+        "cores": "1",
+        "J": "minos_metrics_blastp_combine"
+    },
+    "minos_generate_final_table": {
+        "memory": "4096",
+        "cores": "1",
+        "J": "minos_generate_final_table"
+    },
+    "minos_generate_tx2gene_maps": {
+        "memory": "4096",
+        "cores": "1",
+        "J": "minos_generate_tx2gene_maps"
+    },
+    "minos_metrics_generate_metrics_matrix": {
+        "memory": "4096",
+        "cores": "1",
+        "J": "minos_metrics_generate_metrics_matrix"
+    }
 }
