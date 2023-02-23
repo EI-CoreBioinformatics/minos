@@ -1,46 +1,64 @@
-import csv
-import re
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script to parse input repeat GFF
 
-# awk '$3 == "match_part"' {input[0]} | sed -e 's/\\tmatch_part\\t/\\texon\\t/' -e 's/\\t[+-]\\t/\\t.\\t/' > {output[0]}
-def parse_repeatmasker(_in, _out, _out2, runid):
-    source = tag = runid
-    name_tag, rep_counter = "RM", 0
-    with open(_out, "w") as out_exons, open(_out2, "w") as out_exons_unstranded:
+Accepted input GFF formats:
+- match->match_part
+- transcript->exon
+"""
+import argparse
+import csv
+
+
+def parse_repeats(_in, _out, runid):
+    source = runid
+    rep_counter = 0
+    with open(_out, "w") as out_exons_unstranded:
         for row in csv.reader(open(_in), delimiter="\t"):
-            if row and not row[0].startswith("#") and row[1] == "RepeatMasker":
-                rep_counter += 1
-                try:
-                    target = re.search('Target\s+"([^"]+)', row[8]).group(1)
-                except:
-                    try:
-                        target = re.search("Target\s*=\s*([^;]+)", row[8]).group(1)
-                    except:
-                        raise ValueError("Cannot parse Target from " + row[8])
-                target = re.sub("\s+", "_", target)
-                note = ";Note={}".format(target)
-                try:
-                    name = re.sub(
-                        "\s+", "_", re.search("Name\s*=\s*([^;]+)", row[8]).group(1)
+            if row and not row[0].startswith("#"):
+                if row[2].strip().lower() in {"match_part", "exon"}:
+                    rep_counter += 1
+                    attrib = dict(
+                        item.split("=") for item in row[8].strip(" ;").split(";")
                     )
-                except:
-                    name, note = target, ""
-                row[1] = source
-                row[5] = "{:0.0f}".format(float(row[5]))
-                row[2] = "match"
-                attrib = "ID={tag}:{name_tag}{counter};Name={name}{note}".format(
-                    tag=tag,
-                    name_tag=name_tag,
-                    counter=rep_counter,
-                    name=name,
-                    note=note,
-                )
-                print(*row[:8], attrib, sep="\t", file=out_exons, flush=True)
-                row[2] = "match_part"
-                attrib = "ID={tag}:{name_tag}{counter}-exon1;Parent={tag}:{name_tag}{counter}".format(
-                    tag=tag, name_tag=name_tag, counter=rep_counter
-                )
-                print(*row[:8], attrib, sep="\t", file=out_exons, flush=True)
-                print("###", file=out_exons, flush=True)
-                row[2] = "exon"
-                row[6] = "."
-                print(*row[:8], attrib, sep="\t", file=out_exons_unstranded, flush=True)
+                    if any(
+                        map(
+                            lambda x: x is None,
+                            (attrib.get("ID"), attrib.get("Parent"),),
+                        )
+                    ):
+                        raise ValueError(
+                            "Error: Cannot parse all variables (ID, Parent). Please check entry:\n{}\n".format(
+                                "\t".join(row)
+                            )
+                        )
+                    row[1] = source
+                    row[2] = "exon"
+                    row[6] = "."
+                    attrib = "ID={parent}.exon{counter};Parent={parent}".format(
+                        parent=attrib["Parent"], counter=rep_counter
+                    )
+                    print(
+                        *row[:8],
+                        attrib,
+                        sep="\t",
+                        file=out_exons_unstranded,
+                        flush=True
+                    )
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("input_gff", type=str)
+    ap.add_argument("output_no_strand_exon_gff", type=str)
+    ap.add_argument("sample_name", type=str)
+    args = ap.parse_args()
+
+    parse_repeats(
+        args.input_gff, args.output_no_strand_exon_gff, args.sample_name,
+    )
+
+
+if __name__ == "__main__":
+    main()

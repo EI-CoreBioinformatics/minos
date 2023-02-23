@@ -306,18 +306,17 @@ rule minos_metrics_repeats_convert:
 	input:
 		get_repeat_data
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.converted.gff"),
 		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.no_strand.exon.gff")
 	run:
-		from minos.scripts.parse_repeatmasker import parse_repeatmasker
-		parse_repeatmasker(input[0], output[0], output[1], wildcards.run)
+		from minos.scripts.parse_repeats import parse_repeats
+		parse_repeats(input[0], output[0], wildcards.run)
 
 rule minos_metrics_bedtools_repeat_coverage:
 	input:
-		rules.minos_metrics_repeats_convert.output[1],
+		rules.minos_metrics_repeats_convert.output[0],
 		rules.minos_extract_exons.output[0]
 	output:
-		rules.minos_metrics_repeats_convert.output[1] + ".cbed",
+		rules.minos_metrics_repeats_convert.output[0] + ".cbed",
 	params:
 		program_call = config["program_calls"]["bedtools"]["coverageBed"]
 	threads:
