@@ -254,7 +254,7 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
                 print("\n".join(output), file=df)
             print("done.")
         else:
-            print("Error occured processing Illumina PAP:\n" + "\n".join(output))
+            print("Error occured processing the pipeline:\n" + "\n".join(output))
 
     else:
 
