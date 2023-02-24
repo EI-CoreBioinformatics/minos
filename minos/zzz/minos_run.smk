@@ -484,10 +484,8 @@ checkpoint minos_chunk_proteins:
 		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
 		" && awk 'BEGIN {{n=0;m=1;}} /^>/ {{ if (n%{params.chunksize}==0) {{f=sprintf(\"{params.outdir}/chunk-%d.txt\",m); m++;}}; n++; }} {{ print >> f }}' {input[0]} &> {log}"
 
-BLAST_CMD = "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} " + \
-			"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
-DIAMOND_CMD = "{params.program_call} {params.program_params} --query {input.chunk} --out {output[0]} --threads {threads} " + \
-			"--db {input.db} --outfmt 6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore &> {log}"
+BLAST_CMD = "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} -db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}" if config["blast-mode"] == "blastp" else "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} -db {input.db} -query_gencode {params.codon_table} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
+DIAMOND_CMD = "{params.program_call} {params.program_params} --query {input.chunk} --out {output[0]} --threads {threads} --db {input.db} --query-gencode {params.codon_table} --outfmt 6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore &> {log}"
 
 rule minos_metrics_blastp_chunked:
 	input:
@@ -499,7 +497,8 @@ rule minos_metrics_blastp_chunked:
 		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}.DIAMOND." + config["blast-mode"] + ".log" if config["use-diamond"] else "chunk-{chunk}.{run}.BLAST." + config["blast-mode"] + ".log")
 	params:
 		program_call = config["program_calls"]["diamond" if config["use-diamond"] else "blast"].format(program=config["blast-mode"]),
-		program_params = config["params"]["diamond" if config["use-diamond"] else "blast"][config["blast-mode"]]
+		program_params = config["params"]["diamond" if config["use-diamond"] else "blast"][config["blast-mode"]],
+		codon_table = config["params"]["seqkit"]["codon_table"]
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_chunked")
 	resources:

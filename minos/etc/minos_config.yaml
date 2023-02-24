@@ -18,6 +18,9 @@ params:
     # seqkit seq option is to filter CDS bps below -m <int> post mikado prepare stage
     seq: "seq -m 48"
     translate: "translate --threads 1 --line-width 70"
+    # codon table use cases:
+    # - when extracting proteins from genome sequence
+    # - passed to blastx option
     codon_table: 1
   cpc2: "-r"
   kallisto:
