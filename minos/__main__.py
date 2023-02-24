@@ -105,6 +105,11 @@ def add_configure_parser(subparsers):
         type=str,
         help="Directory with short_summary.txt and full_table.tsv from processing the reference with busco genome.",
     )
+    configure_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Run configure in debug (default: %(default)s)",
+    )
 
     add_default_options(configure_parser)
     configure_parser.set_defaults(runmode="configure")
@@ -159,6 +164,7 @@ def main():
     if args.runmode == "configure":
         if run_configuration_file is None or args.force_reconfiguration:
             MinosRunConfiguration(args).run()
+            print("Minos configure ... done\n")
         elif run_configuration_file is not None:
             print(
                 "Configuration file {} already present. Please set --force-reconfiguration/-f to override this.".format(

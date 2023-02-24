@@ -29,6 +29,11 @@ MIKADO_CONFIGURE_CMD = "{cmd} --codon-table {codon_table} --list {list_file} {ex
 
 class MinosRunConfiguration(dict):
     def _run_mikado_configure(self, args):
+        print(
+            "Generating mikado configuration file " + self.mikado_config_file + " ...",
+            end="",
+            flush=True,
+        )
         cmd = MIKADO_CONFIGURE_CMD.format(
             cmd=self["program_calls"]["mikado"].format(
                 container=args.mikado_container, program="configure"
@@ -53,9 +58,12 @@ class MinosRunConfiguration(dict):
             else " ",
             mikado_config_file=self.mikado_config_file,
         )
-        print("Running mikado configure with:", cmd, sep="\n")
+        if self.args.debug:
+            print("\nDEBUG: Running mikado configure with:", cmd, sep="\n")
         out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-        print(out)
+        if self.args.debug:
+            print(out)
+        print(" done.")
 
     def _generate_scoring_file(self, args):
         self.scoring_file = os.path.join(args.outdir, args.prefix + ".scoring.yaml")
@@ -73,8 +81,10 @@ class MinosRunConfiguration(dict):
 
     def __init__(self, args):
         print("Configuring run...")
-        print(args)
         self.args = args
+        if self.args.debug:
+            print("DEBUG: Print command line args:")
+            print(self.args)
         pathlib.Path(args.outdir).mkdir(exist_ok=True, parents=True)
         pathlib.Path(os.path.join(args.outdir, "hpc_logs")).mkdir(
             exist_ok=True, parents=True
@@ -84,7 +94,7 @@ class MinosRunConfiguration(dict):
         )
 
     def _generate_run_configuration(self, args):
-        print("Generating run configuration file ...", flush=True, end="")
+        print("Generating minos run configuration file ", flush=True, end="")
         self.update(
             {
                 "prefix": args.prefix,
@@ -123,7 +133,13 @@ class MinosRunConfiguration(dict):
                 default_flow_style=False,
                 sort_keys=False,
             )
+        print(
+            os.path.join(args.outdir, args.prefix + ".run_config.yaml") + " ...",
+            flush=True,
+            end="",
+        )
         print(" done.")
+
     def run(self):
         self._generate_scoring_file(self.args)
         self._generate_run_configuration(self.args)
