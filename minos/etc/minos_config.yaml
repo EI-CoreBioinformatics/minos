@@ -1,5 +1,5 @@
 paths:
-  augustus_config_data: "/usr/local/config"
+  augustus_config_data: "/opt/conda/config"
 params:
   mikado:
     prepare: "--minimum-cdna-length 100"

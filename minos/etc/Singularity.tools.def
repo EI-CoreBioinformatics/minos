@@ -1,27 +1,22 @@
 Bootstrap: docker
-From: conda/miniconda3-centos7
-Include: yum which wget
+From: continuumio/miniconda3
 
-
+%test
+	export PATH="/usr/local/bin:$PATH:/usr/local/conda/bin/"
+	python --version
 %environment
-	alias python=python3
-
+	export PYTHONDONTWRITEBYTECODE=true
 %post
 
-	yum makecache fast && yum update -y
-	yum -y install git bzip2 wget which sudo vi
-	yum -y group install "Development Tools"
-
-	conda update -y conda
-	conda remove -y asn1crypto
-	conda install -c conda-forge -c bioconda -y asn1crypto kallisto=0.44.0 diamond=0.9.34 bedtools=2.29.2 blast=2.9.0 biopython prinseq numpy genometools-genometools=1.5.10 gffread=0.11.6 seqkit=2.1.0
+	conda update conda -n base -y && conda install -c conda-forge -n base -y mamba pip git gcc gxx wget bzip2 gzip tar make
+	mamba install -c conda-forge -c bioconda -y asn1crypto kallisto=0.44.0 diamond=0.9.34 bedtools=2.29.2 blast=2.9.0 biopython prinseq numpy genometools-genometools gffread=0.11.6 seqkit=2.1.0
 
 	mkdir -p /opt/software
 	cd /opt/software
-	git clone --depth=1 https://github.com/EI-CoreBioinformatics/CPC2
+
+	git clone https://github.com/EI-CoreBioinformatics/CPC2 CPC2
 	cd CPC2
 	python3 setup.py bdist_wheel && pip3 install dist/*whl
+        CPC2 -h
 
-	CPC2 --help
-
-	conda clean --all --yes
+	mamba clean --all --yes
