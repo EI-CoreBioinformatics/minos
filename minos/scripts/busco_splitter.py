@@ -3,7 +3,7 @@ def split_fasta(fastafile, split_files):
     for line in open(fastafile):
         if line.startswith(">"):
             matches = list(
-                {runid for runid in split_files if line[1:].startswith(runid)}
+                {runid for runid in split_files if line[1:].startswith(runid + "_")}
             )
             if not matches:
                 print("No matching output file for sequence " + line[1:].strip())
