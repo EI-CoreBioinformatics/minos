@@ -18,6 +18,9 @@ params:
     # seqkit seq option is to filter CDS bps below -m <int> post mikado prepare stage
     seq: "seq -m 48"
     translate: "translate --threads 1 --line-width 70"
+    # codon table use cases:
+    # - when extracting proteins from genome sequence
+    # - passed to blastx option
     codon_table: 1
   cpc2: "-r"
   kallisto:
@@ -40,7 +43,6 @@ params:
   genometools:
     check: "gff3 -sort -tidy -retainids yes -addids no"
     sort: "gff3 -sort -tidy -retainids yes"
-  prinseq: "-min_len 1 -line_width 70"
   busco:
     proteins_prepare: "--offline --limit 4"
     proteins_final: "--offline --limit 4"
@@ -52,7 +54,7 @@ misc:
   min_cds_length: 30
   busco_max_copy_number: 4
   # for formatting fasta headers
-  add_fields: "name,note,confidence,representative,biotype,multiexonic,superlocus"
+  add_fields: "name,note,confidence,representative,biotype,partialness,multiexonic,superlocus"
 
 program_calls:
   mikado: "singularity exec {container} mikado {program}"
@@ -63,7 +65,6 @@ program_calls:
   blast: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img {program}"
   diamond: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img diamond {program}"
   genometools: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img gt"
-  prinseq: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.img prinseq-lite.pl"
   busco: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.busco.img busco"
   copy_busco: "singularity exec /ei/software/cb/containers/minos/x86_64/Singularity.busco.img cp -r"
   bedtools:
@@ -71,16 +72,30 @@ program_calls:
   time: "/usr/bin/time -v"
 
 collapse_metrics_thresholds:
+  ## -- START: TRANSPOSABLE ELEMENT GENE CLASSIFICATION -- ##
+  # The below metric decides whether a gene will be classified
+  # as a tranposable element gene.
+  # This is the only metric that will be applied alongside the
+  # protein coding and ncrna gene classification metrics.
   repeat_associated: "{te_score} >= 0.4"
-  # predicted_gene will also depend on classification status, but this is currently not implemented
+  ## -- END: TRANSPOSABLE ELEMENT GENE CLASSIFICATION -- ##
+
+
+  ## -- START: PROTEIN CODING GENE CLASSIFICATION -- ##
+  # The below metrics decides whether a gene will be classified
+  # as a protein coding gene or predicted gene.
   predicted_gene: "{hom_acov_score} < 0.3 and {cpc_score} < 0.25"
   hi_confidence: "{classification} == 1 or {busco_score} == 1 or {hom_acov_score} >= 0.8 or ({hom_acov_score} >= 0.6 and {transcript_score} >= 0.4)"
-  # discard will also depend on classification status, but this is currently not implemented
-  discard: "{busco_score} == 0 and {protein_score} == 0 and {transcript_score} == 0 and {hom_acov_score} == 0 and ({expression_score} < 0.3 or {short_cds} == 1)"
-  #repeat_associated: "te_score ge 0.4"
-  #predicted_gene: "hom_acov_score lt 0.3 & cpc_score lt 0.25"
-  #hi_confidence: "classification eq 1 | hom_acov_score ge 0.8 | (hom_acov_score ge 0.6 & transcript_score ge 0.4)"
-  #discard: "protein_score eq 0 & transcript_score eq 0 & hom_acov_score eq 0 & expression_score lt 0.3"
+  discard_coding: "({busco_score} == 0 and {protein_score} == 0 and {transcript_score} == 0 and {hom_acov_score} == 0 and {expression_score} < 0.3) or {short_cds} == 1"
+  ## -- END: PROTEIN CODING GENE CLASSIFICATION -- ##
+
+
+  ## -- START: NCRNA GENE CLASSIFICATION -- ##
+  # The below metrics decides whether a gene will be classified
+  # as a ncRNA gene.
+  ncrna_gene: "{cpc_score} < 0.25 and {expression_score} > 0.6 and {hom_acov_score} == 0"
+  # any model failing to meet the above criteria for ncrna_gene will be discarded
+  ## -- END: NCRNA GENE CLASSIFICATION -- ##
 
 report_metric_oddities:
  - "{exon_num} == 1"

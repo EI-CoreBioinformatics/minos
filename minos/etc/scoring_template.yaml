@@ -57,7 +57,7 @@ scoring:
     rescaling: min
   # highest_cds_exon_number: {rescaling: max}
   # is_complete: {rescaling: target, value: true, multiplier: 2}
-  non_verified_introns_num: 
+  non_verified_introns_num:
     rescaling: max
     multiplier: -5
     filter: {operator: gt, value: 1, metric: exon_num}

@@ -306,18 +306,17 @@ rule minos_metrics_repeats_convert:
 	input:
 		get_repeat_data
 	output:
-		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.converted.gff"),
 		os.path.join(EXTERNAL_METRICS_DIR, "repeats", "{run}.no_strand.exon.gff")
 	run:
-		from minos.scripts.parse_repeatmasker import parse_repeatmasker
-		parse_repeatmasker(input[0], output[0], output[1], wildcards.run)
+		from minos.scripts.parse_repeats import parse_repeats
+		parse_repeats(input[0], output[0], wildcards.run)
 
 rule minos_metrics_bedtools_repeat_coverage:
 	input:
-		rules.minos_metrics_repeats_convert.output[1],
+		rules.minos_metrics_repeats_convert.output[0],
 		rules.minos_extract_exons.output[0]
 	output:
-		rules.minos_metrics_repeats_convert.output[1] + ".cbed",
+		rules.minos_metrics_repeats_convert.output[0] + ".cbed",
 	params:
 		program_call = config["program_calls"]["bedtools"]["coverageBed"]
 	threads:
@@ -485,10 +484,8 @@ checkpoint minos_chunk_proteins:
 		# awk script by Pierre Lindenbaum https://www.biostars.org/p/13270/
 		" && awk 'BEGIN {{n=0;m=1;}} /^>/ {{ if (n%{params.chunksize}==0) {{f=sprintf(\"{params.outdir}/chunk-%d.txt\",m); m++;}}; n++; }} {{ print >> f }}' {input[0]} &> {log}"
 
-BLAST_CMD = "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} " + \
-			"-db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
-DIAMOND_CMD = "{params.program_call} {params.program_params} --query {input.chunk} --out {output[0]} --threads {threads} " + \
-			"--db {input.db} --outfmt 6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore &> {log}"
+BLAST_CMD = "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} -db {input.db} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}" if config["blast-mode"] == "blastp" else "{params.program_call} {params.program_params} -query {input.chunk} -out {output[0]} -num_threads {threads} -db {input.db} -query_gencode {params.codon_table} -outfmt \"6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore\" &> {log}"
+DIAMOND_CMD = "{params.program_call} {params.program_params} --query {input.chunk} --out {output[0]} --threads {threads} --db {input.db} --query-gencode {params.codon_table} --outfmt 6 qseqid sseqid pident qstart qend sstart send qlen slen length nident mismatch positive gapopen gaps evalue bitscore &> {log}"
 
 rule minos_metrics_blastp_chunked:
 	input:
@@ -500,7 +497,8 @@ rule minos_metrics_blastp_chunked:
 		os.path.join(LOG_DIR, "blast_logs", "chunk-{chunk}.{run}.DIAMOND." + config["blast-mode"] + ".log" if config["use-diamond"] else "chunk-{chunk}.{run}.BLAST." + config["blast-mode"] + ".log")
 	params:
 		program_call = config["program_calls"]["diamond" if config["use-diamond"] else "blast"].format(program=config["blast-mode"]),
-		program_params = config["params"]["diamond" if config["use-diamond"] else "blast"][config["blast-mode"]]
+		program_params = config["params"]["diamond" if config["use-diamond"] else "blast"][config["blast-mode"]],
+		codon_table = config["params"]["seqkit"]["codon_table"]
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_chunked")
 	resources:
@@ -882,7 +880,7 @@ rule minos_extract_final_sequences:
 		tbl = rules.minos_sort_release_gffs.output[0] + ".gffread.table.txt",
 		cds = rules.minos_sort_release_gffs.output[0] + ".cds.fasta",
 		pep = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta",
-		pep_temp = rules.minos_sort_release_gffs.output[0] + ".pep.raw.fasta.temp"
+		pep_fasta = rules.minos_sort_release_gffs.output[0] + ".pep.fasta"
 	params:
 		program_call_gffread = config["program_calls"]["gffread"],
 		program_call_seqkit = config["program_calls"]["seqkit"],
@@ -891,25 +889,7 @@ rule minos_extract_final_sequences:
 		codon_table = config["params"]["seqkit"]["codon_table"],
 		add_fields = config["misc"]["add_fields"]
 	shell:
-		"{params.program_call_gffread} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep_temp} -o {output.tbl} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header --add_fields {params.add_fields} > {output.pep}"
-
-rule minos_cleanup_final_proteins:
-	input:
-		rules.minos_extract_final_sequences.output.pep
-	output:
-		rules.minos_extract_final_sequences.output.pep.replace(".raw.fasta", ".fasta")
-	log:
-		os.path.join(LOG_DIR, "cleanup_proteins.log")
-	params:
-		prefix = rules.minos_extract_final_sequences.output.pep.replace(".raw.fasta", ""),
-		program_call = config["program_calls"]["prinseq"],
-		program_params = config["params"]["prinseq"]
-	threads:
-		HPC_CONFIG.get_cores("minos_cleanup_final_proteins")
-	resources:
-		mem_mb = lambda wildcards, attempt: HPC_CONFIG.get_memory("minos_cleanup_final_proteins") * attempt
-	shell:
-		"{params.program_call} -aa -fasta {input} {params.program_params} -out_good {params.prefix} -out_bad {params.prefix}.bad"
+		"{params.program_call_gffread} {input.gff} -g {input.refseq} -P {params.table_format} -W -w {output.cdna} -x {output.cds} -y {output.pep_fasta} -o {output.tbl} && {params.program_call_seqkit} {params.program_params_translate} -T {params.codon_table} {output.cds} | clean_fasta_header --add_fields {params.add_fields} > {output.pep}"
 
 rule minos_generate_final_table:
 	input:
@@ -970,9 +950,10 @@ rule split_proteins_prepare:
 	log:
 		os.path.join(BUSCO_PATH, "logs", "split_proteins_prepare.log")
 	run:
-		from minos.scripts.busco_splitter import split_fasta
+		from minos.scripts.busco_splitter import split_fasta, check_split_fasta
 		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", tm + ".proteins.fasta"), "w") for tm in config["data"]["transcript_models"]}
 		split_fasta(input[0], fasta_files)
+		check_split_fasta("prot", fasta_files)
 
 rule busco_proteins_prepare:
 	input:
@@ -1033,9 +1014,10 @@ rule split_transcripts_prepare:
 	log:
 		os.path.join(BUSCO_PATH, "logs", "split_transcripts_prepare.log")
 	run:
-		from minos.scripts.busco_splitter import split_fasta
+		from minos.scripts.busco_splitter import split_fasta, check_split_fasta
 		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", tm + ".cdna.fasta"), "w") for tm in config["data"]["transcript_models"]}
 		split_fasta(input[0], fasta_files)
+		check_split_fasta("nuc", fasta_files)
 
 rule busco_transcripts_prepare:
 	input:
