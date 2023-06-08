@@ -950,9 +950,10 @@ rule split_proteins_prepare:
 	log:
 		os.path.join(BUSCO_PATH, "logs", "split_proteins_prepare.log")
 	run:
-		from minos.scripts.busco_splitter import split_fasta
+		from minos.scripts.busco_splitter import split_fasta, check_split_fasta
 		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "proteins_prepare", "input", tm + ".proteins.fasta"), "w") for tm in config["data"]["transcript_models"]}
 		split_fasta(input[0], fasta_files)
+		check_split_fasta("prot", fasta_files)
 
 rule busco_proteins_prepare:
 	input:
@@ -1013,9 +1014,10 @@ rule split_transcripts_prepare:
 	log:
 		os.path.join(BUSCO_PATH, "logs", "split_transcripts_prepare.log")
 	run:
-		from minos.scripts.busco_splitter import split_fasta
+		from minos.scripts.busco_splitter import split_fasta, check_split_fasta
 		fasta_files = {tm: open(os.path.join(BUSCO_PATH, "runs", "transcripts_prepare", "input", tm + ".cdna.fasta"), "w") for tm in config["data"]["transcript_models"]}
 		split_fasta(input[0], fasta_files)
+		check_split_fasta("nuc", fasta_files)
 
 rule busco_transcripts_prepare:
 	input:
