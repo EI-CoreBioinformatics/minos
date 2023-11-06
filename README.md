@@ -4,6 +4,10 @@ minos is a Python3/Snakemake - based pipeline that generates and utilises metric
 
 For the majority of the computational work, minos utilises [Mikado](https://github.com/EI-CoreBioinformatics/Mikado). The pipeline runs Mikado `prepare` on provided gene sets, and generates external metrics such as blastp/blastx alignments, busco assessments and kallisto expression quantification. These metrics are then passed on to Mikado `serialise` and `pick`. In a final set of steps, models are filtered according to user-provided criteria and annotated release gene/transcript sets are generated.
 
+## Workflow
+![Alt text](/minos/doc/Minos.png)
+Figure 1. The overview of MINOS pipeline
+
 ## Installation 
 
 minos requires Python 3.6 at the very least (better Python 3.7+ as it is essential that dictionary insertion order is preserved.) 
