@@ -22,14 +22,9 @@ def parse_repeats(_in, _out, runid):
                     attrib = dict(
                         item.split("=") for item in row[8].strip(" ;").split(";")
                     )
-                    if any(
-                        map(
-                            lambda x: x is None,
-                            (attrib.get("ID"), attrib.get("Parent"),),
-                        )
-                    ):
+                    if any(map(lambda x: x is None, (attrib.get("Parent"),))):
                         raise ValueError(
-                            "Error: Cannot parse all variables (ID, Parent). Please check entry:\n{}\n".format(
+                            "Error: Cannot parse all variables (Parent). Please check entry:\n{}\n".format(
                                 "\t".join(row)
                             )
                         )
