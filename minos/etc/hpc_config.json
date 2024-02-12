@@ -5,7 +5,7 @@
         "cores": "8",
         "J": "minos",
         "time": "24:00:00",
-        "exclude": "t128n84"
+        "exclude": "t384n1"
     },
     "minos_mikado_prepare": {
         "memory": "122880",
