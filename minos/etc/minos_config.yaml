@@ -28,6 +28,7 @@ params:
     quant: "-b 100"
   blast:
     makeblastdb: "-dbtype prot"
+    chunk_size: 1000
     blastp: "-max_target_seqs 1 -evalue 1e-5"
     blastx: "-max_target_seqs 1 -evalue 1e-5"
     tophit:
@@ -35,6 +36,7 @@ params:
       qcov_threshold: 0.0
   diamond:
     makedb: ""
+    chunk_size: 20000
     blastp: "--max-target-seqs 1 --evalue 1e-5"
     blastx: "--max-target-seqs 1 --evalue 1e-5"
     tophit:

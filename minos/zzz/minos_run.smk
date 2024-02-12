@@ -473,7 +473,7 @@ checkpoint minos_chunk_proteins:
 	log:
 		os.path.join(LOG_DIR, os.path.basename(rules.minos_gffread_extract_sequences.output.pep if config["blast-mode"] == "blastp" else rules.minos_gffread_extract_sequences.output.cds) + ".chunk.log")
 	params:
-		chunksize = 1000,
+		chunksize = config["params"]["diamond"]["chunk_size"] if config["use-diamond"] else config["params"]["blast"]["chunk_size"],
 		outdir = os.path.join(TEMP_DIR, "chunked_proteins")
 	threads:
 		HPC_CONFIG.get_cores("minos_chunk_proteins")
