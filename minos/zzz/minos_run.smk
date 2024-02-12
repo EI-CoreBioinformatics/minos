@@ -537,8 +537,8 @@ rule minos_metrics_blastp_tophit:
 	output:
 		rules.minos_metrics_blastp_combine.output[0] + ".tophit"
 	params:
-		pident_threshold = config["params"]["diamond" if config["use-diamond"] else "blast"]["tophit"]["pident_threshold"],
-		qcov_threshold = config["params"]["diamond" if config["use-diamond"] else "blast"]["tophit"]["qcov_threshold"]
+		pident_threshold = config["params"]["diamond"]["tophit"]["pident_threshold"] if config["use-diamond"] else config["params"]["blast"]["tophit"]["pident_threshold"],
+		qcov_threshold = config["params"]["diamond"]["tophit"]["qcov_threshold"] if config["use-diamond"] else config["params"]["blast"]["tophit"]["qcov_threshold"]
 	threads:
 		HPC_CONFIG.get_cores("minos_metrics_blastp_tophit")
 	resources:
