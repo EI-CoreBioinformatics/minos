@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import sys
 import os
 import csv
@@ -169,9 +172,7 @@ def read_busco(f, seen=set(), score_complete=1, score_fragmented=0.25):
                 score = (
                     score_complete
                     if row[1] in {"Duplicated", "Complete"}
-                    else score_fragmented
-                    if row[1] == "Fragmented"
-                    else 0
+                    else score_fragmented if row[1] == "Fragmented" else 0
                 )
                 model_info[tid] = collections.OrderedDict(
                     {"busco": _round_frac(clean_na(score))}
@@ -243,4 +244,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
