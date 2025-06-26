@@ -251,6 +251,7 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
             )
             print("Saving DAG of pipeline to " + dag_file + " ... ", end="", flush=True)
             with open(dag_file, "w") as df:
+                output = [line for line in output if not line.startswith("Building DAG of job")]
                 print("\n".join(output), file=df)
             print("done.")
         else:
