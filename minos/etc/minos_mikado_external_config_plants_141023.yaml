@@ -1,0 +1,182 @@
+# Configuration properties for Mikado.
+#
+pick:
+  alternative_splicing:
+    # Parameters related to how Mikado will select and report alternative
+    # splicing events.
+    # cds_only: Only consider the coding part of transcripts to determine the validity
+    # of the AS event.
+    cds_only: false
+    # keep_cds_disrupted_by_ri: Keep or discard AS events with their CDS disrupted by a retained
+    # intron event, ie either having their stop codon or ending with a
+    # truncated CDS within the intron of another transcript. Default: false.
+    keep_cds_disrupted_by_ri: false
+    # keep_retained_introns: Keep or discard AS events with a retained intron. Default: true
+    keep_retained_introns: true
+    # max_isoforms: Maximum number of isoforms to report per locus. Default: 10.
+    max_isoforms: 15
+    # min_cdna_overlap: Minimum cDNA overlap threshold to be cleared for two transcripts to be
+    # considered AS events of each other.
+    min_cdna_overlap: 0.6
+    # min_cds_overlap: Minimum CDS overlap threshold (for coding transcripts) to be cleared
+    # for two transcripts to be considered AS events of each other.
+    min_cds_overlap: 0.5
+    # min_score_perc: Minimum percentage of the score associated to an AS event *compared to
+    # the primary transcript* for the AS event to be considered valid.
+    # Default: 0.5, or 50%.
+    min_score_perc: 0.5
+    # only_confirmed_introns: Boolean flag. If set to true (default), Mikado will only report AS
+    # events whose introns *not in common with the primary transcript* are
+    # verified by the junctions provided to serialise (usually Portcullis
+    # reliable junctions).
+    only_confirmed_introns: true
+    # pad: Boolean flag. If set to true, Mikado will pad transcripts. Please
+    # refer to the online documentation.
+    pad: true
+    # report: Boolean flag, about whether Mikado should find and report AS events or
+    # simply define one transcript per locus.
+    report: true
+    # ts_distance: When padding, this value indicates how many bps can be added to
+    # *either* of the 5' or 3' section of the transcript, excluding introns.
+    ts_distance: 2000
+    # ts_max_splices: When padding, this value indicates the maximum number of splicing
+    # junctions that can be added to *either* of the 5' or 3' section of the
+    # transcript.
+    ts_max_splices: 2
+    valid_ccodes:
+    # AS event class codes considered as valid AS events. Valid codes are in
+    # categories 'Alternative splicing', 'Extension' (with junction F1 lower
+    # than 100%), and 'Overlap' (exluding m). Please run 'mikado util
+    # class_codes' or refer to the online documentation for an explanation
+    # of each code.
+    - j
+    - J
+    - G
+    - h
+  clustering:
+    # Parameters related to the clustering of transcripts into loci.
+    # cds_only: Boolean, it specifies whether to cluster transcripts only according to
+    # their CDS (if present).
+    cds_only: true
+  fragments:
+    # Parameters related to the handling of fragments.
+    # max_distance: Maximum distance of a putative fragment from a valid gene, for it to
+    # be considered by this filter.
+    max_distance: 2000
+    # remove: boolean. Whether to remove fragments or leave them, properly tagged,
+    # in the output file. Default: remove them.
+    remove: true
+  orf_loading:
+    # Parameters related to ORF loading.
+    # minimal_orf_length: Minimum length in bps of an ORF to be loaded, as the primary ORF, onto
+    # a transcript. Default: 50 bps
+    minimal_orf_length: 50
+    # minimal_secondary_orf_length: Minimum length of a *secondary* ORF to be loaded after the first, in
+    # bp. Default: 200 bps
+    minimal_secondary_orf_length: 200
+    # strand_specific: Boolean flag. If set to true, monoexonic transcripts with an available
+    # ORF on the opposite strand will still not be reversed.
+    strand_specific: true
+  output_format:
+    # Parameters related to the output format.
+    # id_prefix: Prefix for the ID of the genes/transcripts in the output
+    id_prefix: mikado
+    # report_all_orfs: Boolean switch. If set to true, Mikado will report all ORFs associated
+    # with a transcript in the final loci file.
+    report_all_orfs: false
+    # source: Prefix for the source field in the mikado output.
+    source: Mikado
+  run_options:
+    # Generic run options for Mikado pick.
+    # check_references: boolean flag. If set to true, transcripts marked as reference will
+    # still be checked for compliance with the requirements established in
+    # the scoring file.
+    check_references: true
+    # exclude_cds: boolean flag. If set, the CDS information will not be printed in
+    # Mikado output. Default: false
+    exclude_cds: false
+    intron_range:
+    # A range where most of the introns (99%) should fall into. Transcripts
+    # with too many introns larger or smaller than what is defined in this
+    # range will be penalised in the scoring. Default: [60, 900]
+    - 60
+    - 4000
+    # only_reference_update: Boolean flag. If set, Mikado will run in reference-update mode, see
+    # documentation. Additionally, Mikado will ignore any locus where there
+    # is not at least one reference transcript.
+    only_reference_update: false
+    # reference_update: Boolean flag. If set, Mikado will run in reference-update mode, see
+    # documentation.
+    reference_update: false
+    # shm: boolean flag. If set and the DB is sqlite, it will be copied onto the
+    # /dev/shm faux partition, for a potentially faster execution.
+    shm: true
+    # single_thread: Boolean flag. If set, multithreading will be disabled - useful for
+    # profiling and debugging.
+    single_thread: false
+prepare:
+  canonical:
+  # Accepted canonical splicing junctions for the organism in examination.
+  - - GT
+    - AG
+  - - GC
+    - AG
+  - - AT
+    - AC
+  # exclude_redundant: Boolean. If set to True, fully redundant transcripts across the input
+  # files will be removed. Higher scoring transcripts *on the basis of the
+  # score associated to a given input file* will be preferentially
+  # retained.
+  exclude_redundant: false
+  # lenient: Boolean flag. If set to true, Mikado will retain transcripts with no
+  # canonical junction or with canonical junctions on both strands. If set
+  # to false (default), such transcripts will instead be discarded.
+  lenient: false
+  # max_intron_length: Maximum length of an intron. Transcripts with introns bigger than this
+  # value will be split in various sub-transcripts. Default: 1,000,000
+  # bps.
+  max_intron_length: 1000000
+  # minimum_cdna_length: Minimum length of a transcript to be retained. Default: 200 bps
+  minimum_cdna_length: 200
+  # single: Boolean flag. If set to true, Mikado will run in single-threaded mode,
+  # useful for debugging.
+  single: false
+  # strand_specific: Boolean flag. If set to true, all assemblies will be considered as
+  # strand-specific. By default, Mikado will consider the strand-
+  # specificity of each assembly in isolation, see
+  # 'files/strand_specific_assemblies'.
+  strand_specific: false
+  # strip_cds: Boolean flag. If set, the CDS will be stripped from any non-reference
+  # input assembly.
+  strip_cds: false
+  # strip_faulty_cds: Boolean flag. If set to false, any transcript - *including reference
+  # transcripts* found to have an incorrect CDS will be discarded. If set
+  # to to true, these transcripts will be retained but their CDS will be
+  # stripped.
+  strip_faulty_cds: false
+# seed: Random number generator seed, to ensure reproducibility across runs
+seed: 0
+serialise:
+  # codon_table: codon table to use for verifying/modifying the ORFs. Default: 0, ie
+  # the universal codon table but enforcing ATG as the only valid start
+  # codon.
+  codon_table: 0
+  # max_regression: if the ORF lacks a valid start site, this percentage indicates how far
+  # along the sequence Mikado should look for a good start site. Eg. with
+  # a value of 0.1, on a 300bp sequence with an open ORF Mikado would look
+  # for an alternative in-frame start codon in the first 30 bps (10% of
+  # the cDNA).
+  max_regression: 0.2
+  # start_adjustment: Boolean switch. If set to true (default), if an ORF is truncated at
+  # the 5' Mikado will look for internal start codons. See
+  # 'max_regression'.
+  start_adjustment: true
+  # substitution_matrix: Substitution matrix used for the BLAST. This value will be derived
+  # from the XML files, but it must be provided here or on the command
+  # line when using BLAST tabular data. Default: blosum62, the default for
+  # both BLAST and DIAMOND.
+  substitution_matrix: blosum62
+  shm: true
+# threads: Threads to be used per process
+threads: 1
+
