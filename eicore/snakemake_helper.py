@@ -220,6 +220,7 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
     """Helper function for calling external_process pipeline.  This helps us deal with all the different options that we
 	might want to switch between running in dryrun and regular mode."""
     res = False
+    res_printcmds = False
     if dryrun:
         print("Dry run requested.  Will not execute tasks.")
         print()
@@ -251,7 +252,26 @@ def run_snakemake(snakefile, out_dir, cfg_file, exe_env, dryrun=False, unlock=Fa
             )
             print("Saving DAG of pipeline to " + dag_file + " ... ", end="", flush=True)
             with open(dag_file, "w") as df:
+                output = [line for line in output if not line.startswith("Building DAG of job")]
                 print("\n".join(output), file=df)
+            print("done.")
+        else:
+            print("Error occured processing the pipeline:\n" + "\n".join(output))
+
+        print("Checking for commands to be executed, if any ... ")
+        res_printcmds = snakemake(
+            snakefile,
+            cores=exe_env.max_cores,
+            nodes=exe_env.max_nodes,
+            configfiles=[cfg_file],
+            workdir=".",
+            unlock=unlock,
+            printshellcmds=True,
+            printreason=True,
+            latency_wait=60 if exe_env.use_scheduler else 1,
+            dryrun=dryrun,
+        )
+        if res_printcmds:
             print("done.")
         else:
             print("Error occured processing the pipeline:\n" + "\n".join(output))
